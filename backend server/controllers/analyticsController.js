@@ -1,186 +1,85 @@
-const User = require('../models/User');
-const Post = require('../models/Post');
-const Message = require('../models/Message');
-const Group = require('../models/Group');
-const Event = require('../models/Event');
-const Announcement = require('../models/Announcement');
+const { query } = require('../config/db');
 
 // Get dashboard analytics
 exports.getAnalytics = async (req, res) => {
   try {
-    // Get current date ranges
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const last6Months = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 19).replace('T', ' ');
+    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    const last6Months = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
     // Key Metrics
-    const totalUsers = await User.countDocuments();
-    const activeUsers = await User.countDocuments({ 
-      updatedAt: { $gte: last30Days } 
-    });
-    const postsToday = await Post.countDocuments({ 
-      createdAt: { $gte: today } 
-    });
-    const messagesToday = await Message.countDocuments({ 
-      createdAt: { $gte: today } 
-    });
+    const [userCounts] = await query('SELECT COUNT(*) AS total, SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS active FROM users', [last30Days]);
+    const [postsToday] = await query('SELECT COUNT(*) AS cnt FROM posts WHERE created_at >= ?', [today]);
+    const [messagesToday] = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ?', [today]);
 
-    // User Engagement (Last 6 Months) - Monthly data
-    const userEngagement = await User.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: last6Months }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { "_id.year": 1, "_id.month": 1 }
-      },
-      {
-        $project: {
-          _id: 0,
-          name: {
-            $let: {
-              vars: {
-                monthsInString: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-              },
-              in: { $arrayElemAt: ['$$monthsInString', { $subtract: ['$_id.month', 1] }] }
-            }
-          },
-          value: "$count"
-        }
-      }
-    ]);
+    // User Engagement (Last 6 Months)
+    const userEngagement = await query(`
+      SELECT DATE_FORMAT(created_at, '%b') AS name, COUNT(*) AS value
+      FROM users
+      WHERE created_at >= ?
+      GROUP BY name, MONTH(created_at)
+      ORDER BY MONTH(created_at) ASC
+    `, [last6Months]);
 
     // Post Activity by Role
-    const postActivityByRole = await Post.aggregate([
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'author',
-          foreignField: '_id',
-          as: 'authorInfo'
-        }
-      },
-      {
-        $unwind: '$authorInfo'
-      },
-      {
-        $group: {
-          _id: '$authorInfo.role',
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          name: {
-            $cond: [
-              { $eq: ['$_id', 'student'] },
-              'Students',
-              'Teachers'
-            ]
-          },
-          value: '$count'
-        }
-      }
-    ]);
+    const postActivityByRole = await query(`
+      SELECT u.role AS name, COUNT(*) AS value
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      GROUP BY u.role
+    `);
 
-    // Add admin count if needed (admins are faculty with special permissions)
     const postActivity = postActivityByRole.map(item => ({
-      ...item,
-      fill: item.name === 'Students' ? '#3B82F6' : '#10B981'
+      name: item.name === 'student' ? 'Students' : 'Teachers',
+      value: item.value,
+      fill: item.name === 'student' ? '#3B82F6' : '#10B981'
     }));
 
     // Messaging Activity (Last 7 days)
     const messagingActivity = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 19).replace('T', ' ');
+      const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).toISOString().slice(0, 19).replace('T', ' ');
 
-      const dms = await Message.countDocuments({
-        createdAt: { $gte: dayStart, $lt: dayEnd },
-        conversationId: { $exists: false }
-      });
-
-      const groupMsgs = await Message.countDocuments({
-        createdAt: { $gte: dayStart, $lt: dayEnd },
-        conversationId: { $exists: true }
-      });
+      const [dms] = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ? AND created_at < ? AND post_id IS NULL', [start, end]);
+      const [groupMsgs] = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ? AND created_at < ? AND post_id IS NOT NULL', [start, end]);
 
       messagingActivity.push({
-        name: dayStart.toLocaleDateString('en-US', { weekday: 'short' }),
-        DMs: dms,
-        Groups: groupMsgs
+        name: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        DMs: dms.cnt,
+        Groups: groupMsgs.cnt
       });
     }
 
     // Additional Stats
-    const totalPosts = await Post.countDocuments();
-    const totalGroups = await Group.countDocuments();
-    const totalEvents = await Event.countDocuments();
-    const totalAnnouncements = await Announcement.countDocuments();
-
-    // User Growth (Last 30 days)
-    const userGrowth = await User.countDocuments({
-      createdAt: { $gte: last30Days }
-    });
+    const [totalPosts] = await query('SELECT COUNT(*) AS cnt FROM posts');
+    const [totalGroups] = await query('SELECT COUNT(*) AS cnt FROM `groups`');
+    const [totalEvents] = await query('SELECT COUNT(*) AS cnt FROM events');
+    const [totalAnnouncements] = await query('SELECT COUNT(*) AS cnt FROM announcements');
 
     // Most Active Users (Top 5)
-    const mostActiveUsers = await Post.aggregate([
-      {
-        $group: {
-          _id: '$author',
-          postCount: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { postCount: -1 }
-      },
-      {
-        $limit: 5
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'userInfo'
-        }
-      },
-      {
-        $unwind: '$userInfo'
-      },
-      {
-        $project: {
-          _id: 0,
-          name: '$userInfo.name',
-          postCount: 1
-        }
-      }
-    ]);
+    const mostActiveUsers = await query(`
+      SELECT u.name, COUNT(p.id) AS postCount
+      FROM users u
+      JOIN posts p ON u.id = p.user_id
+      GROUP BY u.id
+      ORDER BY postCount DESC
+      LIMIT 5
+    `);
 
     res.json({
       keyMetrics: {
-        totalUsers,
-        activeUsers,
-        postsToday,
-        messagesSent: messagesToday,
-        totalPosts,
-        totalGroups,
-        totalEvents,
-        totalAnnouncements,
-        userGrowth
+        totalUsers: userCounts.total,
+        activeUsers: userCounts.active,
+        postsToday: postsToday.cnt,
+        messagesSent: messagesToday.cnt,
+        totalPosts: totalPosts.cnt,
+        totalGroups: totalGroups.cnt,
+        totalEvents: totalEvents.cnt,
+        totalAnnouncements: totalAnnouncements.cnt,
+        userGrowth: userCounts.active // Using users joined in last 30 days as growth
       },
       userEngagement,
       postActivity,
@@ -197,24 +96,16 @@ exports.getAnalytics = async (req, res) => {
 exports.getRealTimeStats = async (req, res) => {
   try {
     const now = new Date();
-    const last5Minutes = new Date(now.getTime() - 5 * 60 * 1000);
+    const last5Minutes = new Date(now.getTime() - 5 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
-    const recentPosts = await Post.countDocuments({
-      createdAt: { $gte: last5Minutes }
-    });
-
-    const recentMessages = await Message.countDocuments({
-      createdAt: { $gte: last5Minutes }
-    });
-
-    const onlineUsers = await User.countDocuments({
-      updatedAt: { $gte: last5Minutes }
-    });
+    const [recentPosts] = await query('SELECT COUNT(*) AS cnt FROM posts WHERE created_at >= ?', [last5Minutes]);
+    const [recentMessages] = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ?', [last5Minutes]);
+    const [onlineUsers] = await query('SELECT COUNT(*) AS cnt FROM users WHERE updated_at >= ?', [last5Minutes]);
 
     res.json({
-      recentPosts,
-      recentMessages,
-      onlineUsers,
+      recentPosts: recentPosts.cnt,
+      recentMessages: recentMessages.cnt,
+      onlineUsers: onlineUsers.cnt,
       timestamp: now
     });
   } catch (error) {

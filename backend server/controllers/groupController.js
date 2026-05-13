@@ -1,4 +1,4 @@
-const Group = require('../models/Group');
+const { query } = require('../config/db');
 
 // @desc    Create a new group (faculty only)
 // @route   POST /api/groups
@@ -6,22 +6,45 @@ const Group = require('../models/Group');
 const createGroup = async (req, res) => {
   try {
     const { name, description } = req.body;
+    const currentUserId = req.user.id || req.user._id;
 
-    const newGroup = new Group({
-      name,
-      description,
-      createdBy: req.user._id,
-      members: [{ user: req.user._id, role: 'admin' }]
+    const result = await query(
+      'INSERT INTO `groups` (name, description, created_by) VALUES (?, ?, ?)',
+      [name, description, currentUserId]
+    );
+
+    const groupId = result.insertId;
+    
+    // Add creator as admin
+    await query(
+      'INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)',
+      [groupId, currentUserId, 'admin']
+    );
+
+    const rows = await query(
+      `SELECT g.id, g.name, g.description, g.created_at AS createdAt,
+              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+         FROM \`groups\` g
+         JOIN users u ON u.id = g.created_by
+        WHERE g.id = ?
+        LIMIT 1`,
+      [groupId]
+    );
+    
+    const group = rows[0];
+    const members = await query(
+      `SELECT gm.user_id AS id, gm.role, u.name, u.email, u.profile_picture AS profilePicture
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+        WHERE gm.group_id = ?`,
+      [groupId]
+    );
+
+    res.status(201).json({
+      ...group,
+      createdBy: { id: group.creatorId, name: group.creatorName, email: group.creatorEmail, profilePicture: group.creatorProfilePicture },
+      members: members.map(m => ({ user: { id: m.id, name: m.name, email: m.email, profilePicture: m.profilePicture }, role: m.role }))
     });
-
-    const group = await newGroup.save();
-    
-    // Populate creator data
-    const populatedGroup = await Group.findById(group._id)
-      .populate('createdBy', 'name email profilePicture')
-      .populate('members.user', 'name email profilePicture');
-    
-    res.status(201).json(populatedGroup);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -33,9 +56,28 @@ const createGroup = async (req, res) => {
 // @access  Private
 const getGroups = async (req, res) => {
   try {
-    const groups = await Group.find()
-      .populate('createdBy', 'name email profilePicture')
-      .populate('members.user', 'name email profilePicture');
+    const groupsRows = await query(
+      `SELECT g.id, g.name, g.description, g.created_at AS createdAt,
+              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+         FROM \`groups\` g
+         JOIN users u ON u.id = g.created_by
+        ORDER BY g.created_at DESC`
+    );
+
+    const groups = await Promise.all(groupsRows.map(async (group) => {
+      const members = await query(
+        `SELECT gm.user_id AS id, gm.role, u.name, u.email, u.profile_picture AS profilePicture
+           FROM group_members gm
+           JOIN users u ON u.id = gm.user_id
+          WHERE gm.group_id = ?`,
+        [group.id]
+      );
+      return {
+        ...group,
+        createdBy: { id: group.creatorId, name: group.creatorName, email: group.creatorEmail, profilePicture: group.creatorProfilePicture },
+        members: members.map(m => ({ user: { id: m.id, name: m.name, email: m.email, profilePicture: m.profilePicture }, role: m.role }))
+      };
+    }));
     
     res.json(groups);
   } catch (error) {
@@ -49,20 +91,36 @@ const getGroups = async (req, res) => {
 // @access  Private
 const getGroupById = async (req, res) => {
   try {
-    const group = await Group.findById(req.params.id)
-      .populate('createdBy', 'name email profilePicture')
-      .populate('members.user', 'name email profilePicture');
+    const rows = await query(
+      `SELECT g.id, g.name, g.description, g.created_at AS createdAt,
+              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+         FROM \`groups\` g
+         JOIN users u ON u.id = g.created_by
+        WHERE g.id = ?
+        LIMIT 1`,
+      [req.params.id]
+    );
     
-    if (!group) {
+    if (!rows.length) {
       return res.status(404).json({ message: 'Group not found' });
     }
     
-    res.json(group);
+    const group = rows[0];
+    const members = await query(
+      `SELECT gm.user_id AS id, gm.role, u.name, u.email, u.profile_picture AS profilePicture
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+        WHERE gm.group_id = ?`,
+      [group.id]
+    );
+
+    res.json({
+      ...group,
+      createdBy: { id: group.creatorId, name: group.creatorName, email: group.creatorEmail, profilePicture: group.creatorProfilePicture },
+      members: members.map(m => ({ user: { id: m.id, name: m.name, email: m.email, profilePicture: m.profilePicture }, role: m.role }))
+    });
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Group not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -73,33 +131,22 @@ const getGroupById = async (req, res) => {
 const updateGroup = async (req, res) => {
   try {
     const { name, description } = req.body;
+    const currentUserId = req.user.id || req.user._id;
     
-    const group = await Group.findById(req.params.id);
-    
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-    
-    // Check if user is an admin of the group
-    const isAdmin = group.members.some(
-      member => member.user.toString() === req.user._id.toString() && member.role === 'admin'
-    );
-    
-    if (!isAdmin) {
+    const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [req.params.id, currentUserId]);
+    if (!rows.length || rows[0].role !== 'admin') {
       return res.status(403).json({ message: 'User not authorized to update this group' });
     }
     
-    group.name = name || group.name;
-    group.description = description || group.description;
+    await query(
+      'UPDATE `groups` SET name = ?, description = ? WHERE id = ?',
+      [name, description, req.params.id]
+    );
     
-    await group.save();
-    
-    res.json(group);
+    const updated = await query('SELECT * FROM `groups` WHERE id = ?', [req.params.id]);
+    res.json(updated[0]);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Group not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -109,29 +156,17 @@ const updateGroup = async (req, res) => {
 // @access  Private/Admin
 const deleteGroup = async (req, res) => {
   try {
-    const group = await Group.findById(req.params.id);
+    const currentUserId = req.user.id || req.user._id;
     
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-    
-    // Check if user is an admin of the group
-    const isAdmin = group.members.some(
-      member => member.user.toString() === req.user._id.toString() && member.role === 'admin'
-    );
-    
-    if (!isAdmin) {
+    const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [req.params.id, currentUserId]);
+    if (!rows.length || rows[0].role !== 'admin') {
       return res.status(403).json({ message: 'User not authorized to delete this group' });
     }
     
-    await group.deleteOne();
-    
+    await query('DELETE FROM `groups` WHERE id = ?', [req.params.id]);
     res.json({ message: 'Group removed' });
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Group not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -141,31 +176,27 @@ const deleteGroup = async (req, res) => {
 // @access  Private
 const joinGroup = async (req, res) => {
   try {
-    const group = await Group.findById(req.params.id);
-    
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-    
-    // Check if user is already a member
-    if (group.members.some(member => member.user.toString() === req.user._id.toString())) {
+    const currentUserId = req.user.id || req.user._id;
+    const groupId = req.params.id;
+
+    const exists = await query('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
+    if (exists.length) {
       return res.status(400).json({ message: 'Already a member of this group' });
     }
     
-    group.members.push({ user: req.user._id, role: 'member' });
+    await query('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [groupId, currentUserId, 'member']);
     
-    await group.save();
+    const members = await query(
+      `SELECT gm.user_id AS id, gm.role, u.name, u.email, u.profile_picture AS profilePicture
+         FROM group_members gm
+         JOIN users u ON u.id = gm.user_id
+        WHERE gm.group_id = ?`,
+      [groupId]
+    );
     
-    // Populate members data
-    const updatedGroup = await Group.findById(req.params.id)
-      .populate('members.user', 'name email profilePicture');
-    
-    res.json(updatedGroup.members);
+    res.json(members.map(m => ({ user: { id: m.id, name: m.name, email: m.email, profilePicture: m.profilePicture }, role: m.role })));
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Group not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -175,41 +206,25 @@ const joinGroup = async (req, res) => {
 // @access  Private
 const leaveGroup = async (req, res) => {
   try {
-    const group = await Group.findById(req.params.id);
-    
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-    
-    // Check if user is a member
-    if (!group.members.some(member => member.user.toString() === req.user._id.toString())) {
+    const currentUserId = req.user.id || req.user._id;
+    const groupId = req.params.id;
+
+    const memberRow = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
+    if (!memberRow.length) {
       return res.status(400).json({ message: 'Not a member of this group' });
     }
     
-    // Check if user is the only admin
-    const isAdmin = group.members.some(
-      member => member.user.toString() === req.user._id.toString() && member.role === 'admin'
-    );
-    
-    const adminCount = group.members.filter(member => member.role === 'admin').length;
-    
-    if (isAdmin && adminCount === 1) {
-      return res.status(400).json({ message: 'Cannot leave group as the only admin. Transfer admin role first.' });
+    if (memberRow[0].role === 'admin') {
+      const adminCountRows = await query('SELECT COUNT(*) AS cnt FROM group_members WHERE group_id = ? AND role = "admin"', [groupId]);
+      if (adminCountRows[0].cnt === 1) {
+        return res.status(400).json({ message: 'Cannot leave group as the only admin. Transfer admin role first.' });
+      }
     }
     
-    // Remove user from members
-    group.members = group.members.filter(
-      member => member.user.toString() !== req.user._id.toString()
-    );
-    
-    await group.save();
-    
+    await query('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, currentUserId]);
     res.json({ message: 'Left the group successfully' });
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Group not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };

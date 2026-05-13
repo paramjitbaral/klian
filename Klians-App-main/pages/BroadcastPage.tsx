@@ -154,6 +154,7 @@ export const BroadcastPage: React.FC = () => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
     const navigate = useNavigate();
 
     // Fetch announcements on mount
@@ -170,7 +171,13 @@ export const BroadcastPage: React.FC = () => {
                     target: newAnnouncement.target,
                     timestamp: newAnnouncement.createdAt,
                 };
-                setBroadcasts(prev => [newBroadcast, ...prev]);
+                setBroadcasts(prev => {
+                    // Deduplicate by id
+                    if (prev.some(b => b.id === newBroadcast.id)) {
+                        return prev;
+                    }
+                    return [newBroadcast, ...prev];
+                });
             });
 
             return () => {
@@ -229,39 +236,21 @@ export const BroadcastPage: React.FC = () => {
 
     const handleSendBroadcast = async () => {
         if (!title.trim() || !content.trim() || !user) return;
-        
         try {
             setIsSubmitting(true);
             setError('');
-            
             // Map frontend role to backend target
             const backendTarget = mapRoleToTarget(target);
-            
             // Save to database
             const newAnnouncement = await announcementsAPI.createAnnouncement({
                 title,
                 content,
                 target: backendTarget
             });
-            
-            // Create broadcast object for local state
-            const newBroadcast: Broadcast = {
-                id: newAnnouncement._id,
-                title: newAnnouncement.title,
-                content: newAnnouncement.content,
-                author: user,
-                target: target,
-                timestamp: newAnnouncement.createdAt,
-            };
-            
-            // Update local state
-            setBroadcasts([newBroadcast, ...broadcasts]);
-            
-            // Emit socket event
+            // Emit socket event (UI will update via socket event only)
             if (socket) {
                 socket.emit('new-announcement', newAnnouncement);
             }
-            
             clearForm();
             setIsPreviewOpen(false);
         } catch (err) {
@@ -273,12 +262,19 @@ export const BroadcastPage: React.FC = () => {
     };
 
     const handleDeleteBroadcast = async (announcementId: string) => {
+        setDeleteModal({ open: true, id: announcementId });
+    };
+
+    const confirmDeleteBroadcast = async () => {
+        if (!deleteModal.id) return;
         try {
-            await announcementsAPI.deleteAnnouncement(announcementId);
-            setBroadcasts(prev => prev.filter(b => b.id !== announcementId));
+            await announcementsAPI.deleteAnnouncement(deleteModal.id);
+            setBroadcasts(prev => prev.filter(b => b.id !== deleteModal.id));
+            setDeleteModal({ open: false, id: null });
         } catch (err) {
             console.error('Failed to delete broadcast:', err);
             setError('Failed to delete broadcast.');
+            setDeleteModal({ open: false, id: null });
         }
     };
     
@@ -359,20 +355,29 @@ export const BroadcastPage: React.FC = () => {
                                                         </>
                                                     )}
 
-                          {!loading && broadcasts.length > 0 && (
-                            broadcasts.map(b => (
-                              <BroadcastHistoryItem 
-                                key={b.id} 
-                                broadcast={b} 
-                                currentUserId={user?.id}
-                                onDelete={handleDeleteBroadcast}
-                              />
-                            ))
-                          )}                                                    {!loading && broadcasts.length === 0 && (
+                                                    {!loading && broadcasts.length > 0 && (
+                                                        broadcasts.map(b => (
+                                                            <BroadcastHistoryItem 
+                                                                key={b.id} 
+                                                                broadcast={b} 
+                                                                currentUserId={user?.id}
+                                                                onDelete={handleDeleteBroadcast}
+                                                            />
+                                                        ))
+                                                    )}
+                                                    {!loading && broadcasts.length === 0 && (
                                                         <div className="text-center py-20 text-slate-500 dark:text-slate-400">
                                                             <p>No past broadcasts.</p>
                                                         </div>
                                                     )}
+                                                            {/* --- DELETE CONFIRMATION MODAL --- */}
+                                                            <Modal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} title="Delete Broadcast?">
+                                                                <p className="mb-4">Are you sure you want to delete this broadcast? This action cannot be undone.</p>
+                                                                <div className="flex justify-end gap-3">
+                                                                    <Button variant="secondary" onClick={() => setDeleteModal({ open: false, id: null })}>Cancel</Button>
+                                                                    <Button variant="danger" onClick={confirmDeleteBroadcast}>Delete</Button>
+                                                                </div>
+                                                            </Modal>
                                                 </div>
                     </Card>
                 </div>

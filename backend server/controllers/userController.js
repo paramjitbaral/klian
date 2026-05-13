@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const { query } = require('../config/db');
 
 // @desc    Search users by name or email
 // @route   GET /api/users/search
@@ -11,14 +11,11 @@ const searchUsers = async (req, res) => {
       return res.status(400).json({ message: 'Search query must be at least 2 characters' });
     }
 
-    const users = await User.find({
-      $or: [
-        { name: { $regex: q, $options: 'i' } },
-        { email: { $regex: q, $options: 'i' } }
-      ]
-    })
-    .select('name email profilePicture role')
-    .limit(10);
+    const searchTerm = `%${q}%`;
+    const users = await query(
+      'SELECT id, name, email, profile_picture AS profilePicture, role FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10',
+      [searchTerm, searchTerm]
+    );
     
     res.json(users);
   } catch (error) {
@@ -32,9 +29,9 @@ const searchUsers = async (req, res) => {
 // @access  Private
 const getUsers = async (req, res) => {
   try {
-    const users = await User.find()
-      .select('name email profilePicture role')
-      .sort({ name: 1 });
+    const users = await query(
+      'SELECT id, name, email, profile_picture AS profilePicture, role FROM users ORDER BY name ASC'
+    );
     
     res.json(users);
   } catch (error) {
@@ -48,19 +45,18 @@ const getUsers = async (req, res) => {
 // @access  Private
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-password');
+    const rows = await query(
+      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, role, cabin_number AS cabinNumber, created_at AS createdAt FROM users WHERE id = ? LIMIT 1',
+      [req.params.id]
+    );
     
-    if (!user) {
+    if (!rows.length) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.json(user);
+    res.json(rows[0]);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'User not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -72,28 +68,29 @@ const updateUser = async (req, res) => {
   try {
     const { name, bio, profilePicture } = req.body;
     const userId = req.params.id;
+    const currentUserId = req.user.id || req.user._id;
 
     // Check if user is updating their own profile
-    if (req.user._id.toString() !== userId) {
+    if (String(currentUserId) !== String(userId)) {
       return res.status(403).json({ message: 'Not authorized to update this profile' });
     }
 
-    // Find user and update
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    const fields = [];
+    const params = [];
+    if (name) { fields.push('name = ?'); params.push(name); }
+    if (bio !== undefined) { fields.push('bio = ?'); params.push(bio); }
+    if (profilePicture) { fields.push('profile_picture = ?'); params.push(profilePicture); }
+
+    if (fields.length > 0) {
+      params.push(userId);
+      await query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, params);
     }
 
-    // Update fields
-    if (name) user.name = name;
-    if (bio !== undefined) user.bio = bio;
-    if (profilePicture) user.profilePicture = profilePicture;
-
-    await user.save();
-
-    // Return updated user without password
-    const updatedUser = await User.findById(userId).select('-password');
-    res.json(updatedUser);
+    const updated = await query(
+      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, role, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1',
+      [userId]
+    );
+    res.json(updated[0]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

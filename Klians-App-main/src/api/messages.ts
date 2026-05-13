@@ -47,12 +47,21 @@ export const messagesAPI = {
   },
   
   // Send a message to another user
-  sendMessage: (recipientId: string, content: string, type: 'text' | 'post' = 'text', postId?: string) => {
+  sendMessage: (recipientId: string, content: string, type: 'text' | 'post' | 'image' | 'file' = 'text', postId?: string) => {
     return API.post<Message>('/messages', { 
       recipient: recipientId, 
       content,
       type,
       postId
+    });
+  },
+
+  // Upload a file
+  uploadFile: (formData: FormData) => {
+    return API.post<{ url: string, type: 'image' | 'file', filename: string }>('/messages/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
     });
   },
 

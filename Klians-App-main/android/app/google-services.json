@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "790994358044",
+    "project_id": "klians",
+    "storage_bucket": "klians.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:790994358044:android:e2144e2ba1324c766034d9",
+        "android_client_info": {
+          "package_name": "com.kluniversity.klians"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC6Obi9iUGqM5dLqsSba8igIys7BRMIOA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

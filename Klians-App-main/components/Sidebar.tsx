@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useMessages } from '../contexts/MessagesContext';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Role } from '../types';
@@ -7,6 +8,7 @@ import { ICONS } from '../constants';
 
 export const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { unreadCount } = useMessages();
   const location = useLocation();
   const isMessagesPage = location.pathname.startsWith('/messages');
 
@@ -56,8 +58,13 @@ export const Sidebar: React.FC = () => {
                   }`
                 }
               >
-                <span className="w-6 h-6 flex-shrink-0">
+                <span className="relative w-6 h-6 flex-shrink-0">
                   {link.icon}
+                  {link.label === 'Messages' && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </span>
                 <span className={`text-base transition-opacity duration-300 ${isMessagesPage ? 'hidden' : 'block'}`}>{link.label}</span>
               </NavLink>

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.32.2:5000/api/analytics';
+const API_URL = 'http://localhost:5000/api/analytics';
 
 export interface AnalyticsData {
   keyMetrics: {

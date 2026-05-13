@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import { useMessages } from '../contexts/MessagesContext';
@@ -15,6 +15,7 @@ export const MessagesPage: React.FC = () => {
   const { conversationId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     conversations,
     messages,
@@ -34,8 +35,12 @@ export const MessagesPage: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (conversationId && conversationId !== currentConversation) {
-      setCurrentConversation(conversationId);
+    if (conversationId) {
+      if (conversationId !== currentConversation) {
+        setCurrentConversation(conversationId);
+      }
+    } else {
+      setCurrentConversation(null);
     }
   }, [conversationId, currentConversation, setCurrentConversation]);
 
@@ -61,9 +66,9 @@ export const MessagesPage: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text') => {
     if (!currentConversation || !content.trim()) return;
-    await sendMessage(currentConversation, content);
+    await sendMessage(currentConversation, content, type);
   };
 
   const renderTime = (date?: string) => {
@@ -182,18 +187,30 @@ export const MessagesPage: React.FC = () => {
 
       {/* Chat area */}
       <div className="flex-1 flex flex-col">
-        {currentConversation && activeConversation ? (
-          <>
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-[72px]">
-              <div className="flex items-center gap-3">
-                <Avatar src={activeConversation.user.profilePicture} alt={activeConversation.user.name} size="md" />
-                <div>
-                  <h3 className="font-semibold text-base text-slate-900 dark:text-white">{activeConversation.user.name}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Active 2h ago
-                  </p>
-                </div>
-              </div>
+        {currentConversation ? (
+          (() => {
+            // Find in conversations or create a placeholder from what we know
+            const conv = conversations.find(c => String(c.user._id) === String(currentConversation));
+            
+            // Priority for display data: 
+            // 1. Existing conversation 
+            // 2. Passed state from previous page (instant!)
+            // 3. Fallback to Loading
+            const stateUser = (location.state as any)?.user;
+            const displayUser = conv?.user || stateUser || { _id: currentConversation, name: 'Loading...', profilePicture: null };
+
+            return (
+              <>
+                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-[72px]">
+                  <div className="flex items-center gap-3">
+                    <Avatar src={displayUser.profilePicture} alt={displayUser.name} size="md" />
+                    <div>
+                      <h3 className="font-semibold text-base text-slate-900 dark:text-white">{displayUser.name}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {conv ? 'Active recently' : 'Starting new chat...'}
+                      </p>
+                    </div>
+                  </div>
 
               <div className="flex gap-2">
                 {[ICONS.search, ICONS.moreHorizontal].map((icon, idx) => (
@@ -214,15 +231,17 @@ export const MessagesPage: React.FC = () => {
                   <MessageBubble
                     key={message._id}
                     message={message}
-                    isOwnMessage={message.sender._id === ((user as any)?._id || (user as any)?.id)}
+                    isOwnMessage={String(message.sender._id) === String(user?.id || (user as any)?._id)}
                   />
                 ))}
               </div>
               <div ref={messagesEndRef} />
             </div>
 
-            <ChatInput onSendMessage={handleSendMessage} />
-          </>
+              <ChatInput onSendMessage={handleSendMessage} />
+            </>
+          );
+        })()
         ) : (
           <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900">
             <Card className="text-center p-8">

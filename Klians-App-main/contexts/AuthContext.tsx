@@ -8,6 +8,8 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
+  verify: (email: string, otp: string) => Promise<void>;
+  resendOTP: (email: string) => Promise<void>;
   logout: () => void;
   register: (userData: { name: string, email: string, password: string, role?: Role }) => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
@@ -107,6 +109,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const verify = async (email: string, otp: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await authAPI.verify(email, otp);
+      
+      const { token, message } = response.data;
+      localStorage.setItem('token', token);
+      
+      // After verification, we might need to fetch the profile to get full user data
+      await fetchUserProfile();
+      
+    } catch (err: any) {
+      console.error('Verification failed:', err);
+      setError(err.response?.data?.message || 'Verification failed. Please check the code.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOTP = async (email: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await authAPI.resendOTP(email);
+    } catch (err: any) {
+      console.error('Resend OTP failed:', err);
+      setError(err.response?.data?.message || 'Failed to resend OTP.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -119,9 +156,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       const response = await authAPI.register(userData);
       
-      // Backend returns user data directly with token at top level
-      const { token, ...newUser } = response.data;
+      // If the backend says verification is required, we don't set the user yet
+      if (response.data.requiresVerification) {
+        return response.data;
+      }
       
+      const { token, ...newUser } = response.data;
       const normalizedUser = normalizeUser(newUser);
       localStorage.setItem('token', token);
       setUser(normalizedUser);
@@ -166,6 +206,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     error,
     login, 
+    verify,
+    resendOTP,
     logout, 
     register,
     updateProfile

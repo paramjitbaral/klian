@@ -131,7 +131,8 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
                   <img
                     src={announcement.author.avatar}
                     alt={announcement.author.name}
-                    className="h-8 w-8 rounded-full flex-shrink-0"
+                    className="h-8 w-8 rounded-full flex-shrink-0 object-cover"
+                    style={{ aspectRatio: '1/1' }}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate">
@@ -169,11 +170,23 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 dark:border-slate-700 p-3 text-center sticky bottom-0 bg-white dark:bg-slate-800">
-          <a href="/announcements" onClick={onClose} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-            View all announcements
-          </a>
-        </div>
+        {unreadCount > 0 && (
+          <div className="border-t border-slate-200 dark:border-slate-700 p-3 text-center sticky bottom-0 bg-white dark:bg-slate-800">
+            <a
+              href="/announcements"
+              onClick={() => {
+                // Mark all as read before navigating
+                announcements.forEach(ann => {
+                  if (!ann.isRead) handleMarkAsRead(ann._id);
+                });
+                onClose();
+              }}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              View all announcements
+            </a>
+          </div>
+        )}
       </div>
     </>
   );

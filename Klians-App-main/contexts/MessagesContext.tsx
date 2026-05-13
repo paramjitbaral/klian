@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSocket } from './SocketContext';
 import { useAuth } from '../hooks/useAuth';
 import { messagesAPI } from '../src/api/messages';
+import { usersAPI } from '../src/api/users';
 
 interface Message {
   _id: string;
@@ -18,7 +19,7 @@ interface Message {
     profilePicture: string;
   };
   content: string;
-  type: 'text' | 'post';
+  type: 'text' | 'post' | 'image' | 'file';
   postId?: any; // Can be string ID or full post object with content, image, user
   read: boolean;
   createdAt: string;
@@ -68,6 +69,14 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Helper function to get user ID (handle both _id and id)
   const getUserId = (userObj: any) => userObj?._id || userObj?.id;
 
+  useEffect(() => {
+    const count = conversations.reduce((acc, conv) => acc + (conv.unread ? 1 : 0), 0);
+    console.log('--- Unread Count Sync ---');
+    console.log('Conversations:', conversations.length);
+    console.log('Unread Count:', count);
+    setUnreadCount(count);
+  }, [conversations]);
+
   // Load conversations
   useEffect(() => {
     const loadConversations = async () => {
@@ -88,11 +97,46 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const loadMessages = async () => {
       if (!currentConversation || !user) return;
+      
       try {
+        // If this user is not in our conversations list yet, fetch their info
+        const exists = conversations.some(c => String(c.user._id) === String(currentConversation));
+        if (!exists) {
+          try {
+            const userRes = await usersAPI.getUserById(currentConversation);
+            const targetUser = userRes.data;
+            
+            // Add a placeholder conversation
+            setConversations(prev => {
+              if (prev.some(c => c.user._id === targetUser.id || c.user._id === targetUser._id)) return prev;
+              return [{
+                user: {
+                  _id: targetUser.id || targetUser._id,
+                  name: targetUser.name,
+                  email: targetUser.email,
+                  profilePicture: targetUser.profilePicture
+                },
+                lastMessage: null as any,
+                unread: false
+              }, ...prev];
+            });
+          } catch (err) {
+            console.error('Error fetching target user:', err);
+          }
+        }
+
         const response = await messagesAPI.getMessagesWith(currentConversation);
         setMessages(response.data);
         
-        // Mark messages as read
+        // Mark messages as read locally
+        setConversations(prev => prev.map(conv => {
+          if (String(conv.user._id) === String(currentConversation)) {
+            return { ...conv, unread: false };
+          }
+          return conv;
+        }));
+        
+        // Mark messages as read on server
         if (socket && user) {
           socket.emit('mark-messages-read', {
             userId: getUserId(user),
@@ -112,18 +156,21 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!socket || !user) return;
 
     socket.on('new-message', (message: Message) => {
-      console.log('Received new message:', message);
-      
-      // Update messages if in current conversation
       const userId = getUserId(user);
-      const otherUserId = message.sender._id === userId ? message.recipient._id : message.sender._id;
-      if (currentConversation === otherUserId) {
+      console.log('--- Real-time Message Received ---');
+      console.log('My ID:', userId);
+      console.log('Sender ID:', message.sender._id);
+      console.log('Recipient ID:', message.recipient._id);
+      
+      const otherUserId = String(message.sender._id) === String(userId) ? message.recipient._id : message.sender._id;
+      
+      if (String(currentConversation) === String(otherUserId)) {
         setMessages(prev => {
           // Remove any temporary messages (optimistic updates)
-          const filteredMessages = prev.filter(msg => !msg._id.startsWith('temp_'));
+          const filteredMessages = prev.filter(msg => !String(msg._id).startsWith('temp_'));
           
           // Check if message already exists (avoid duplicates)
-          const existingMessage = filteredMessages.find(msg => msg._id === message._id);
+          const existingMessage = filteredMessages.find(msg => String(msg._id) === String(message._id));
           if (existingMessage) {
             return filteredMessages;
           }
@@ -143,28 +190,14 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Update conversations list
       setConversations(prev => {
         const userId = getUserId(user);
-        const otherUser = message.sender._id === userId ? message.recipient : message.sender;
-        const existingConversation = prev.find(c => c.user._id === otherUser._id);
-
-        if (existingConversation) {
-          return prev.map(conv => {
-            if (conv.user._id === otherUser._id) {
-              return {
-                ...conv,
-                lastMessage: message,
-                unread: message.sender._id !== userId && !message.read
-              };
-            }
-            return conv;
-          });
-        }
-
-        // Add new conversation
+        const otherUser = String(message.sender._id) === String(userId) ? message.recipient : message.sender;
+        const otherConversations = prev.filter(c => String(c.user._id) !== String(otherUser._id));
+        
         return [{
           user: otherUser,
           lastMessage: message,
-          unread: message.sender._id !== userId
-        }, ...prev];
+          unread: String(message.sender._id) !== String(userId) && String(currentConversation) !== String(otherUser._id)
+        }, ...otherConversations];
       });
 
       // Update unread count
@@ -200,13 +233,21 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     console.log('User ID:', currentUserId);
 
     // Find recipient info
-    let recipientInfo = conversations.find(c => c.user._id === recipientId)?.user;
+    let recipientInfo = conversations.find(c => String(c.user._id) === String(recipientId))?.user;
     
-    // If not found in conversations, create minimal recipient info
+    // If not found in conversations, check if we're currently viewing this user
+    if (!recipientInfo && messages.length > 0) {
+      const msg = messages.find(m => String(m.sender._id) === String(recipientId) || String(m.recipient._id) === String(recipientId));
+      if (msg) {
+        recipientInfo = String(msg.sender._id) === String(recipientId) ? msg.sender : msg.recipient;
+      }
+    }
+
+    // If still not found, create minimal recipient info
     if (!recipientInfo) {
       recipientInfo = {
         _id: recipientId,
-        name: 'Unknown User',
+        name: 'Admin', // Default to Admin if ID is likely admin, but better to keep current name
         email: '',
         profilePicture: ''
       };
@@ -231,30 +272,18 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     // Update messages optimistically only if this is the current conversation
-    if (currentConversation === recipientId) {
+    if (String(currentConversation) === String(recipientId)) {
       setMessages(prev => [...prev, optimisticMessage]);
     }
 
     // Update conversations optimistically
     setConversations(prev => {
-      const existingConversation = prev.find(c => c.user._id === recipientId);
-      if (existingConversation) {
-        return prev.map(conv => {
-          if (conv.user._id === recipientId) {
-            return {
-              ...conv,
-              lastMessage: optimisticMessage,
-            };
-          }
-          return conv;
-        });
-      }
-      // Add new conversation if it doesn't exist
+      const otherConversations = prev.filter(c => String(c.user._id) !== String(recipientId));
       return [{
         user: recipientInfo,
         lastMessage: optimisticMessage,
         unread: false
-      }, ...prev];
+      }, ...otherConversations];
     });
 
     // Send to server

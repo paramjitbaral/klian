@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -28,6 +28,7 @@ const CrossIcon: React.FC<{ className?: string }> = ({ className = '' }) => <svg
 
 const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => {
     const { login, error: authError, loading } = useAuth();
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -43,8 +44,11 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
         
         try {
             await login(email, password);
-        } catch (err) {
-            // Error is handled by the auth context
+        } catch (err: any) {
+            // Check if verification is required
+            if (err.response?.data?.requiresVerification) {
+                navigate('/verify', { state: { email: err.response.data.email || email } });
+            }
         }
     };
 
@@ -132,6 +136,7 @@ const PasswordStrengthIndicator: React.FC<{ checks: Record<string, boolean> }> =
 
 const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => {
     const { register, error: authError, loading } = useAuth();
+    const navigate = useNavigate();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [emailError, setEmailError] = useState('');
@@ -235,6 +240,8 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
             }
             const role = assignedRole === Role.STUDENT ? 'student' : 'faculty';
             await register({ name, email, password, role });
+            // If register doesn't throw, it means we need to verify
+            navigate('/verify', { state: { email } });
         } catch (err: any) {
             // Error is handled by the auth context
         }

@@ -1,4 +1,4 @@
-const Event = require('../models/Event');
+const { query } = require('../config/db');
 
 // @desc    Create a new event (faculty only)
 // @route   POST /api/events
@@ -6,25 +6,33 @@ const Event = require('../models/Event');
 const createEvent = async (req, res) => {
   try {
     const { title, description, date, location } = req.body;
+    const currentUserId = req.user.id || req.user._id;
 
-    const newEvent = new Event({
-      title,
-      description,
-      date,
-      location,
-      createdBy: req.user._id
-    });
+    const result = await query(
+      'INSERT INTO events (title, description, date, location, created_by) VALUES (?, ?, ?, ?, ?)',
+      [title, description, date, location, currentUserId]
+    );
 
-    const event = await newEvent.save();
+    const eventId = result.insertId;
     
-    // Populate creator data
-    const populatedEvent = await Event.findById(event._id).populate('createdBy', 'name email profilePicture');
+    const rows = await query(
+      `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS createdAt,
+              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+         FROM events e
+         JOIN users u ON u.id = e.created_by
+        WHERE e.id = ?
+        LIMIT 1`,
+      [eventId]
+    );
     
-    // Emit real-time update to all users
+    const populatedEvent = {
+      ...rows[0],
+      createdBy: { id: rows[0].creatorId, name: rows[0].creatorName, email: rows[0].creatorEmail, profilePicture: rows[0].creatorProfilePicture },
+      attendees: []
+    };
+    
     const io = req.app.get('io');
-    if (io) {
-      io.emit('new-event', populatedEvent);
-    }
+    if (io) io.emit('new-event', populatedEvent);
     
     res.status(201).json(populatedEvent);
   } catch (error) {
@@ -38,10 +46,28 @@ const createEvent = async (req, res) => {
 // @access  Private
 const getEvents = async (req, res) => {
   try {
-    const events = await Event.find()
-      .sort({ date: 1 })
-      .populate('createdBy', 'name email profilePicture')
-      .populate('attendees', 'name email profilePicture');
+    const eventsRows = await query(
+      `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS createdAt,
+              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+         FROM events e
+         JOIN users u ON u.id = e.created_by
+        ORDER BY e.date ASC`
+    );
+
+    const events = await Promise.all(eventsRows.map(async (event) => {
+      const attendees = await query(
+        `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
+           FROM event_attendees ea
+           JOIN users u ON u.id = ea.user_id
+          WHERE ea.event_id = ?`,
+        [event.id]
+      );
+      return {
+        ...event,
+        createdBy: { id: event.creatorId, name: event.creatorName, email: event.creatorEmail, profilePicture: event.creatorProfilePicture },
+        attendees
+      };
+    }));
     
     res.json(events);
   } catch (error) {
@@ -55,20 +81,36 @@ const getEvents = async (req, res) => {
 // @access  Private
 const getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id)
-      .populate('createdBy', 'name email profilePicture')
-      .populate('attendees', 'name email profilePicture');
+    const rows = await query(
+      `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS createdAt,
+              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+         FROM events e
+         JOIN users u ON u.id = e.created_by
+        WHERE e.id = ?
+        LIMIT 1`,
+      [req.params.id]
+    );
     
-    if (!event) {
+    if (!rows.length) {
       return res.status(404).json({ message: 'Event not found' });
     }
     
-    res.json(event);
+    const event = rows[0];
+    const attendees = await query(
+      `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
+         FROM event_attendees ea
+         JOIN users u ON u.id = ea.user_id
+        WHERE ea.event_id = ?`,
+      [event.id]
+    );
+
+    res.json({
+      ...event,
+      createdBy: { id: event.creatorId, name: event.creatorName, email: event.creatorEmail, profilePicture: event.creatorProfilePicture },
+      attendees
+    });
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Event not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -79,31 +121,23 @@ const getEventById = async (req, res) => {
 const updateEvent = async (req, res) => {
   try {
     const { title, description, date, location } = req.body;
+    const currentUserId = req.user.id || req.user._id;
     
-    const event = await Event.findById(req.params.id);
-    
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-    
-    // Check if user is the creator of the event
-    if (event.createdBy.toString() !== req.user._id.toString()) {
+    const rows = await query('SELECT created_by FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ message: 'Event not found' });
+    if (String(rows[0].created_by) !== String(currentUserId)) {
       return res.status(403).json({ message: 'User not authorized to update this event' });
     }
     
-    event.title = title || event.title;
-    event.description = description || event.description;
-    event.date = date || event.date;
-    event.location = location || event.location;
+    await query(
+      'UPDATE events SET title = ?, description = ?, date = ?, location = ? WHERE id = ?',
+      [title, description, date, location, req.params.id]
+    );
     
-    await event.save();
-    
-    res.json(event);
+    const updated = await query('SELECT * FROM events WHERE id = ?', [req.params.id]);
+    res.json(updated[0]);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Event not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -113,32 +147,20 @@ const updateEvent = async (req, res) => {
 // @access  Private/Faculty
 const deleteEvent = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
-    
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-    
-    // Check if user is the creator of the event
-    if (event.createdBy.toString() !== req.user._id.toString()) {
+    const currentUserId = req.user.id || req.user._id;
+    const rows = await query('SELECT created_by FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ message: 'Event not found' });
+    if (String(rows[0].created_by) !== String(currentUserId)) {
       return res.status(403).json({ message: 'User not authorized to delete this event' });
     }
     
-    const eventId = event._id;
-    await event.deleteOne();
-    
-    // Emit real-time update to all users
+    await query('DELETE FROM events WHERE id = ?', [req.params.id]);
     const io = req.app.get('io');
-    if (io) {
-      io.emit('event-deleted', eventId.toString());
-    }
+    if (io) io.emit('event-deleted', req.params.id);
     
     res.json({ message: 'Event removed' });
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Event not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -148,37 +170,27 @@ const deleteEvent = async (req, res) => {
 // @access  Private
 const attendEvent = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
-    
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-    
-    // Check if user is already attending
-    if (event.attendees.some(attendee => attendee.toString() === req.user._id.toString())) {
+    const currentUserId = req.user.id || req.user._id;
+    const eventId = req.params.id;
+
+    const exists = await query('SELECT 1 FROM event_attendees WHERE event_id = ? AND user_id = ? LIMIT 1', [eventId, currentUserId]);
+    if (exists.length) {
       return res.status(400).json({ message: 'Already attending this event' });
     }
     
-    event.attendees.push(req.user._id);
+    await query('INSERT INTO event_attendees (event_id, user_id) VALUES (?, ?)', [eventId, currentUserId]);
     
-    await event.save();
+    const attendees = await query(
+      `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
+         FROM event_attendees ea
+         JOIN users u ON u.id = ea.user_id
+        WHERE ea.event_id = ?`,
+      [eventId]
+    );
     
-    // Populate attendees and emit real-time update
-    const updatedEvent = await Event.findById(event._id)
-      .populate('createdBy', 'name email profilePicture')
-      .populate('attendees', 'name email profilePicture');
-    
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('event-updated', updatedEvent);
-    }
-    
-    res.json(updatedEvent.attendees);
+    res.json(attendees);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Event not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -188,40 +200,22 @@ const attendEvent = async (req, res) => {
 // @access  Private
 const unattendEvent = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    const currentUserId = req.user.id || req.user._id;
+    const eventId = req.params.id;
+
+    await query('DELETE FROM event_attendees WHERE event_id = ? AND user_id = ?', [eventId, currentUserId]);
     
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-    
-    // Check if user is not attending
-    if (!event.attendees.some(attendee => attendee.toString() === req.user._id.toString())) {
-      return res.status(400).json({ message: 'Not attending this event' });
-    }
-    
-    // Remove user from attendees
-    event.attendees = event.attendees.filter(
-      attendee => attendee.toString() !== req.user._id.toString()
+    const attendees = await query(
+      `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
+         FROM event_attendees ea
+         JOIN users u ON u.id = ea.user_id
+        WHERE ea.event_id = ?`,
+      [eventId]
     );
     
-    await event.save();
-    
-    // Populate attendees and emit real-time update
-    const updatedEvent = await Event.findById(event._id)
-      .populate('createdBy', 'name email profilePicture')
-      .populate('attendees', 'name email profilePicture');
-    
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('event-updated', updatedEvent);
-    }
-    
-    res.json(updatedEvent.attendees);
+    res.json(attendees);
   } catch (error) {
     console.error(error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ message: 'Event not found' });
-    }
     res.status(500).json({ message: 'Server error' });
   }
 };

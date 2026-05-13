@@ -1,17 +1,30 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const connectDB = require('./config/db');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+const RedisStore = require('connect-redis').default;
 const http = require('http');
 const socketIo = require('socket.io');
+const { initPool } = require('./config/db');
+const { getRedis } = require('./config/redis');
 
 // Load environment variables
 dotenv.config();
 
-// Connect to database
-connectDB();
+// Initialize MySQL and Redis (Optional for demo)
+let redis;
+try {
+  initPool();
+  redis = getRedis();
+} catch (err) {
+  console.warn('DB/Redis initialization failed, falling back to mock mode:', err.message);
+}
 
 const app = express();
+app.set('trust proxy', 1); // NGINX reverse proxy compatibility
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
@@ -23,46 +36,116 @@ const io = socketIo(server, {
 // Import socket handlers
 const setupMessageHandlers = require('./socket/messageHandlers');
 
-// Middleware
+// Security & performance middleware
+app.use(helmet());
+app.use(compression());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+  credentials: true
+}));
+
+// Basic global rate limiter (can override per-route)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300, // 300 req/min per IP; adjust as needed
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
+
+const path = require('path');
+
+// Body parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(cors());
+
+// Static folders
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Sessions backed by Redis (fallback to memory if redis fails)
+const sessionConfig = {
+  name: 'sid',
+  secret: process.env.SESSION_SECRET || 'session_secret_dev',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  }
+};
+
+if (redis) {
+  sessionConfig.store = new RedisStore({ client: redis });
+} else {
+  console.warn('Using memory store for sessions (NOT recommended for production)');
+}
+
+app.use(session(sessionConfig));
 
 // Socket.io connection
 io.on('connection', (socket) => {
-  console.log('New client connected');
-  
-  // Join rooms based on user role and ID
-  socket.on('join', (userData) => {
-    if (userData.id) {
-      socket.join(userData.id); // Join personal room for private messages
+  console.log('New client connected', socket.id);
+
+  // Presence tracking using Redis; rooms: user:{id}, role:{role}, all-users
+  socket.on('join', async (userData = {}) => {
+    try {
+      const userId = userData.id ? String(userData.id).trim() : null;
+      const role = userData.role ? String(userData.role).trim() : null;
+      const name = userData.name || '';
+
+      socket.join('all-users');
+      if (role) socket.join(`role:${role}`);
+      if (userId) {
+        socket.join(`user:${userId}`);
+        console.log(`Socket ${socket.id} joined room: user:${userId}`);
+        if (redis) {
+          await redis.sadd('presence:online', userId);
+          await redis.hset(`presence:sockets:${userId}`, socket.id, Date.now());
+        }
+      }
+      console.log(`User joined: ${name}, Role: ${role}, Id: ${userId}`);
+    } catch (e) {
+      console.error('join handler error', e);
     }
-    socket.join('all-users');
-    if (userData.role) {
-      socket.join(`role-${userData.role}`);
-    }
-    console.log(`User joined: ${userData.name}, Role: ${userData.role}`);
   });
 
   // Set up message handlers
-  setupMessageHandlers(io, socket);
+  setupMessageHandlers(io, socket, redis);
 
-  // Handle new announcement
+  // Handle new announcement broadcast
   socket.on('new-announcement', (data) => {
-    console.log('New announcement broadcast:', data);
-    // Broadcast to all users
     io.emit('announcement-created', data);
   });
 
   // Handle announcement read
   socket.on('announcement-read', (data) => {
-    console.log('Announcement marked as read:', data);
     io.emit('announcement-read', data);
   });
 
   // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
+  socket.on('disconnect', async () => {
+    try {
+      if (redis) {
+        // Attempt to remove socket mapping; if user has no more sockets, optionally update presence
+        const keys = await redis.keys('presence:sockets:*');
+        for (const key of keys) {
+          const removed = await redis.hdel(key, socket.id);
+          if (removed) {
+            const userId = key.split(':').pop();
+            const remaining = await redis.hlen(key);
+            if (remaining === 0) {
+              await redis.srem('presence:online', userId);
+            }
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('disconnect cleanup error', e);
+    }
+    console.log('Client disconnected', socket.id);
   });
 });
 
@@ -96,6 +179,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} and accessible on 0.0.0.0`);
 });

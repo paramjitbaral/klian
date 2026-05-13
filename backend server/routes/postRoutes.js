@@ -14,7 +14,6 @@ const {
   unlikeComment
 } = require('../controllers/postController');
 const { protect, facultyOnly } = require('../middleware/auth');
-const Post = require('../models/Post');
 
 // All routes are protected
 router.route('/')
@@ -39,36 +38,8 @@ router.route('/:id')
 
 // Share post route
 router.post('/share/:id', protect, async (req, res) => {
-  try {
-    const { recipientEmails } = req.body;
-    if (!recipientEmails || !Array.isArray(recipientEmails)) {
-      return res.status(400).json({ message: 'Recipients list is required' });
-    }
-
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    // Add to post's shares array if it exists
-    if (!post.shares) {
-      post.shares = [];
-    }
-    post.shares.push({
-      sharedBy: req.user.id,
-      sharedWith: recipientEmails,
-      sharedAt: Date.now()
-    });
-    await post.save();
-
-    res.json({ message: 'Post shared successfully', post });
-  } catch (error) {
-    console.error('Error sharing post:', error);
-    res.status(500).json({ 
-      message: 'Server error while sharing post',
-      error: error.message 
-    });
-  }
+  // Use Socket.IO event 'share-post' for realtime sharing in this backend.
+  res.status(501).json({ message: 'Share via WebSocket: emit "share-post" with { senderId, recipientId, postId, message }' });
 });
 
 module.exports = router;

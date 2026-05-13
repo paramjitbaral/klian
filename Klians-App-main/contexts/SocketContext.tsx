@@ -21,7 +21,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     // Connect to socket server
-    const socketInstance = io('http://192.168.32.2:5000');
+    const socketInstance = io('http://localhost:5000');
     
     socketInstance.on('connect', () => {
       console.log('Socket connected');

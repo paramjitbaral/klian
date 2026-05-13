@@ -1,24 +1,36 @@
-const Announcement = require('../models/Announcement');
-const User = require('../models/User');
+const { query } = require('../config/db');
 
 // Create announcement (teachers and admins only)
 exports.createAnnouncement = async (req, res) => {
   try {
     const { title, content, target } = req.body;
+    const currentUserId = req.user.id || req.user._id;
 
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
     }
 
-    const announcement = new Announcement({
-      title,
-      content,
-      author: req.user._id,
-      target: target || 'All'
-    });
+    const result = await query(
+      'INSERT INTO announcements (title, content, author_id, target) VALUES (?, ?, ?, ?)',
+      [title, content, currentUserId, target || 'All']
+    );
 
-    await announcement.save();
-    await announcement.populate('author', 'name avatar role');
+    const announcementId = result.insertId;
+    
+    const rows = await query(
+      `SELECT a.id, a.title, a.content, a.target, a.created_at AS createdAt,
+              u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole
+         FROM announcements a
+         JOIN users u ON u.id = a.author_id
+        WHERE a.id = ?
+        LIMIT 1`,
+      [announcementId]
+    );
+    
+    const announcement = {
+      ...rows[0],
+      author: { id: rows[0].authorId, name: rows[0].authorName, avatar: rows[0].authorAvatar, role: rows[0].authorRole }
+    };
 
     res.status(201).json({
       message: 'Announcement created successfully',
@@ -36,44 +48,32 @@ exports.createAnnouncement = async (req, res) => {
 // Get all announcements
 exports.getAnnouncements = async (req, res) => {
   try {
-    let query = {};
+    const currentUserId = req.user.id || req.user._id;
+    let sql = `SELECT a.id, a.title, a.content, a.target, a.created_at AS createdAt,
+                      u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole,
+                      (SELECT COUNT(*) FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?) AS isRead
+                 FROM announcements a
+                 JOIN users u ON u.id = a.author_id`;
     
-    // Admins can see all announcements
-    if (req.user.role === 'Admin') {
-      query = {}; // No filter needed
-    } else {
-      // Map backend roles to announcement target values
-      const userRole = req.user.role === 'faculty' ? 'Teacher' : 'Student';
-      
-      // Students see: 'All' + 'Student' announcements
-      // Teachers see: 'All' + 'Teacher' announcements
-      query = {
-        $or: [
-          { target: 'All' },
-          { target: userRole }
-        ]
-      };
+    const params = [currentUserId];
+
+    if (req.user.role !== 'Admin' && req.user.role !== 'admin') {
+      const userRole = req.user.role === 'faculty' ? 'faculty' : 'student';
+      sql += ' WHERE a.target = "All" OR a.target = ?';
+      params.push(userRole);
     }
     
-    // Fetch announcements based on user role
-    const announcements = await Announcement.find(query)
-      .populate('author', 'name avatar role')
-      .sort({ createdAt: -1 });
+    sql += ' ORDER BY a.created_at DESC';
+    
+    const rows = await query(sql, params);
 
-    // Check if user has read each announcement
-    const announcementsWithReadStatus = announcements.map(announcement => {
-      const isRead = announcement.readBy.some(
-        read => read.userId.toString() === req.user._id.toString()
-      );
-      return {
-        ...announcement.toObject(),
-        isRead
-      };
-    });
+    const announcements = rows.map(row => ({
+      ...row,
+      author: { id: row.authorId, name: row.authorName, avatar: row.authorAvatar, role: row.authorRole },
+      isRead: !!row.isRead
+    }));
 
-    res.json({
-      announcements: announcementsWithReadStatus
-    });
+    res.json({ announcements });
   } catch (error) {
     console.error('Error fetching announcements:', error);
     res.status(500).json({
@@ -86,32 +86,23 @@ exports.getAnnouncements = async (req, res) => {
 // Get unread announcements count
 exports.getUnreadCount = async (req, res) => {
   try {
-    let query = {
-      readBy: {
-        $not: {
-          $elemMatch: { userId: req.user._id }
-        }
-      }
-    };
+    const currentUserId = req.user.id || req.user._id;
+    let sql = `SELECT COUNT(*) AS unreadCount 
+                 FROM announcements a
+                 WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?)`;
     
-    // Admins can see all unread announcements
-    if (req.user.role !== 'Admin') {
-      // Map backend roles to announcement target values
-      const userRole = req.user.role === 'faculty' ? 'Teacher' : 'Student';
-      
-      // Students see: 'All' + 'Student' announcements
-      // Teachers see: 'All' + 'Teacher' announcements
-      query.$or = [
-        { target: 'All' },
-        { target: userRole }
-      ];
+    const params = [currentUserId];
+
+    if (req.user.role !== 'Admin' && req.user.role !== 'admin') {
+      const userRole = req.user.role === 'faculty' ? 'faculty' : 'student';
+      sql += ' AND (a.target = "All" OR a.target = ?)';
+      params.push(userRole);
     }
     
-    // Count unread announcements based on user role
-    const unreadAnnouncements = await Announcement.countDocuments(query);
+    const rows = await query(sql, params);
 
     res.json({
-      unreadCount: unreadAnnouncements
+      unreadCount: rows[0].unreadCount
     });
   } catch (error) {
     console.error('Error fetching unread count:', error);
@@ -126,28 +117,16 @@ exports.getUnreadCount = async (req, res) => {
 exports.markAsRead = async (req, res) => {
   try {
     const { announcementId } = req.params;
+    const currentUserId = req.user.id || req.user._id;
 
-    const announcement = await Announcement.findById(announcementId);
+    const exists = await query('SELECT 1 FROM announcement_reads WHERE announcement_id = ? AND user_id = ? LIMIT 1', [announcementId, currentUserId]);
 
-    if (!announcement) {
-      return res.status(404).json({ message: 'Announcement not found' });
-    }
-
-    // Check if user has already read this
-    const alreadyRead = announcement.readBy.some(
-      read => read.userId.toString() === req.user._id.toString()
-    );
-
-    if (!alreadyRead) {
-      announcement.readBy.push({
-        userId: req.user._id
-      });
-      await announcement.save();
+    if (!exists.length) {
+      await query('INSERT INTO announcement_reads (announcement_id, user_id) VALUES (?, ?)', [announcementId, currentUserId]);
     }
 
     res.json({
-      message: 'Announcement marked as read',
-      announcement
+      message: 'Announcement marked as read'
     });
   } catch (error) {
     console.error('Error marking announcement as read:', error);
@@ -162,22 +141,19 @@ exports.markAsRead = async (req, res) => {
 exports.deleteAnnouncement = async (req, res) => {
   try {
     const { announcementId } = req.params;
+    const currentUserId = req.user.id || req.user._id;
 
-    const announcement = await Announcement.findById(announcementId);
+    const rows = await query('SELECT author_id FROM announcements WHERE id = ? LIMIT 1', [announcementId]);
 
-    if (!announcement) {
+    if (!rows.length) {
       return res.status(404).json({ message: 'Announcement not found' });
     }
 
-    // Check if user is author or admin
-    if (
-      announcement.author.toString() !== req.user._id.toString() &&
-      req.user.role !== 'Admin'
-    ) {
+    if (String(rows[0].author_id) !== String(currentUserId) && req.user.role !== 'Admin' && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to delete this announcement' });
     }
 
-    await Announcement.findByIdAndDelete(announcementId);
+    await query('DELETE FROM announcements WHERE id = ?', [announcementId]);
 
     res.json({ message: 'Announcement deleted successfully' });
   } catch (error) {
@@ -194,31 +170,40 @@ exports.updateAnnouncement = async (req, res) => {
   try {
     const { announcementId } = req.params;
     const { title, content, target } = req.body;
+    const currentUserId = req.user.id || req.user._id;
 
-    const announcement = await Announcement.findById(announcementId);
+    const rows = await query('SELECT author_id FROM announcements WHERE id = ? LIMIT 1', [announcementId]);
 
-    if (!announcement) {
+    if (!rows.length) {
       return res.status(404).json({ message: 'Announcement not found' });
     }
 
-    // Check if user is author or admin
-    if (
-      announcement.author.toString() !== req.user._id.toString() &&
-      req.user.role !== 'Admin'
-    ) {
+    if (String(rows[0].author_id) !== String(currentUserId) && req.user.role !== 'Admin' && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to update this announcement' });
     }
 
-    if (title) announcement.title = title;
-    if (content) announcement.content = content;
-    if (target) announcement.target = target;
+    const fields = [];
+    const params = [];
+    if (title) { fields.push('title = ?'); params.push(title); }
+    if (content) { fields.push('content = ?'); params.push(content); }
+    if (target) { fields.push('target = ?'); params.push(target); }
 
-    await announcement.save();
-    await announcement.populate('author', 'name avatar role');
+    if (fields.length > 0) {
+      params.push(announcementId);
+      await query(`UPDATE announcements SET ${fields.join(', ')} WHERE id = ?`, params);
+    }
+
+    const updated = await query(
+      `SELECT a.*, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole
+         FROM announcements a
+         JOIN users u ON u.id = a.author_id
+        WHERE a.id = ?`,
+      [announcementId]
+    );
 
     res.json({
       message: 'Announcement updated successfully',
-      announcement
+      announcement: updated[0]
     });
   } catch (error) {
     console.error('Error updating announcement:', error);

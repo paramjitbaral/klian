@@ -1,29 +1,20 @@
 import React, { useState, useRef } from 'react';
-import { Button } from './ui/Button';
 import { ICONS } from '../constants';
+import { EmojiPicker } from './EmojiPicker';
+import { messagesAPI } from '../src/api/messages';
 
 const SendIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>;
 
 interface ChatInputProps {
-    onSendMessage: (message: string) => void;
+    onSendMessage: (message: string, type?: 'text' | 'image' | 'file') => void;
 }
-
-const FormatButton: React.FC<{ onClick: () => void, children: React.ReactNode, title: string }> = ({ onClick, children, title }) => (
-    <button
-        type="button"
-        onClick={onClick}
-        onMouseDown={e => e.preventDefault()}
-        className="p-2 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
-        title={title}
-    >
-        {children}
-    </button>
-);
 
 export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
     const [message, setMessage] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [showFormatTools, setShowFormatTools] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
     const handleInput = () => {
         const textarea = textareaRef.current;
@@ -31,23 +22,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
             textarea.style.height = 'auto';
             const scrollHeight = textarea.scrollHeight;
             textarea.style.height = `${scrollHeight}px`;
-            // Show formatting tools only when user starts typing
-            if(textarea.value.length > 0 && !showFormatTools) {
-                setShowFormatTools(true);
-            } else if (textarea.value.length === 0 && showFormatTools) {
-                setShowFormatTools(false);
-            }
         }
     };
 
     const handleSendMessage = () => {
         if (message.trim()) {
-            onSendMessage(message.trim());
+            onSendMessage(message.trim(), 'text');
             setMessage('');
-            setShowFormatTools(false);
             if (textareaRef.current) {
                 textareaRef.current.style.height = 'auto';
             }
+            setShowEmojiPicker(false);
         }
     };
 
@@ -58,45 +43,57 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
         }
     };
 
-    const applyFormat = (format: 'bold' | 'italic' | 'underline') => {
-        const textarea = textareaRef.current;
-        if (!textarea) return;
+    const handleEmojiSelect = (emoji: string) => {
+        setMessage(prev => prev + emoji);
+        textareaRef.current?.focus();
+    };
 
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const selectedText = message.substring(start, end);
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
 
-        if (!selectedText) {
-            textarea.focus();
-            return;
+        try {
+            setIsUploading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await messagesAPI.uploadFile(formData);
+            const { url, type } = response.data;
+            
+            onSendMessage(url, type);
+        } catch (error) {
+            console.error('File upload failed:', error);
+            alert('Failed to upload file. Please try again.');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
-
-        const formatChars: Record<typeof format, string> = {
-            bold: '**',
-            italic: '*',
-            underline: '__',
-        };
-        const chars = formatChars[format];
-        const formattedText = `${chars}${selectedText}${chars}`;
-        
-        const newMessage = message.substring(0, start) + formattedText + message.substring(end);
-        
-        setMessage(newMessage);
-
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + chars.length, end + chars.length);
-        }, 0);
     };
 
     return (
-        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 relative">
+            {showEmojiPicker && (
+                <EmojiPicker 
+                    onSelect={handleEmojiSelect} 
+                    onClose={() => setShowEmojiPicker(false)} 
+                />
+            )}
+            
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileChange}
+                accept="image/*,.pdf,.doc,.docx,.txt"
+            />
+
             <div className="flex items-end gap-3">
-                <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-slate-100 dark:bg-slate-700 rounded-full transition-colors focus-within:ring-2 focus-within:ring-blue-500">
+                <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-slate-100 dark:bg-slate-700 rounded-2xl transition-all focus-within:ring-2 focus-within:ring-red-500 focus-within:bg-white dark:focus-within:bg-slate-600">
                     <button 
-                        className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex-shrink-0" 
+                        className={`transition-colors flex-shrink-0 ${showEmojiPicker ? 'text-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-red-500'}`} 
                         type="button"
                         title="Emoji"
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                     >
                         {ICONS.smile}
                     </button>
@@ -111,17 +108,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
                         className="flex-1 bg-transparent outline-none text-sm resize-none max-h-32 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                     />
                     <button 
-                        className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex-shrink-0" 
+                        className={`text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors flex-shrink-0 ${isUploading ? 'animate-spin' : ''}`} 
                         type="button"
                         title="Attachment"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
                     >
-                        {ICONS.attachment}
+                        {isUploading ? (
+                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        ) : ICONS.attachment}
                     </button>
                 </div>
                 <button
                     onClick={handleSendMessage}
-                    disabled={!message.trim()}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                    disabled={!message.trim() || isUploading}
+                    className="w-11 h-11 flex items-center justify-center rounded-full bg-gradient-to-tr from-red-500 to-pink-500 text-white shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95 disabled:grayscale disabled:opacity-50 disabled:cursor-not-allowed transition-all flex-shrink-0"
                     type="button"
                     title="Send"
                 >

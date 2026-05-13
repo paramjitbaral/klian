@@ -35,7 +35,7 @@ export const UsersPage: React.FC = () => {
           throw new Error('No authentication token found');
         }
         
-        const response = await fetch('http://192.168.32.2:5000/api/users', {
+        const response = await fetch('http://localhost:5000/api/users', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -94,8 +94,9 @@ export const UsersPage: React.FC = () => {
     setFilteredUsers(filtered);
   };
 
-  const handleMessageClick = (userId: string) => {
-    navigate(`/messages/${userId}`);
+  const handleMessageClick = (user: User) => {
+    const userId = user._id || user.id;
+    navigate(`/messages/${userId}`, { state: { user } });
   };
 
   return (
@@ -210,7 +211,7 @@ export const UsersPage: React.FC = () => {
 
                 {/* Right: Message Button */}
                 <button
-                  onClick={() => handleMessageClick(u._id)}
+                  onClick={() => handleMessageClick(u)}
                   className="flex-shrink-0 ml-4 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2"
                 >
                   <svg

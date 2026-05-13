@@ -1,4 +1,8 @@
-import React, { useEffect } from 'react';
+import { OnboardingNotices } from './src/OnboardingNotices';
+import React, { useEffect, useState } from 'react';
+import { registerPushNotifications } from './src/pushNotifications';
+import FCMTokenDisplay from './components/FCMTokenDisplay';
+import { useUnreadBadge } from './src/useUnreadBadge';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { AuthProvider } from './contexts/AuthContext';
@@ -21,6 +25,7 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { Role } from './types';
 import { UsersPage } from './pages/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { VerifyPage } from './pages/VerifyPage';
 import { prefetchPosts } from './hooks/usePosts';
 
 
@@ -30,6 +35,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/verify" element={<VerifyPage />} />
         
         {isAuthenticated ? (
             <Route path="/" element={<Layout />}>
@@ -63,11 +69,39 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+
 const App: React.FC = () => {
+  const [unreadNotices, setUnreadNotices] = useState<Array<{ id: string; title: string; body: string }>>([]);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const unreadCount = unreadNotices.length;
+
   useEffect(() => {
     // Prefetch posts when app starts
     prefetchPosts();
+
+    // Register push notifications
+    registerPushNotifications(
+      (notice) => {
+        // Add new notice to unread list
+        setUnreadNotices((prev) => [
+          ...prev,
+          {
+            id: notice.id || Date.now().toString(),
+            title: notice.title || 'Notice',
+            body: notice.body || '',
+          },
+        ]);
+      },
+      setFcmToken
+    );
   }, []);
+
+  // Update badge when unreadCount changes
+  useUnreadBadge(unreadCount);
+
+  const handleMarkAllRead = () => {
+    setUnreadNotices([]);
+  };
 
   return (
     <ThemeProvider>
@@ -76,6 +110,10 @@ const App: React.FC = () => {
           <MessagesProvider>
             <QueryProvider>
               <HashRouter>
+                <FCMTokenDisplay token={fcmToken} />
+                {unreadNotices.length > 0 && (
+                  <OnboardingNotices unreadNotices={unreadNotices} onMarkAllRead={handleMarkAllRead} />
+                )}
                 <AppRoutes />
               </HashRouter>
             </QueryProvider>
