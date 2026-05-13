@@ -18,7 +18,7 @@ interface ComposeMailProps {
     windowState: ComposeWindowState;
     onWindowStateChange: (state: ComposeWindowState) => void;
     onClose: () => void;
-    onSend: (data: ComposeMailData) => void;
+    onSend: (data: ComposeMailData & { targetAudience?: string }) => void;
 }
 
 const FormatButton: React.FC<{ onClick: () => void, children: React.ReactNode, title: string, className?: string }> = ({ onClick, children, title, className = '' }) => (
@@ -37,7 +37,9 @@ const RecipientInput: React.FC<{
     label: string;
     recipients: string[];
     setRecipients: (recipients: string[]) => void;
-}> = ({ label, recipients, setRecipients }) => {
+    onFocus?: () => void;
+    onBlur?: () => void;
+}> = ({ label, recipients, setRecipients, onFocus, onBlur }) => {
     const [inputValue, setInputValue] = useState('');
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -74,6 +76,11 @@ const RecipientInput: React.FC<{
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onFocus={onFocus}
+                    onBlur={() => {
+                        // Small delay to allow clicking Quick Select buttons
+                        setTimeout(() => onBlur?.(), 200);
+                    }}
                     className="flex-1 bg-transparent focus:outline-none min-w-[100px] text-sm py-1"
                 />
             </div>
@@ -91,6 +98,8 @@ export const ComposeMail: React.FC<ComposeMailProps> = ({ windowState, onWindowS
     const [subject, setSubject] = useState('');
     const [showCcBcc, setShowCcBcc] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [targetAudience, setTargetAudience] = useState<string | null>(null);
+    const [isToFocused, setIsToFocused] = useState(false);
     
     const editorRef = useRef<HTMLDivElement>(null);
 
@@ -140,6 +149,7 @@ export const ComposeMail: React.FC<ComposeMailProps> = ({ windowState, onWindowS
                 bcc,
                 subject,
                 body: messageContent,
+                targetAudience: targetAudience || undefined
             });
 
             // Reset form
@@ -211,12 +221,61 @@ export const ComposeMail: React.FC<ComposeMailProps> = ({ windowState, onWindowS
                 <>
                     {/* Content */}
                     <div className="flex-1 flex flex-col p-4 overflow-hidden">
-                        <div className="flex items-center">
-                            <RecipientInput label="To" recipients={to} setRecipients={setTo} />
-                             <div className="ml-auto pl-2 flex-shrink-0">
-                                <button onClick={() => setShowCcBcc(!showCcBcc)} className="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-                                    Cc/Bcc
-                                </button>
+                        <div className="flex flex-col border-b border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1">
+                                    <RecipientInput 
+                                        label="To" 
+                                        recipients={targetAudience ? [`Group: ${targetAudience}s`] : to} 
+                                        setRecipients={(newTo) => {
+                                            if (targetAudience) setTargetAudience(null);
+                                            setTo(newTo);
+                                        }} 
+                                        onFocus={() => setIsToFocused(true)}
+                                        onBlur={() => setIsToFocused(false)}
+                                        autoComplete="off"
+                                    />
+                                </div>
+                                
+                                {/* Minimalist Quick Select - ONLY visible on focus */}
+                                {(user?.role === 'Teacher' || user?.role === 'Admin' || user?.role === 'faculty') && isToFocused && (
+                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-1 duration-200 pr-2 self-center">
+                                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                                        <button
+                                            onMouseDown={(e) => {
+                                                e.preventDefault(); // Prevent blur before click
+                                                setTargetAudience(targetAudience === 'All' ? null : 'All');
+                                            }}
+                                            className={`text-[10px] font-black uppercase tracking-tight transition-all px-2 py-1 rounded-md ${targetAudience === 'All' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                        >
+                                            All
+                                        </button>
+                                        <button
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                setTargetAudience(targetAudience === 'Student' ? null : 'Student');
+                                            }}
+                                            className={`text-[10px] font-black uppercase tracking-tight transition-all px-2 py-1 rounded-md ${targetAudience === 'Student' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                        >
+                                            Students
+                                        </button>
+                                        <button
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                setTargetAudience(targetAudience === 'Teacher' ? null : 'Teacher');
+                                            }}
+                                            className={`text-[10px] font-black uppercase tracking-tight transition-all px-2 py-1 rounded-md ${targetAudience === 'Teacher' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                        >
+                                            Teachers
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="ml-auto pl-2 flex-shrink-0 self-center">
+                                    <button onClick={() => setShowCcBcc(!showCcBcc)} className="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                                        Cc/Bcc
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

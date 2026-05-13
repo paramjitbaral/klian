@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button';
 import { ComposeMail, ComposeMailData } from '../components/ComposeMail';
 import { Avatar } from '../components/ui/Avatar';
 import { SharedPostCard } from '../components/SharedPostCard';
-import { messagesAPI } from '../src/api/messages';
+import { emailsAPI } from '../src/api/emails';
 
 // Icons
 const RefreshIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M20 4s-1.5-2-5-2-6 3-6 6-1.5 6-1.5 6M4 20s1.5 2 5 2 6-3 6-6 1.5-6 1.5-6" /></svg>;
@@ -108,71 +108,30 @@ export const MailboxPage: React.FC = () => {
     const [replyContent, setReplyContent] = useState('');
     const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
     const MAX_REPLY_LENGTH = 1000;
+    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    // Convert messages from MessagesContext to Email format
+    // Fetch emails from API
+    const fetchEmails = async () => {
+        try {
+            setLoading(true);
+            const inbox = await emailsAPI.getInbox();
+            const sent = await emailsAPI.getSent();
+            const trash = await emailsAPI.getTrash();
+            
+            setInboxEmails(inbox);
+            setSentEmails(sent);
+            setTrashedEmails(trash);
+        } catch (err) {
+            console.error('Failed to fetch emails:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        if (!user) return;
-
-        const currentUserId = user._id || user.id;
-        
-        // Get inbox (messages received)
-        const inboxList = contextMessages
-            .filter(msg => msg.recipient._id === currentUserId)
-            .map(msg => ({
-                id: msg._id,
-                sender: {
-                    name: msg.sender.name,
-                    email: msg.sender.email,
-                    initial: msg.sender.name?.charAt(0).toUpperCase() || 'U',
-                    color: 'bg-blue-200 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
-                },
-                recipient: {
-                    name: msg.recipient.name,
-                    email: msg.recipient.email,
-                    initial: msg.recipient.name?.charAt(0).toUpperCase() || 'U',
-                    color: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
-                },
-                subject: msg.type === 'post' ? '📌 Shared a post' : (msg.content.substring(0, 50) || 'No subject'),
-                preview: msg.type === 'post' ? 'Tap to view the shared post' : (msg.content.substring(0, 100) || 'No preview'),
-                body: msg.content,
-                timestamp: msg.createdAt,
-                isRead: msg.read,
-                type: msg.type,
-                postData: msg.type === 'post' && msg.postId ? msg.postId : undefined,
-                optionalMessage: msg.content
-            } as EmailWithPost));
-
-        // Get sent (messages sent by user)
-        const sentList = contextMessages
-            .filter(msg => msg.sender._id === currentUserId)
-            .map(msg => ({
-                id: msg._id,
-                sender: {
-                    name: msg.sender.name,
-                    email: msg.sender.email,
-                    initial: msg.sender.name?.charAt(0).toUpperCase() || 'U',
-                    color: 'bg-blue-200 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
-                },
-                recipient: {
-                    name: msg.recipient.name,
-                    email: msg.recipient.email,
-                    initial: msg.recipient.name?.charAt(0).toUpperCase() || 'U',
-                    color: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
-                },
-                subject: msg.type === 'post' ? '📌 Shared a post' : (msg.content.substring(0, 50) || 'No subject'),
-                preview: msg.type === 'post' ? 'Tap to view the shared post' : (msg.content.substring(0, 100) || 'No preview'),
-                body: msg.content,
-                timestamp: msg.createdAt,
-                isRead: true,
-                type: msg.type,
-                postData: msg.type === 'post' && msg.postId ? msg.postId : undefined,
-                optionalMessage: msg.content
-            } as EmailWithPost));
-
-        setInboxEmails(inboxList);
-        setSentEmails(sentList);
-    }, [contextMessages, user]);
+        fetchEmails();
+    }, [user]);
 
     const handleBack = () => {
         if (window.history.state && window.history.state.idx > 0) {
@@ -208,34 +167,25 @@ export const MailboxPage: React.FC = () => {
             });
     }, [searchTerm, filter, activeFolder, inboxEmails, sentEmails, trashedEmails]);
 
-    const handleSendEmail = (data: ComposeMailData) => {
+    const handleSendEmail = async (data: ComposeMailData) => {
         if (!user) return;
+        try {
+            const allRecipients = [...data.to, ...data.cc, ...data.bcc];
+            await emailsAPI.sendEmail({
+                to: data.to,
+                cc: data.cc,
+                bcc: data.bcc,
+                subject: data.subject,
+                body: data.body
+            });
 
-        const allRecipients = [...data.to, ...data.cc, ...data.bcc];
-
-        const newEmail: Email = {
-            id: `sent-${Date.now()}`,
-            sender: {
-                name: user.name,
-                email: user.email,
-                initial: user.name.charAt(0).toUpperCase(),
-                color: 'bg-blue-200 text-blue-700 dark:bg-blue-800 dark:text-blue-200'
-            },
-            recipient: {
-                name: allRecipients[0].split('@')[0], 
-                email: allRecipients[0],
-                initial: allRecipients[0].charAt(0).toUpperCase(),
-                color: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
-            },
-            subject: data.subject,
-            preview: data.body.substring(0, 100).replace(/<[^>]*>/g, '') + '...',
-            body: data.body,
-            timestamp: new Date().toISOString(),
-            isRead: true, 
-        };
-        
-        setSentEmails([newEmail, ...sentEmails]);
-        setComposeState('closed');
+            // Refresh emails after sending
+            fetchEmails();
+            setComposeState('closed');
+        } catch (err) {
+            console.error('Failed to send email:', err);
+            alert('Failed to send email. Make sure the recipient email is a registered user.');
+        }
     };
     
     const handleFormatReply = (formatType: 'bold' | 'italic') => {
@@ -280,25 +230,27 @@ export const MailboxPage: React.FC = () => {
         setReplyContent('');
     };
 
-    const handleMarkAsRead = (email: Email) => {
-        // Update the email to mark as read
-        const updatedEmail = { ...email, isRead: true };
-        
-        // Update the inbox list
-        setInboxEmails(prev =>
-            prev.map(e => e.id === email.id ? updatedEmail : e)
-        );
-        
-        // Update selected email
-        setSelectedEmail(updatedEmail);
+    const handleMarkAsRead = async (email: Email) => {
+        try {
+            await emailsAPI.markAsRead(email.id);
+            // Update local state
+            setInboxEmails(prev =>
+                prev.map(e => e.id === email.id ? { ...e, isRead: true } : e)
+            );
+            setSelectedEmail({ ...email, isRead: true });
+        } catch (err) {
+            console.error('Failed to mark as read:', err);
+            setSelectedEmail(email);
+        }
     };
     
-    const handleMoveToTrash = (emailId: string) => {
-        const emailToMove = inboxEmails.find(e => e.id === emailId);
-        if (emailToMove) {
-            setInboxEmails(inboxEmails.filter(e => e.id !== emailId));
-            setTrashedEmails([emailToMove, ...trashedEmails]);
+    const handleMoveToTrash = async (emailId: string) => {
+        try {
+            await emailsAPI.deleteEmail(emailId);
+            fetchEmails(); // Refresh all folders
             setSelectedEmail(null);
+        } catch (err) {
+            console.error('Failed to move to trash:', err);
         }
     };
 
@@ -327,8 +279,8 @@ export const MailboxPage: React.FC = () => {
     const folderButtonClasses = (folder: ActiveFolder) => 
         `px-4 py-2 text-left rounded-md transition-colors w-full ${
             activeFolder === folder
-            ? 'bg-slate-200 dark:bg-slate-700 font-semibold'
-            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            ? 'bg-red-600 text-white font-semibold'
+            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800'
         }`;
         
     const FilterButtons = () => (
@@ -355,7 +307,7 @@ export const MailboxPage: React.FC = () => {
     );
 
     const SidebarContent = () => (
-         <div className="flex flex-col space-y-6 flex-grow">
+         <div className="flex flex-col space-y-4 flex-grow pt-2">
             <Button onClick={() => { setComposeState('normal'); setIsMobileMenuOpen(false); }} className="w-full">
                 Compose
             </Button>
@@ -368,10 +320,10 @@ export const MailboxPage: React.FC = () => {
             <div>
                 <h3 className="text-xs font-bold uppercase text-slate-400 mb-2">Quick Access</h3>
                 <nav className="flex flex-col space-y-1">
-                    <button className="flex items-center px-3 py-2 text-slate-600 dark:text-slate-300 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <button className="flex items-center px-3 py-2 text-slate-500 dark:text-slate-400 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors">
                         <ContactsIcon /> Contacts
                     </button>
-                    <button className="flex items-center px-3 py-2 text-slate-600 dark:text-slate-300 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <button className="flex items-center px-3 py-2 text-slate-500 dark:text-slate-400 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors">
                         <TrashIcon /> Empty Trash
                     </button>
                 </nav>
@@ -380,7 +332,8 @@ export const MailboxPage: React.FC = () => {
     );
 
     return (
-        <div className="flex flex-col h-full relative -m-4 bg-white dark:bg-slate-800 md:m-0 md:bg-transparent md:dark:bg-transparent">
+        <div className="flex flex-col h-screen bg-white dark:bg-slate-900 overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden">
              {/* Mobile Menu */}
             <div className={`fixed inset-0 z-40 md:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                 <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -392,11 +345,6 @@ export const MailboxPage: React.FC = () => {
                 </aside>
             </div>
 
-            {/* Desktop Header */}
-            <div className="mb-6 hidden md:block">
-                <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">KL Mailbox</h1>
-                <p className="text-slate-500 dark:text-slate-400">Your personal university email interface</p>
-            </div>
 
             {/* New Mobile Header */}
             <div className="p-4 md:hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
@@ -433,12 +381,12 @@ export const MailboxPage: React.FC = () => {
                 )}
             </div>
 
-            <div className="flex-1 flex bg-white dark:bg-slate-800 md:rounded-xl md:shadow-md overflow-hidden">
-                <aside className="w-[280px] p-5 border-r border-slate-200 dark:border-slate-700 flex-col hidden md:flex">
+            <div className="flex-1 flex flex-row min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
+                <aside className="w-[260px] p-4 border-r border-slate-200 dark:border-slate-800 flex-col hidden md:flex bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
                     <SidebarContent />
                 </aside>
                 <div className="flex-1 flex flex-col min-w-0">
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-700/50 hidden md:flex flex-col sm:flex-row gap-4">
+                    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700/50 hidden md:flex items-center gap-4 h-[73px]">
                         <div className="flex-grow">
                             <Input 
                                 placeholder="Search by subject or sender..." 
@@ -457,7 +405,11 @@ export const MailboxPage: React.FC = () => {
                     </div>
                     <main className="flex-1 overflow-y-auto">
                         <ul>
-                            {filteredEmails.length > 0 ? (
+                            {loading ? (
+                                <div className="text-center p-8 text-slate-500 dark:text-slate-400">
+                                    <p>Loading emails...</p>
+                                </div>
+                            ) : filteredEmails.length > 0 ? (
                                 filteredEmails.map(email => (
                                     <EmailListItem 
                                         key={email.id} 
@@ -596,6 +548,7 @@ export const MailboxPage: React.FC = () => {
                     onWindowStateChange={setComposeState}
                 />
             )}
+        </div>
         </div>
     );
 };

@@ -19,8 +19,9 @@ async function initPool() {
       timezone: 'Z',
     });
     // Simple test query to validate connection at boot
+    await pool.query("SET time_zone = '+00:00'");
     await pool.query('SELECT 1');
-    console.log('MySQL pool initialized');
+    console.log('MySQL pool initialized and timezone set to UTC');
     return pool;
   } catch (err) {
     console.error('Failed to initialize MySQL pool:', err.message);
@@ -35,7 +36,7 @@ async function query(sql, params) {
     console.warn('DB Query attempted but pool not initialized. Returning empty result.');
     return [];
   }
-  const [rows] = await p.execute(sql, params);
+  const [rows] = await p.query(sql, params);
   return rows;
 }
 

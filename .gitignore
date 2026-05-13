@@ -1,0 +1,54 @@
+# Secrets and Environment Variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Build and Output
+dist/
+dist-ssr/
+build/
+bin/
+obj/
+out/
+.next/
+.serverless/
+.output/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Website Data and User Uploads
+backend server/uploads/
+uploads/
+storage/
+temp/
+tmp/
+*.db
+*.sqlite
+
+# Editor and OS Files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+thumbs.db
+
+# App Specific
+brain/
+.gemini/

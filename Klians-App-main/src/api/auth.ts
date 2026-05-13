@@ -30,6 +30,21 @@ export const authAPI = {
   // Update user profile
   updateProfile: (userData: any) => {
     return API.put('/auth/profile', userData);
+  },
+  
+  // Change password
+  changePassword: (passwordData: any) => {
+    return API.put('/auth/change-password', passwordData);
+  },
+
+  // Request OTP for password change
+  requestPasswordOTP: (currentPassword: string) => {
+    return API.post('/auth/request-password-otp', { currentPassword });
+  },
+
+  // Verify and change password
+  verifyPasswordChange: (data: any) => {
+    return API.put('/auth/verify-password-change', data);
   }
 };
 

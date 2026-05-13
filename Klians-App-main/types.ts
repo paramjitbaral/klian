@@ -16,6 +16,8 @@ export interface User {
   bio: string;
   studentId?: string;
   linkedin?: string;
+  github?: string;
+  portfolio?: string;
   role: Role;
   createdAt: string;
   lastSeen?: string;

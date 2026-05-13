@@ -37,7 +37,10 @@ const io = socketIo(server, {
 const setupMessageHandlers = require('./socket/messageHandlers');
 
 // Security & performance middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 app.use(compression());
 app.use(cors({
   origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
@@ -161,6 +164,7 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/emails', require('./routes/emailRoutes'));
 
 // Basic route
 app.get('/', (req, res) => {

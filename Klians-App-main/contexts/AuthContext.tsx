@@ -13,6 +13,9 @@ interface AuthContextType {
   logout: () => void;
   register: (userData: { name: string, email: string, password: string, role?: Role }) => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
+  changePassword: (passwordData: { currentPassword: string, newPassword: string }) => Promise<void>;
+  requestPasswordOTP: (currentPassword: string) => Promise<void>;
+  verifyPasswordChange: (data: { currentPassword: string, newPassword: string, otp: string }) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,6 +42,9 @@ const normalizeUser = (data: any): User => {
     avatar: data.profilePicture || data.avatar || '', // Map profilePicture to avatar
     coverPhoto: data.coverPhoto || '',
     bio: data.bio || '',
+    linkedin: data.linkedin || '',
+    github: data.github || '',
+    portfolio: data.portfolio || '',
     role: role,
     createdAt: data.createdAt || new Date().toISOString(),
   };
@@ -186,6 +192,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userData.avatar !== undefined) backendData.profilePicture = userData.avatar;
       if (userData.coverPhoto !== undefined) backendData.coverPhoto = userData.coverPhoto;
       if (userData.bio !== undefined) backendData.bio = userData.bio;
+      if (userData.linkedin !== undefined) backendData.linkedin = userData.linkedin;
+      if (userData.github !== undefined) backendData.github = userData.github;
+      if (userData.portfolio !== undefined) backendData.portfolio = userData.portfolio;
       
       const response = await authAPI.updateProfile(backendData);
       const normalizedUser = normalizeUser(response.data);
@@ -194,6 +203,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error('Profile update failed:', err);
       setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const changePassword = async (passwordData: { currentPassword: string, newPassword: string }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await authAPI.changePassword(passwordData);
+    } catch (err: any) {
+      console.error('Password change failed:', err);
+      setError(err.response?.data?.message || 'Failed to change password.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestPasswordOTP = async (currentPassword: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await authAPI.requestPasswordOTP(currentPassword);
+    } catch (err: any) {
+      console.error('Request password OTP failed:', err);
+      setError(err.response?.data?.message || 'Failed to send verification code.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyPasswordChange = async (data: { currentPassword: string, newPassword: string, otp: string }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await authAPI.verifyPasswordChange(data);
+    } catch (err: any) {
+      console.error('Verify password change failed:', err);
+      setError(err.response?.data?.message || 'Verification failed.');
       throw err;
     } finally {
       setLoading(false);
@@ -210,8 +261,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resendOTP,
     logout, 
     register,
-    updateProfile
-  }), [user, isAuthenticated, loading, error]);
+    updateProfile,
+    changePassword,
+    requestPasswordOTP,
+    verifyPasswordChange
+  }), [user, isAuthenticated, loading, error, login, verify, resendOTP, logout, register, updateProfile, changePassword, requestPasswordOTP, verifyPasswordChange]);
 
   return (
     <AuthContext.Provider value={value}>

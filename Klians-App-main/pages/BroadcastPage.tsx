@@ -15,17 +15,17 @@ import { announcementsAPI } from '../src/api/announcements';
 // --- ICONS ---
 const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.962c.57-1.023.57-2.308.002-3.332C12.093 8.32 10.343 7.5 8.5 7.5c-1.843 0-3.593.82-4.55 2.206-.568 1.024-.568 2.308 0 3.332a8.958 8.958 0 014.55 2.206zM16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm-7.5 0a3 3 0 116 0 3 3 0 01-6 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
 );
 const StudentsIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.905 59.905 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0l-3.07-.812A59.905 59.905 0 0112 3.493a59.905 59.905 0 0110.399 5.84l-3.07.813m0 0a59.905 59.905 0 01-21.8 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147L12 14.654l7.74-4.507m-15.48 0a48.114 48.114 0 00-2.525-.879 59.79 59.79 0 0110.265-5.779 59.79 59.79 0 0110.265 5.779c-.83.273-1.672.566-2.525.879m-15.48 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.905 59.905 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0l-3.07-.812A59.905 59.905 0 0112 3.493a59.905 59.905 0 0110.399 5.84l-3.07.813M3.75 14.25v7.5m16.5-7.5v7.5" />
     </svg>
 );
 const TeachersIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
 );
 const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (

@@ -88,8 +88,12 @@ const getPosts = async (req, res) => {
 
     res.json({ items, nextCursor, hasMore });
   } catch (error) {
-    console.error('[API] getPosts error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[API] getPosts ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      query: req.query
+    });
+    res.status(500).json({ message: 'Server error', detail: error.message });
   }
 };
 

@@ -66,7 +66,7 @@ const getUserById = async (req, res) => {
 // @access  Private
 const updateUser = async (req, res) => {
   try {
-    const { name, bio, profilePicture } = req.body;
+    const { name, bio, profilePicture, coverPhoto, linkedin, github, portfolio } = req.body;
     const userId = req.params.id;
     const currentUserId = req.user.id || req.user._id;
 
@@ -80,6 +80,10 @@ const updateUser = async (req, res) => {
     if (name) { fields.push('name = ?'); params.push(name); }
     if (bio !== undefined) { fields.push('bio = ?'); params.push(bio); }
     if (profilePicture) { fields.push('profile_picture = ?'); params.push(profilePicture); }
+    if (coverPhoto) { fields.push('cover_photo = ?'); params.push(coverPhoto); }
+    if (linkedin !== undefined) { fields.push('linkedin = ?'); params.push(linkedin); }
+    if (github !== undefined) { fields.push('github = ?'); params.push(github); }
+    if (portfolio !== undefined) { fields.push('portfolio = ?'); params.push(portfolio); }
 
     if (fields.length > 0) {
       params.push(userId);
@@ -87,7 +91,7 @@ const updateUser = async (req, res) => {
     }
 
     const updated = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, role, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, role, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1',
       [userId]
     );
     res.json(updated[0]);
