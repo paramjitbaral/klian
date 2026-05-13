@@ -97,22 +97,22 @@ const BroadcastHistoryItem: React.FC<{ broadcast: Broadcast; currentUserId?: str
     };
 
     return (
-        <div className="p-4 mb-3 bg-red-50 dark:bg-red-900/20 rounded-xl border-l-4 border-red-500 shadow-sm hover:shadow-md transition-shadow">
+        <div className="p-3 mb-2 bg-red-50 dark:bg-red-900/20 rounded-xl border-l-4 border-red-500 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-start gap-3">
                 {/* Icon */}
-                <div className="flex-shrink-0 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
-                    <UsersIcon className="w-5 h-5 text-white" />
+                <div className="flex-shrink-0 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                    <UsersIcon className="w-4 h-4 text-white" />
                 </div>
                 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                     {/* Title */}
-                    <h3 className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                    <h3 className="font-bold text-base text-slate-900 dark:text-slate-100 truncate">
                         {broadcast.title}
                     </h3>
                     
                     {/* Description */}
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">
                         {broadcast.content}
                     </p>
                     
@@ -282,19 +282,18 @@ export const BroadcastPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 flex justify-center">
-            <div className="w-[94%] max-w-7xl mx-auto pb-8">
-            <div className="flex items-center gap-4 mb-6 px-5 md:px-8 pt-6">
+            <div className="w-[98%] max-w-[1600px] mx-auto pb-8">
+            <div className="flex items-center gap-4 px-5 md:px-8 pt-6">
                 <button onClick={handleBack} className="md:hidden p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
                     <ChevronLeftIcon className="h-6 w-6" />
                 </button>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-slate-100">Broadcast System</h1>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 px-5 md:px-8">
                 {/* --- CREATE BROADCAST --- */}
                 <div className="lg:col-span-2">
                      <h2 className="text-xl font-bold mb-4 text-slate-800">Create Broadcast</h2>
-                            <Card className="p-6 rounded-2xl shadow-sm border border-slate-200 h-[460px] flex flex-col bg-white">
+                            <Card className="p-6 rounded-2xl shadow-sm border border-slate-200 h-[540px] flex flex-col bg-white">
                                 <div className="space-y-3">
                             <div>
                                 <label htmlFor="broadcast-title" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Title</label>
@@ -313,8 +312,8 @@ export const BroadcastPage: React.FC = () => {
                                     id="broadcast-message"
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
-                                    className="w-full p-3.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg border border-transparent focus:outline-none focus:ring-2 focus:ring-red-500 resize-none transition placeholder:text-slate-400 disabled:opacity-50"
-                                    rows={3}
+                                    className="w-full p-3.5 text-sm bg-slate-100 dark:bg-slate-700 rounded-lg border border-transparent focus:outline-none focus:ring-2 focus:ring-red-500 resize-none transition placeholder:text-slate-400 disabled:opacity-50 min-h-[200px]"
+                                    rows={6}
                                     placeholder="Write your announcement here..."
                                     disabled={isSubmitting}
                                 />
@@ -345,7 +344,7 @@ export const BroadcastPage: React.FC = () => {
                 {/* --- BROADCAST HISTORY --- */}
                 <div className="lg:col-span-3">
                     <h2 className="text-xl font-bold mb-4 text-slate-800">Broadcast History</h2>
-                                        <Card className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[460px]">
+                                        <Card className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[540px]">
                                             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                                     {loading && (
                                                         <>
