@@ -39,7 +39,8 @@ const RecipientInput: React.FC<{
     setRecipients: (recipients: string[]) => void;
     onFocus?: () => void;
     onBlur?: () => void;
-}> = ({ label, recipients, setRecipients, onFocus, onBlur }) => {
+    autoComplete?: string;
+}> = ({ label, recipients, setRecipients, onFocus, onBlur, autoComplete }) => {
     const [inputValue, setInputValue] = useState('');
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -81,6 +82,7 @@ const RecipientInput: React.FC<{
                         // Small delay to allow clicking Quick Select buttons
                         setTimeout(() => onBlur?.(), 200);
                     }}
+                    autoComplete={autoComplete}
                     className="flex-1 bg-transparent focus:outline-none min-w-[100px] text-sm py-1"
                 />
             </div>

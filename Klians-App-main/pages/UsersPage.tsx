@@ -65,7 +65,7 @@ export const UsersPage: React.FC = () => {
         
         setAllUsers(otherUsers);
         setFilteredUsers(otherUsers);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching users:', error);
         setError('Failed to load users. Please try again.');
       } finally {
@@ -182,9 +182,9 @@ export const UsersPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3 p-6">
-            {filteredUsers.map((u) => (
+            {filteredUsers.map((u, index) => (
               <div
-                key={u._id}
+                key={u._id || u.id || `user-${index}`}
                 className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-700 transition-all duration-200"
               >
                 {/* Left: Avatar and User Info */}
