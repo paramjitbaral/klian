@@ -102,37 +102,40 @@ export const UsersPage: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900">
       {/* Header Section */}
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-6">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Users</h1>
-        <p className="text-slate-600 dark:text-slate-400 mb-5">Connect and message with other users</p>
-        
-        {/* Search Bar */}
-        <div className="relative max-w-2xl">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search by name, email, or username..."
-            className="w-full px-4 py-3 pl-11 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-          />
-          <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-7xl mx-auto">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users</h1>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Connect and message with other users</p>
+          </div>
+          
+          <div className="relative w-full sm:w-80">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search users..."
+              className="w-full px-3 py-2 pl-9 rounded-xl bg-slate-100 dark:bg-slate-700 border-transparent focus:bg-white dark:focus:bg-slate-600 focus:ring-2 focus:ring-red-500 transition-all text-xs text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
             />
-          </svg>
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
         </div>
       </div>
 
       {/* Users List */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 overflow-y-auto scrollbar-hide pt-6">
         {loading ? (
           <div className="space-y-3 p-6 animate-pulse">
             {[...Array(6)].map((_, index) => (
@@ -181,54 +184,48 @@ export const UsersPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-3 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mx-6 mb-10">
             {filteredUsers.map((u, index) => (
               <div
                 key={u._id || u.id || `user-${index}`}
-                className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-700 transition-all duration-200"
+                className={`flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
+                  index !== filteredUsers.length - 1 ? 'border-b border-slate-100 dark:border-slate-700' : ''
+                }`}
               >
-                {/* Left: Avatar and User Info */}
+                {/* User Info */}
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <Avatar
-                    src={u.profilePicture}
-                    alt={u.name}
-                    size="lg"
-                    className="flex-shrink-0"
-                  />
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold text-slate-900 dark:text-white truncate">
-                      {u.name}
-                    </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
-                      @{u.username || u.email.split('@')[0]}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500 capitalize">
-                      {u.role || 'Student'}
-                    </p>
+                  <Avatar src={u.profilePicture} alt={u.name} size="md" />
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white truncate tracking-tight">{u.name}</span>
+                      <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded uppercase tracking-wider">
+                        {u.role || 'Student'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate lowercase font-medium">
+                      {u.email}
+                    </span>
                   </div>
                 </div>
 
-                {/* Right: Message Button */}
-                <button
-                  onClick={() => handleMessageClick(u)}
-                  className="flex-shrink-0 ml-4 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const uid = u._id || u.id;
+                      navigate(`/profile/${uid}`);
+                    }}
+                    className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                  Message
-                </button>
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => handleMessageClick(u)}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-all shadow-sm shadow-red-200 dark:shadow-none active:scale-95"
+                  >
+                    Message
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -245,7 +245,7 @@ export const ProfilePage: React.FC = () => {
                     {userToDisplay.coverPhoto ? (
                         <img src={userToDisplay.coverPhoto} alt="banner" className={`w-full h-full object-cover ${bannerUploading ? 'opacity-40 animate-pulse' : ''}`} />
                     ) : (
-                        <div className="w-full h-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900" />
+                        <div className="w-full h-full bg-[#0f172a]" />
                     )}
                     
                     {isOwnProfile && (

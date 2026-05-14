@@ -282,12 +282,14 @@ export const SettingsPage: React.FC = () => {
                     >
                         {/* Sleek Minimalist Profile Header */}
                         <div className="mb-16 px-8">
-                            <div className="relative h-32 w-full rounded-3xl bg-slate-100 dark:bg-slate-800 overflow-hidden group">
-                                <img 
-                                    src={coverPhotoPreview || user.coverPhoto || '/default-cover.png'} 
-                                    alt="" 
-                                    className="w-full h-full object-cover"
-                                />
+                            <div className="relative h-32 w-full rounded-3xl bg-[#0f172a] overflow-hidden group">
+                                {(coverPhotoPreview || user.coverPhoto) && (
+                                    <img 
+                                        src={coverPhotoPreview || user.coverPhoto} 
+                                        alt="" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                )}
                                 <label className="absolute bottom-3 right-4 bg-slate-900/80 dark:bg-white/80 text-white dark:text-slate-900 px-3 py-1.5 rounded-xl cursor-pointer text-[9px] font-black uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 z-20 border border-white/10">
                                     {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3 w-3" })}
                                     <span>Change Banner</span>
