@@ -48,15 +48,15 @@ const validateAndConvertImage = (file: File): Promise<{ base64: string; error?: 
 
 const SettingsPanel: React.FC<{ title: string, description: string, children: React.ReactNode, footer?: React.ReactNode }> = ({ title, description, children, footer }) => (
     <div className="flex flex-col h-full max-w-5xl">
-        <div className="mb-10">
-            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{title}</h2>
-            <p className="text-base text-slate-500 mt-2">{description}</p>
+        <div className="mb-6 sm:mb-10 hidden sm:block">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{title}</h2>
+            <p className="text-sm sm:text-base text-slate-500 mt-2">{description}</p>
         </div>
-        <div className="flex-grow space-y-10 pb-20">
+        <div className="flex-grow space-y-8 sm:space-y-10 pb-24 sm:pb-20">
             {children}
         </div>
         {footer && (
-            <div className="fixed bottom-0 right-0 left-[280px] p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex justify-end z-10">
+            <div className="fixed bottom-0 right-0 left-0 md:left-[280px] p-4 sm:p-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex justify-end z-[40]">
                 <div className="max-w-4xl w-full mx-auto flex justify-end items-center gap-4">
                     {footer}
                 </div>
@@ -217,11 +217,11 @@ export const SettingsPage: React.FC = () => {
                 newPassword,
                 otp: otpValue
             });
-            
+
             setPasswordSaveMessage('Password updated successfully!');
             setShowOtpModal(false);
             setOtpValue('');
-            
+
             // Clear fields
             setCurrentPassword('');
             setNewPassword('');
@@ -264,50 +264,47 @@ export const SettingsPage: React.FC = () => {
                         title="Edit Profile"
                         description="Update your name, email, and other personal details."
                         footer={
-                            <div className="flex-1 flex flex-col gap-2">
+                            <div className="w-full flex flex-col gap-3">
                                 {profileSaveMessage && (
-                                    <p className={`text-sm ${profileSaveMessage.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
+                                    <p className={`text-xs font-bold text-center sm:text-left ${profileSaveMessage.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
                                         {profileSaveMessage}
                                     </p>
                                 )}
                                 <Button
                                     onClick={handleSaveProfile}
                                     disabled={isSavingProfile}
-                                    className="px-8 h-11 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20"
+                                    className="w-full sm:w-auto sm:px-8 h-12 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20 rounded-xl"
                                 >
                                     {isSavingProfile ? 'Saving...' : 'Save Changes'}
                                 </Button>
                             </div>
                         }
                     >
-                        {/* Sleek Minimalist Profile Header */}
-                        <div className="mb-16 px-8">
-                            <div className="relative h-32 w-full rounded-3xl bg-[#0f172a] overflow-hidden group">
+                        {/* Hero Profile Header with Banner */}
+                        <div className="relative mb-12">
+                            {/* Top Banner */}
+                            <div className="relative h-28 sm:h-36 w-full bg-slate-900 overflow-hidden sm:rounded-t-2xl">
                                 {(coverPhotoPreview || user.coverPhoto) && (
-                                    <img 
-                                        src={coverPhotoPreview || user.coverPhoto} 
-                                        alt="" 
-                                        className="w-full h-full object-cover"
+                                    <img
+                                        src={coverPhotoPreview || user.coverPhoto}
+                                        alt=""
+                                        className="w-full h-full object-cover opacity-80"
                                     />
                                 )}
-                                <label className="absolute bottom-3 right-4 bg-slate-900/80 dark:bg-white/80 text-white dark:text-slate-900 px-3 py-1.5 rounded-xl cursor-pointer text-[9px] font-black uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 z-20 border border-white/10">
+                                <label className="absolute top-3 right-3 bg-black/20 backdrop-blur-md text-white px-2.5 py-1.5 rounded-lg cursor-pointer text-[9px] font-bold uppercase tracking-widest hover:bg-black/40 transition-all flex items-center gap-2 z-20 border border-white/10">
                                     {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3 w-3" })}
-                                    <span>Change Banner</span>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        onChange={handleCoverPhotoChange} 
-                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
-                                    />
+                                    <span>Edit Banner</span>
+                                    <input type="file" accept="image/*" onChange={handleCoverPhotoChange} className="hidden" />
                                 </label>
                             </div>
 
-                            <div className="relative px-8 -mt-16 flex items-end gap-5">
+                            {/* Overlapping Profile Photo */}
+                            <div className="flex flex-col items-center -mt-12 sm:-mt-16">
                                 <div className="relative group">
-                                    <div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-900 shadow-xl overflow-hidden bg-white ring-1 ring-slate-100 dark:ring-slate-800">
-                                        <img 
-                                            src={profilePicturePreview || user.avatar || '/default-avatar.png'} 
-                                            alt={user.name} 
+                                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-[4px] border-white dark:border-slate-900 shadow-lg overflow-hidden bg-white ring-1 ring-slate-100 dark:ring-slate-800">
+                                        <img
+                                            src={profilePicturePreview || user.avatar || '/default-avatar.png'}
+                                            alt={user.name}
                                             className="w-full h-full object-cover"
                                         />
                                         <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
@@ -315,92 +312,84 @@ export const SettingsPage: React.FC = () => {
                                             <input type="file" accept="image/*" onChange={handleProfilePictureChange} className="hidden" />
                                         </label>
                                     </div>
+                                    <button className="absolute bottom-1 right-1 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-md border border-slate-100 dark:border-slate-700">
+                                        {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3.5 w-3.5 text-slate-500" })}
+                                    </button>
                                 </div>
-                                <div className="mb-2">
-                                    <h1 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{profileName || user.name}</h1>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Profile Editor</p>
+                                <div className="text-center mt-3">
+                                    <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{profileName || user.name}</h1>
+                                    <button className="text-blue-500 text-[11px] font-bold mt-1 hover:text-blue-600 transition-colors">Change Profile Photo</button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Minimalist Settings List */}
-                        <div className="max-w-3xl mx-auto px-8 pb-32 space-y-12">
-                            {/* Identity Group */}
-                            <div className="space-y-6">
-                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-1">Personal Identity</h3>
-                                <div className="space-y-6">
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-12 py-2 border-b border-slate-100 dark:border-slate-800">
-                                        <label className="text-sm font-bold text-slate-500 w-32">Full Name</label>
-                                        <Input 
-                                            value={profileName}
-                                            onChange={(e) => setProfileName(e.target.value)}
-                                            className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-slate-900 dark:text-white font-medium"
-                                            placeholder="Enter your name"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col md:flex-row gap-4 md:gap-12 py-2 border-b border-slate-100 dark:border-slate-800">
-                                        <label className="text-sm font-bold text-slate-500 w-32 pt-1">Short Bio</label>
-                                        <textarea
-                                            value={profileBio}
-                                            onChange={(e) => setProfileBio(e.target.value)}
-                                            rows={2}
-                                            maxLength={500}
-                                            placeholder="Tell us about yourself..."
-                                            className="flex-1 bg-transparent border-none p-0 focus:ring-0 text-slate-900 dark:text-white font-medium resize-none text-sm leading-relaxed"
-                                        />
-                                    </div>
+                        {/* Professional List-style Settings */}
+                        <div className="max-w-3xl mx-auto px-4 sm:px-0 pb-32">
+                            {/* General Section */}
+                            <div className="bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                                    <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">Name</label>
+                                    <Input
+                                        value={profileName}
+                                        onChange={(e) => setProfileName(e.target.value)}
+                                        className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-[13px] text-slate-600 dark:text-slate-400 font-medium"
+                                        placeholder="Name"
+                                    />
+                                </div>
+                                <div className="flex items-center px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                                    <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">Bio</label>
+                                    <textarea
+                                        value={profileBio}
+                                        onChange={(e) => setProfileBio(e.target.value)}
+                                        rows={1}
+                                        placeholder="Bio"
+                                        className="flex-1 bg-transparent border-none p-0 focus:ring-0 text-[13px] text-slate-600 dark:text-slate-400 font-medium resize-none leading-normal min-h-[20px]"
+                                    />
+                                </div>
+                                <div className="flex items-center px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                                    <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">LinkedIn</label>
+                                    <Input
+                                        value={profileLinkedin}
+                                        onChange={(e) => setProfileLinkedin(e.target.value)}
+                                        placeholder="LinkedIn URL"
+                                        className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-[13px] text-slate-600 dark:text-slate-400 font-medium"
+                                    />
+                                </div>
+                                <div className="flex items-center px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                                    <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">GitHub</label>
+                                    <Input
+                                        value={profileGithub}
+                                        onChange={(e) => setProfileGithub(e.target.value)}
+                                        placeholder="GitHub URL"
+                                        className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-[13px] text-slate-600 dark:text-slate-400 font-medium"
+                                    />
+                                </div>
+                                <div className="flex items-center px-4 py-3.5">
+                                    <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">Website</label>
+                                    <Input
+                                        value={profilePortfolio}
+                                        onChange={(e) => setProfilePortfolio(e.target.value)}
+                                        placeholder="Website URL"
+                                        className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-[13px] text-slate-600 dark:text-slate-400 font-medium"
+                                    />
                                 </div>
                             </div>
 
-                            {/* Social Presence Group */}
-                            <div className="space-y-6">
-                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-1">Professional Presence</h3>
-                                <div className="space-y-6">
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-12 py-2 border-b border-slate-100 dark:border-slate-800">
-                                        <label className="text-sm font-bold text-slate-500 w-32">LinkedIn</label>
-                                        <Input 
-                                            value={profileLinkedin}
-                                            onChange={(e) => setProfileLinkedin(e.target.value)}
-                                            placeholder="linkedin.com/in/username"
-                                            className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-slate-900 dark:text-white font-medium text-sm"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-12 py-2 border-b border-slate-100 dark:border-slate-800">
-                                        <label className="text-sm font-bold text-slate-500 w-32">GitHub</label>
-                                        <Input 
-                                            value={profileGithub}
-                                            onChange={(e) => setProfileGithub(e.target.value)}
-                                            placeholder="github.com/username"
-                                            className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-slate-900 dark:text-white font-medium text-sm"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-12 py-2 border-b border-slate-100 dark:border-slate-800">
-                                        <label className="text-sm font-bold text-slate-500 w-32">Website</label>
-                                        <Input 
-                                            value={profilePortfolio}
-                                            onChange={(e) => setProfilePortfolio(e.target.value)}
-                                            placeholder="yourportfolio.com"
-                                            className="flex-1 bg-transparent border-none p-0 h-auto focus:ring-0 text-slate-900 dark:text-white font-medium text-sm"
-                                        />
-                                    </div>
-                                </div>
+                            {/* Private Info Section */}
+                            <div className="mt-8 px-4 mb-2">
+                                <h3 className="text-[13px] font-bold text-slate-400 dark:text-slate-500">Private Information</h3>
                             </div>
-
-                            {/* Identity Records */}
-                            <div className="space-y-6">
-                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] px-1">Identity Records</h3>
-                                <div className="space-y-6 opacity-60">
-                                    {user.role === 'Student' && (
-                                        <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-12 py-2">
-                                            <label className="text-sm font-bold text-slate-500 w-32">Student ID</label>
-                                            <p className="flex-1 text-slate-900 dark:text-white font-black text-sm">{user.email?.split('@')[0].substring(0, 10) || 'N/A'}</p>
-                                        </div>
-                                    )}
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-12 py-2">
-                                        <label className="text-sm font-bold text-slate-500 w-32">Official Email</label>
-                                        <p className="flex-1 text-slate-900 dark:text-white font-black text-sm">{user.email}</p>
-                                    </div>
+                            <div className="bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                                    <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">Email</label>
+                                    <span className="flex-1 text-[13px] text-slate-400 font-medium">{user.email}</span>
                                 </div>
+                                {user.role === 'Student' && (
+                                    <div className="flex items-center px-4 py-3.5">
+                                        <label className="text-[13px] font-semibold text-slate-900 dark:text-white w-24 shrink-0">ID</label>
+                                        <span className="flex-1 text-[13px] text-slate-400 font-medium">{user.email?.split('@')[0].substring(0, 10)}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </SettingsPanel>
@@ -411,16 +400,16 @@ export const SettingsPage: React.FC = () => {
                         title="Password & Security"
                         description="Change your password and manage your account's security."
                         footer={
-                            <div className="flex-1 flex flex-col gap-2">
+                            <div className="w-full flex flex-col gap-3">
                                 {passwordSaveMessage && (
-                                    <p className={`text-sm ${passwordSaveMessage.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
+                                    <p className={`text-xs font-bold text-center sm:text-left ${passwordSaveMessage.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
                                         {passwordSaveMessage}
                                     </p>
                                 )}
-                                <Button 
+                                <Button
                                     onClick={handleUpdatePassword}
                                     disabled={isPasswordUpdateDisabled || isUpdatingPassword}
-                                    className="px-8 h-11 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20"
+                                    className="w-full sm:w-auto sm:px-8 h-12 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20 rounded-xl"
                                 >
                                     {isUpdatingPassword ? 'Updating...' : 'Update Password'}
                                 </Button>
@@ -468,17 +457,17 @@ export const SettingsPage: React.FC = () => {
                         title="Appearance"
                         description="Customize how the KLIAS platform looks on your device."
                     >
-                        <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-700/50 rounded-lg">
-                            <div>
-                                <h3 className="font-medium">Dark Mode</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">Toggle between light and dark themes.</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="flex-1 flex flex-col gap-0.5">
+                                <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">Dark Mode</h3>
+                                <p className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium">Switch between light and dark themes.</p>
                             </div>
-                            <ToggleSwitch
-                                checked={theme === Theme.DARK}
-                                onChange={toggleTheme}
-                                checkedIcon={<div className="text-yellow-300">{ICONS.moon}</div>}
-                                uncheckedIcon={<div className="text-red-400">{ICONS.sun}</div>}
-                            />
+                            <div className="shrink-0">
+                                <ToggleSwitch
+                                    checked={theme === Theme.DARK}
+                                    onChange={toggleTheme}
+                                />
+                            </div>
                         </div>
                     </SettingsPanel>
                 );
@@ -488,12 +477,12 @@ export const SettingsPage: React.FC = () => {
                         title="Danger Zone"
                         description="These actions are irreversible. Please proceed with caution."
                     >
-                        <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800/50">
-                            <div>
-                                <h3 className="font-medium text-red-800 dark:text-red-300">Delete Account</h3>
-                                <p className="text-sm text-red-600 dark:text-red-400">Permanently delete your account and all of your content.</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="flex-1 space-y-0.5">
+                                <h3 className="font-bold text-sm sm:text-base text-red-600 dark:text-red-400">Delete Account</h3>
+                                <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Permanently delete your account and all of your content. This action is irreversible.</p>
                             </div>
-                            <Button className="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white">Delete Account</Button>
+                            <Button className="shrink-0 whitespace-nowrap w-full sm:w-auto bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white font-bold rounded-xl h-11 px-8 text-xs sm:text-sm">Delete Account</Button>
                         </div>
                     </SettingsPanel>
                 );
@@ -507,63 +496,85 @@ export const SettingsPage: React.FC = () => {
     return (
         <>
             {/* MOBILE VIEW */}
-            <div className="md:hidden">
+            <div className="md:hidden min-h-screen bg-slate-50/50 dark:bg-slate-900/50 pt-4 pb-20">
                 {mobileView === 'menu' ? (
                     // Mobile Menu View
-                    <div>
-                        <div className="flex items-center gap-4 mb-6">
-                            <button 
-                                onClick={handleBack} 
+                    <div className="max-w-lg mx-auto">
+                        <div className="flex items-center gap-4 mb-6 px-4">
+                            <button
+                                onClick={handleBack}
                                 className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
+                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Settings</h1>
                         </div>
-                        <nav>
-                            <ul className="space-y-3">
-                                {settingsNav.map(item => (
-                                    <li key={item.id}>
-                                        <button
-                                            onClick={() => setMobileView(item.id)}
-                                            className="w-full flex items-center justify-between p-4 rounded-xl bg-white dark:bg-slate-800 shadow-sm text-left"
-                                        >
-                                            <div className="flex items-center space-x-4">
-                                                <span className="text-slate-500 dark:text-slate-400">{item.icon}</span>
-                                                <span className="font-medium text-slate-800 dark:text-slate-200">{item.label}</span>
-                                            </div>
-                                            <span className="text-slate-400 dark:text-slate-500">
-                                                {React.cloneElement(ICONS.chevronRight, { className: "h-5 w-5" })}
-                                            </span>
-                                        </button>
-                                    </li>
-                                ))}
-                                <li>
+
+                        <div className="space-y-6 px-4">
+                            {/* General Settings Group */}
+                            <div>
+                                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-3 px-2">Account & Display</h3>
+                                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                                    {settingsNav.map((item, index) => (
+                                        <React.Fragment key={item.id}>
+                                            <button
+                                                onClick={() => setMobileView(item.id)}
+                                                className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 active:bg-slate-100 dark:active:bg-slate-700 transition-all text-left group"
+                                            >
+                                                <div className="flex items-center space-x-4">
+                                                    <span className="text-slate-500 dark:text-slate-400 group-active:scale-95 transition-transform">{item.icon}</span>
+                                                    <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{item.label}</span>
+                                                </div>
+                                                <span className="text-slate-400 dark:text-slate-500">
+                                                    {React.cloneElement(ICONS.chevronRight, { className: "h-4 w-4" })}
+                                                </span>
+                                            </button>
+                                            {index < settingsNav.length - 1 && (
+                                                <div className="h-px bg-slate-100 dark:bg-slate-700/50 mx-4" />
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Session Group */}
+                            <div>
+                                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-3 px-2">Session</h3>
+                                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                                     <button
                                         onClick={logout}
-                                        className="w-full flex items-center justify-between p-4 rounded-xl bg-white dark:bg-slate-800 shadow-sm text-left"
+                                        className="w-full flex items-center justify-between p-4 hover:bg-red-50 dark:hover:bg-red-900/10 active:bg-red-100 dark:active:bg-red-900/20 transition-all text-left"
                                     >
                                         <div className="flex items-center space-x-4">
-                                            <span className="text-red-500 dark:text-red-400">{ICONS.logout}</span>
-                                            <span className="font-medium text-red-500 dark:text-red-400">Logout</span>
+                                            <span className="text-red-500 dark:text-red-400">
+                                                {React.cloneElement(ICONS.logout as React.ReactElement, { className: "h-5 w-5" })}
+                                            </span>
+                                            <span className="font-semibold text-sm text-red-500 dark:text-red-400">Logout</span>
                                         </div>
                                     </button>
-                                </li>
-                            </ul>
-                        </nav>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     // Mobile Detail View
-                    <div>
-                        <div className="flex items-center gap-4 mb-6">
-                            <button onClick={handleMobileBackToMenu} className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600">
-                                {ICONS.chevronLeft}
+                    <div className="max-w-lg mx-auto">
+                        <div className="flex items-center gap-4 mb-8 px-4">
+                            <button
+                                onClick={handleMobileBackToMenu}
+                                className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
                             </button>
-                            <h1 className="text-2xl font-bold">{selectedMobileCategory?.label}</h1>
+                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{selectedMobileCategory?.label}</h1>
                         </div>
-                        {renderContent(mobileView)}
+                        <div className="px-0">
+                            {renderContent(mobileView)}
+                        </div>
                     </div>
                 )}
             </div>

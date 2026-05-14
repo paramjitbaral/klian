@@ -203,6 +203,9 @@ export const ProfilePage: React.FC = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'posts':
+                if (userPosts.length === 0) {
+                    return <Card className="p-12 text-center text-slate-500">No posts yet</Card>;
+                }
                 return (
                     <div className="grid grid-cols-3 gap-1 sm:gap-4">
                         {userPosts.map(post => (
@@ -226,15 +229,6 @@ export const ProfilePage: React.FC = () => {
 
     return (
         <div className="w-full max-w-5xl mx-auto pt-6 px-4 pb-20 relative">
-            <button 
-              onClick={handleBack} 
-              className="absolute top-6 left-6 z-30 p-2.5 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md text-slate-600 dark:text-slate-300 shadow-lg border border-white/20 dark:border-slate-700/50 hover:scale-105 transition-all active:scale-95"
-              title="Go Back"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
 
             {imageToCrop && (
                 <ImageCropperModal 
@@ -250,7 +244,7 @@ export const ProfilePage: React.FC = () => {
 
             {/* Header / Banner */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
-                <div className="h-48 bg-slate-900 relative">
+                <div className="h-32 sm:h-48 bg-slate-900 relative">
                     <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'banner')} />
                     {userToDisplay.coverPhoto ? (
                         <img src={userToDisplay.coverPhoto} alt="banner" className={`w-full h-full object-cover ${bannerUploading ? 'opacity-40 animate-pulse' : ''}`} />
@@ -262,30 +256,30 @@ export const ProfilePage: React.FC = () => {
                         <button 
                             onClick={() => bannerInputRef.current?.click()}
                             disabled={bannerUploading}
-                            className="absolute bottom-4 right-8 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-md disabled:opacity-50 z-20"
+                            className="absolute bottom-3 right-4 sm:bottom-4 sm:right-8 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-md disabled:opacity-50 z-20"
                         >
                             {bannerUploading ? 'Uploading...' : 'Edit Banner'}
                         </button>
                     )}
                 </div>
 
-                <div className="px-8 pb-8 relative">
-                    <div className="flex justify-between items-start -mt-16 mb-4">
+                <div className="px-5 sm:px-8 pb-6 sm:pb-8 relative">
+                    <div className="flex justify-between items-end sm:items-start -mt-12 sm:-mt-16 mb-4">
                         <div className="relative">
                             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} />
-                            <div className={`w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700 ${uploading ? 'animate-pulse' : ''}`}>
+                            <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700 ${uploading ? 'animate-pulse' : ''}`}>
                                 <img src={userToDisplay.profilePicture || userToDisplay.avatar} alt="avatar" className="w-full h-full object-cover" />
                             </div>
                             {isOwnProfile && (
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="absolute bottom-2 right-2 bg-white dark:bg-slate-700 rounded-full p-2 shadow-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 border border-slate-100 dark:border-slate-600"
+                                    className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-white dark:bg-slate-700 rounded-full p-1.5 sm:p-2 shadow-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 border border-slate-100 dark:border-slate-600"
                                 >
                                     {uploading ? (
                                         <div className="w-4 h-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
                                     ) : (
-                                        <svg className="w-4 h-4 text-slate-700 dark:text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+                                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700 dark:text-slate-300" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
                                         </svg>
                                     )}
@@ -294,46 +288,46 @@ export const ProfilePage: React.FC = () => {
                         </div>
                         
                         {isOwnProfile && (
-                            <div className="mt-20">
+                            <div className="mb-1 sm:mt-20">
                                 <Link to="/settings">
-                                    <button className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 border border-slate-200 dark:border-slate-600 shadow-sm">
+                                    <button className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-200 border border-slate-200 dark:border-slate-600 shadow-sm">
                                         Edit Profile
                                     </button>
                                 </Link>
                             </div>
                         )}
                         {!isOwnProfile && (
-                             <div className="mt-20">
-                                <Button onClick={() => navigate(`/messages/${userToDisplay._id || userToDisplay.id}`)}>Message</Button>
+                             <div className="mb-1 sm:mt-20">
+                                <Button onClick={() => navigate(`/messages/${userToDisplay._id || userToDisplay.id}`)} className="!px-4 !py-2 text-xs sm:text-sm">Message</Button>
                              </div>
                         )}
                     </div>
 
-                    <div className="mt-4">
-                        <div className="flex items-center gap-3 mb-1">
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white leading-none">{userToDisplay.name}</h1>
+                    <div className="mt-2 sm:mt-4">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-none">{userToDisplay.name}</h1>
                             <Badge role={userToDisplay.role} />
                         </div>
-                        <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm mb-4">{userToDisplay.email}</p>
+                        <p className="text-slate-500 dark:text-slate-400 font-semibold text-xs sm:text-sm mb-3 sm:mb-4">{userToDisplay.email}</p>
                         <p className="text-slate-700 dark:text-slate-300 text-sm max-w-2xl leading-relaxed font-medium mb-4">{userToDisplay.bio || 'Building something amazing at KLIANS.'}</p>
                         
                         {(userToDisplay.linkedin || userToDisplay.github || userToDisplay.portfolio) && (
-                            <div className="flex flex-wrap gap-4 mt-2">
+                            <div className="flex flex-wrap gap-2 sm:gap-4 mt-2">
                                 {userToDisplay.linkedin && (
-                                    <a href={userToDisplay.linkedin.startsWith('http') ? userToDisplay.linkedin : `https://${userToDisplay.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
-                                        {React.cloneElement(ICONS.linkedin as React.ReactElement, { className: "h-3.5 w-3.5" })}
+                                    <a href={userToDisplay.linkedin.startsWith('http') ? userToDisplay.linkedin : `https://${userToDisplay.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-50 dark:bg-slate-800/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
+                                        {React.cloneElement(ICONS.linkedin as React.ReactElement, { className: "h-3 w-3 sm:h-3.5 sm:w-3.5" })}
                                         <span>LinkedIn</span>
                                     </a>
                                 )}
                                 {userToDisplay.github && (
-                                    <a href={userToDisplay.github.startsWith('http') ? userToDisplay.github : `https://${userToDisplay.github}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
-                                        {React.cloneElement(ICONS.github as React.ReactElement, { className: "h-3.5 w-3.5" })}
+                                    <a href={userToDisplay.github.startsWith('http') ? userToDisplay.github : `https://${userToDisplay.github}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-50 dark:bg-slate-800/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
+                                        {React.cloneElement(ICONS.github as React.ReactElement, { className: "h-3 w-3 sm:h-3.5 sm:w-3.5" })}
                                         <span>GitHub</span>
                                     </a>
                                 )}
                                 {userToDisplay.portfolio && (
-                                    <a href={userToDisplay.portfolio.startsWith('http') ? userToDisplay.portfolio : `https://${userToDisplay.portfolio}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                                    <a href={userToDisplay.portfolio.startsWith('http') ? userToDisplay.portfolio : `https://${userToDisplay.portfolio}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-50 dark:bg-slate-800/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
                                         <span>Website</span>
                                     </a>
                                 )}
