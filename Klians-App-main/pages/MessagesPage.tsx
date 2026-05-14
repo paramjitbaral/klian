@@ -85,19 +85,18 @@ export const MessagesPage: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-900">
-      {/* CONVERSATIONS LIST - Always visible */}
-      <aside className="flex flex-col w-full md:w-[320px] lg:w-[360px] border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Messages</h1>
-            <button
-              onClick={() => {}}
-              className="hidden md:flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors"
-              title="Collapse sidebar"
+      {/* CONVERSATIONS LIST */}
+      <aside className={`flex flex-col w-full md:w-[320px] lg:w-[360px] border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${conversationId ? 'hidden md:flex' : 'flex'}`}>
+          <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center gap-4">
+            <button 
+              onClick={() => navigate('/home')} 
+              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Messages</h1>
           </div>
 
           <div className="p-4 border-b border-slate-200 dark:border-slate-700">
@@ -186,7 +185,7 @@ export const MessagesPage: React.FC = () => {
         </aside>
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${conversationId ? 'flex' : 'hidden md:flex'}`}>
         {currentConversation ? (
           (() => {
             // Find in conversations or create a placeholder from what we know
@@ -203,10 +202,18 @@ export const MessagesPage: React.FC = () => {
               <>
                 <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-[72px]">
                   <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => navigate('/messages')} 
+                      className="md:hidden p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
                     <Avatar src={displayUser.profilePicture} alt={displayUser.name} size="md" />
-                    <div>
-                      <h3 className="font-semibold text-base text-slate-900 dark:text-white">{displayUser.name}</h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white truncate">{displayUser.name}</h3>
+                      <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400">
                         {conv ? 'Active recently' : 'Starting new chat...'}
                       </p>
                     </div>

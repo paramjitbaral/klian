@@ -21,6 +21,9 @@ export const UsersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<User[]>([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -74,22 +77,62 @@ export const UsersPage: React.FC = () => {
     };
 
     fetchUsers();
+
+    // Load recent searches
+    const saved = localStorage.getItem('recentSearches');
+    if (saved) {
+      try {
+        setRecentSearches(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse recent searches:', e);
+      }
+    }
+
+    // Handle clicks outside search for dropdown
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [currentUser]);
+
+  const handleUserView = (user: User) => {
+    const targetId = user._id || user.id;
+    const updated = [user, ...recentSearches.filter(s => (s._id || s.id) !== targetId)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem('recentSearches', JSON.stringify(updated));
+    navigate(`/profile/${targetId}`);
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     
-    if (!query.trim()) {
+    const searchVal = query.toLowerCase().trim();
+    
+    if (!searchVal) {
       setFilteredUsers(allUsers);
       return;
     }
     
-    const lowerQuery = query.toLowerCase();
-    const filtered = allUsers.filter(u =>
-      u.name.toLowerCase().includes(lowerQuery) ||
-      u.email.toLowerCase().includes(lowerQuery) ||
-      (u.username && u.username.toLowerCase().includes(lowerQuery))
-    );
+    const filtered = allUsers.filter(u => {
+      const name = (u.name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      const idStr = (u._id || u.id || '').toString().toLowerCase();
+      const emailPrefix = email.split('@')[0];
+      
+      // Match if any word in name starts with query OR any field starts with query
+      const nameWords = name.split(/\s+/);
+      const nameMatch = nameWords.some(word => word.startsWith(searchVal));
+      
+      return nameMatch || 
+             email.startsWith(searchVal) || 
+             username.startsWith(searchVal) ||
+             idStr.startsWith(searchVal) ||
+             emailPrefix.startsWith(searchVal);
+    });
     
     setFilteredUsers(filtered);
   };
@@ -104,15 +147,26 @@ export const UsersPage: React.FC = () => {
       {/* Header Section */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-7xl mx-auto">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users</h1>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Connect and message with other users</p>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => navigate(-1)} 
+              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users</h1>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Connect and message with other users</p>
+            </div>
           </div>
           
-          <div className="relative w-full sm:w-80">
+          <div className="relative w-full sm:w-80" ref={searchRef}>
             <input
               type="text"
               value={searchQuery}
+              onFocus={() => setIsSearchFocused(true)}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search users..."
               className="w-full px-3 py-2 pl-9 rounded-xl bg-slate-100 dark:bg-slate-700 border-transparent focus:bg-white dark:focus:bg-slate-600 focus:ring-2 focus:ring-red-500 transition-all text-xs text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
@@ -130,6 +184,50 @@ export const UsersPage: React.FC = () => {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
+
+            {/* Recent Searches Dropdown */}
+            {isSearchFocused && !searchQuery && recentSearches.length > 0 && (
+              <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 py-1">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 dark:border-slate-700">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent</span>
+                  <button 
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setRecentSearches([]);
+                      localStorage.removeItem('recentSearches');
+                    }}
+                    className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {recentSearches.map((u, idx) => (
+                    <div
+                      key={`recent-${u._id || u.id || idx}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleUserView(u);
+                        setIsSearchFocused(false);
+                      }}
+                      className="flex items-center gap-3 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer transition-colors group"
+                    >
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-700">
+                        <img 
+                          src={u.profilePicture || u.avatar || '/default-avatar.png'} 
+                          alt={u.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate group-hover:text-red-600 transition-colors tracking-tight">{u.name}</p>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate font-medium">@{u.username || u.email?.split('@')[0]}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -174,13 +272,9 @@ export const UsersPage: React.FC = () => {
             </button>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-4xl mb-3">👥</div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
-              {searchQuery ? 'No users found' : 'No users available'}
-            </h3>
-            <p className="text-slate-500 dark:text-slate-400">
-              {searchQuery ? 'Try adjusting your search' : 'Check back later'}
+          <div className="flex flex-col items-center justify-center py-20 px-6">
+            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium tracking-tight">
+              {searchQuery ? `No users found matching "${searchQuery}"` : 'No users available in the directory'}
             </p>
           </div>
         ) : (
@@ -188,40 +282,39 @@ export const UsersPage: React.FC = () => {
             {filteredUsers.map((u, index) => (
               <div
                 key={u._id || u.id || `user-${index}`}
-                className={`flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
+                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
                   index !== filteredUsers.length - 1 ? 'border-b border-slate-100 dark:border-slate-700' : ''
                 }`}
               >
                 {/* User Info */}
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <Avatar src={u.profilePicture} alt={u.name} size="md" />
+                  <Avatar src={u.profilePicture || u.avatar} alt={u.name || 'User'} size="md" />
                   <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white truncate tracking-tight">{u.name}</span>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                        {u.name || 'Anonymous User'}
+                      </span>
                       <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded uppercase tracking-wider">
-                        {u.role || 'Student'}
+                        {u.role || 'User'}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate lowercase font-medium">
-                      {u.email}
+                      {u.email || 'no-email@kluniversity.in'}
                     </span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:mt-0">
                   <button
-                    onClick={() => {
-                      const uid = u._id || u.id;
-                      navigate(`/profile/${uid}`);
-                    }}
-                    className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                    onClick={() => handleUserView(u)}
+                    className="flex-1 sm:flex-none text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 px-3 py-2 sm:py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border border-slate-200 dark:border-slate-700 sm:border-transparent"
                   >
                     View Profile
                   </button>
                   <button
                     onClick={() => handleMessageClick(u)}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-all shadow-sm shadow-red-200 dark:shadow-none active:scale-95"
+                    className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 sm:py-1.5 rounded-lg transition-all shadow-sm shadow-red-200 dark:shadow-none active:scale-95"
                   >
                     Message
                   </button>
@@ -230,7 +323,7 @@ export const UsersPage: React.FC = () => {
             ))}
           </div>
         )}
+        </div>
       </div>
-    </div>
-  );
+    );
 };

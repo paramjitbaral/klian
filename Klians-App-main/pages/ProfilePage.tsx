@@ -225,7 +225,17 @@ export const ProfilePage: React.FC = () => {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto pt-6 px-4 pb-20">
+        <div className="w-full max-w-5xl mx-auto pt-6 px-4 pb-20 relative">
+            <button 
+              onClick={handleBack} 
+              className="absolute top-6 left-6 z-30 p-2.5 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md text-slate-600 dark:text-slate-300 shadow-lg border border-white/20 dark:border-slate-700/50 hover:scale-105 transition-all active:scale-95"
+              title="Go Back"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
             {imageToCrop && (
                 <ImageCropperModal 
                     image={imageToCrop} 

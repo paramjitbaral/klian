@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { User } from '../types';
 import { Avatar } from './ui/Avatar';
 import { Card } from './ui/Card';
-import usersAPI from '../api/users';
 
 interface SearchResultsDropdownProps {
   searchTerm: string;
@@ -31,7 +29,8 @@ export const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({ se
 
   useEffect(() => {
     const searchUsers = async () => {
-      if (searchTerm.trim().length >= 2) {
+      const q = searchTerm.trim().toLowerCase();
+      if (q.length >= 1) {
         setIsLoading(true);
         
         try {
@@ -44,8 +43,8 @@ export const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({ se
             return;
           }
 
-          // Fetch all users from API
-          const response = await fetch('http://192.168.32.2:5000/api/users', {
+          // Use localhost for the API call
+          const response = await fetch('http://localhost:5000/api/users', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -56,12 +55,23 @@ export const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({ se
           if (response.ok) {
             const allUsers = await response.json();
             
-            // Filter users based on search term
-            const filteredUsers = allUsers.filter((user: any) => 
-              user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-              user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase()))
-            );
+            // Strict prefix matching for names, emails, and student IDs
+            const filteredUsers = Array.isArray(allUsers) ? allUsers.filter((u: any) => {
+              const name = (u.name || '').toLowerCase();
+              const email = (u.email || '').toLowerCase();
+              const emailPrefix = email.split('@')[0];
+              const username = (u.username || '').toLowerCase();
+              const idStr = (u.id || u._id || '').toString().toLowerCase();
+
+              const nameWords = name.split(/\s+/);
+              const nameMatch = nameWords.some(word => word.startsWith(q));
+
+              return nameMatch || 
+                     email.startsWith(q) || 
+                     emailPrefix.startsWith(q) ||
+                     username.startsWith(q) ||
+                     idStr.startsWith(q);
+            }) : [];
             
             setSearchResults(filteredUsers);
           } else {
@@ -80,91 +90,43 @@ export const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({ se
 
     const debounceTimer = setTimeout(() => {
       searchUsers();
-    }, 300);
+    }, 150);
 
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
-  const suggestedTopics = ['#KLIASFest2024', '#NewResearch'];
-
   const handleUserClick = (user: User) => {
     // Save to recent searches
-    const updatedRecentSearches = [user, ...recentSearches.filter(s => s._id !== user._id)].slice(0, 5);
+    const targetId = user.id || (user as any)._id;
+    const updatedRecentSearches = [user, ...recentSearches.filter(s => (s.id || (s as any)._id) !== targetId)].slice(0, 5);
     setRecentSearches(updatedRecentSearches);
     localStorage.setItem('recentSearches', JSON.stringify(updatedRecentSearches));
     onClose();
   };
 
   const renderContent = () => {
-    if (searchTerm.trim().length < 2) {
-      return (
-        <div className="space-y-4">
-          {recentSearches.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-sm px-4 mb-2 text-slate-500 dark:text-slate-400">Recent Searches</h3>
-              <div className="space-y-1">
-                {recentSearches.map(user => (
-                  <Link 
-                    key={user._id} 
-                    to={`/profile/${user._id}`} 
-                    onClick={() => handleUserClick(user)} 
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    <Avatar 
-                      src={user.profilePicture || '/default-avatar.png'} 
-                      alt={user.name} 
-                      size="sm" 
-                    />
-                    <div>
-                      <p className="font-semibold text-sm">{user.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">@{user.email?.split('@')[0]}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-          <div>
-            <h3 className="font-semibold text-sm px-4 mb-2 text-slate-500 dark:text-slate-400">Suggested Topics</h3>
-            <div className="space-y-1">
-              {suggestedTopics.map(topic => (
-                <a key={topic} href="#" onClick={onClose} className="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                  <p className="font-bold text-red-600">{topic}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Recent topic</p>
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (isLoading) {
-      return (
-        <div className="text-center p-8">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Searching...</p>
-        </div>
-      );
-    }
-
+    const q = searchTerm.trim().toLowerCase();
+    
+    // If we have results, show them FIRST
     if (searchResults.length > 0) {
       return (
         <div className="space-y-1">
-          {searchResults.map(user => (
+          <h3 className="font-semibold text-[10px] px-4 py-1 mb-1 text-red-600 uppercase tracking-wider bg-red-50 dark:bg-red-900/10">Search Results</h3>
+          {searchResults.map((user, idx) => (
             <Link 
-              key={user._id} 
-              to={`/profile/${user._id}`} 
+              key={user.id || (user as any)._id || `result-${idx}`} 
+              to={`/profile/${user.id || (user as any)._id}`} 
               onClick={() => handleUserClick(user)} 
-              className="flex items-center gap-3 px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
             >
               <Avatar 
-                src={user.profilePicture || '/default-avatar.png'} 
+                src={user.avatar || (user as any).profilePicture || '/default-avatar.png'} 
                 alt={user.name} 
                 size="sm"
               />
-              <div>
-                <p className="font-semibold text-sm">{user.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">@{user.email?.split('@')[0]}</p>
+              <div className="min-w-0">
+                <p className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-red-600 transition-colors">{user.name}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">@{user.username || user.email?.split('@')[0] || 'user'}</p>
               </div>
             </Link>
           ))}
@@ -172,15 +134,71 @@ export const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({ se
       );
     }
 
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 gap-3">
+          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">Searching directory...</p>
+        </div>
+      );
+    }
+
+    if (q.length > 0 && !isLoading) {
+      return (
+        <div className="text-center p-8">
+          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">No results found for "{searchTerm}"</p>
+        </div>
+      );
+    }
+
+    // Default: Show Recent Searches if search term is empty
+    if (recentSearches.length > 0) {
+      return (
+        <div>
+          <h3 className="font-semibold text-[10px] px-4 py-1 mb-1 text-slate-500 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50">Recent</h3>
+          <div className="space-y-1">
+            {recentSearches.map((user, idx) => (
+              <Link 
+                key={user.id || (user as any)._id || `recent-${idx}`} 
+                to={`/profile/${user.id || (user as any)._id}`} 
+                onClick={() => handleUserClick(user)} 
+                className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+              >
+                <Avatar 
+                  src={user.avatar || (user as any).profilePicture || '/default-avatar.png'} 
+                  alt={user.name} 
+                  size="sm" 
+                />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{user.name}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">@{user.username || user.email?.split('@')[0] || 'user'}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="text-center p-8 text-sm text-slate-500 dark:text-slate-400">
-        <p>No results found for "{searchTerm}"</p>
+      <div className="text-center p-8">
+        <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">Start typing to search users...</p>
       </div>
     );
   };
 
+  const q = searchTerm.trim().toLowerCase();
+  const hasRecent = recentSearches.length > 0;
+
+  // Show dropdown if:
+  // 1. We are typing and have results/loading
+  // 2. We are not typing but have recent searches to show
+  const shouldShow = (q && (isLoading || searchResults.length > 0)) || (!q && hasRecent);
+
+  if (!shouldShow) return null;
+
   return (
-    <Card className="absolute top-full mt-2 w-full max-h-96 overflow-y-auto py-2 z-50">
+    <Card className="absolute top-full mt-2 w-full max-h-[400px] overflow-y-auto py-1 z-50 shadow-2xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
       {renderContent()}
     </Card>
   );

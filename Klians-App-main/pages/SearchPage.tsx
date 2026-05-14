@@ -44,11 +44,13 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     const searchUsers = async () => {
-      if (searchTerm.trim().length >= 2) {
+      if (searchTerm.trim().length >= 1) {
         setIsLoading(true);
         try {
-          const response = await usersAPI.searchUsers(searchTerm);
-          setSearchResults(response.data);
+          const response = await usersAPI.searchUsers(searchTerm.trim());
+          // Handle both axios response and raw data
+          const data = response.data || response;
+          setSearchResults(Array.isArray(data) ? data : []);
         } catch (error) {
           console.error('Error searching users:', error);
           setSearchResults([]);
@@ -62,7 +64,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
 
     const debounceTimer = setTimeout(() => {
       searchUsers();
-    }, 300);
+    }, 100);
 
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
@@ -71,7 +73,8 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
 
   const handleUserClick = (user: User) => {
     // Save to recent searches
-    const updatedRecentSearches = [user, ...recentSearches.filter(s => s._id !== user.id)].slice(0, 5);
+    const targetId = user.id || (user as any)._id;
+    const updatedRecentSearches = [user, ...recentSearches.filter(s => (s.id || (s as any)._id) !== targetId)].slice(0, 5);
     setRecentSearches(updatedRecentSearches);
     localStorage.setItem('recentSearches', JSON.stringify(updatedRecentSearches));
     onClose();
@@ -86,29 +89,29 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
   };
 
   const renderContent = () => {
-    if (searchTerm.trim().length < 2) {
+    if (searchTerm.trim().length < 1) {
       return (
         <div className="space-y-6">
           {recentSearches.length > 0 && (
             <div>
               <h3 className="font-bold text-lg mb-3">Recent Searches</h3>
               <div className="space-y-3">
-                {recentSearches.map(user => (
-                  <div key={user._id} className="flex items-center justify-between">
+                {recentSearches.map(u => (
+                  <div key={u.id || (u as any)._id} className="flex items-center justify-between">
                     <Link 
-                      to={`/profile/${user._id}`} 
-                      onClick={() => handleUserClick(user)}
+                      to={`/profile/${u.id || (u as any)._id}`} 
+                      onClick={() => handleUserClick(u)}
                       className="flex items-center gap-3 flex-1"
                     >
-                      <Avatar src={user.profilePicture || '/default-avatar.png'} alt={user.name} />
+                      <Avatar src={u.avatar || (u as any).profilePicture || '/default-avatar.png'} alt={u.name} />
                       <div>
-                        <p className="font-semibold">{user.name}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">@{user.email?.split('@')[0]}</p>
+                        <p className="font-semibold">{u.name || 'User'}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">@{u.username || u.email?.split('@')[0] || 'user'}</p>
                       </div>
                     </Link>
                     <button 
                       className="text-2xl text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
-                      onClick={(e) => handleRemoveRecentSearch(user._id, e)}
+                      onClick={(e) => handleRemoveRecentSearch(u.id || (u as any)._id, e)}
                     >
                       &times;
                     </button>
@@ -117,17 +120,6 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
           )}
-          <div>
-            <h3 className="font-bold text-lg mb-3">Suggested Topics</h3>
-            <div className="space-y-3">
-              {suggestedTopics.map(topic => (
-                <div key={topic}>
-                  <p className="font-bold text-red-600 hover:underline cursor-pointer">{topic}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Recent topic</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       );
     }
@@ -143,18 +135,18 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
     if (searchResults.length > 0) {
       return (
         <div className="space-y-1">
-          {searchResults.map(user => (
+          {searchResults.map((user, idx) => (
             <Link 
-              key={user._id} 
-              to={`/profile/${user._id}`} 
+              key={user.id || user._id || `search-${idx}`} 
+              to={`/profile/${user.id || user._id}`} 
               onClick={() => handleUserClick(user)} 
               className="block p-2 -mx-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Avatar src={user.profilePicture || '/default-avatar.png'} alt={user.name} />
+                <Avatar src={user.profilePicture || user.avatar || '/default-avatar.png'} alt={user.name || 'User'} />
                 <div>
-                  <p className="font-semibold">{user.name}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">@{user.email?.split('@')[0]}</p>
+                  <p className="font-semibold">{user.name || 'User'}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username || user.email?.split('@')[0] || 'user'}</p>
                 </div>
               </div>
             </Link>

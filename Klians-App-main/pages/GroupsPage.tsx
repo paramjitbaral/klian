@@ -417,8 +417,13 @@ const ChatWindow: React.FC<{
         <>
         <div className="flex-1 flex flex-col bg-white dark:bg-slate-800">
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center space-x-3">
-                <button onClick={() => navigate('/messages', { state: { defaultTab: 'groups' } })} className="md:hidden text-slate-500 dark:text-slate-400">
-                    {ICONS.chevronLeft}
+                <button 
+                    onClick={() => navigate('/groups')} 
+                    className="md:hidden p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
                 </button>
                 <Avatar src={group.avatar} alt={group.name} />
                 <div className="flex-1 min-w-0">
@@ -616,13 +621,18 @@ export const GroupsPage: React.FC = () => {
     return (
         <>
             <div className="h-full flex text-sm">
-                <aside className="w-full md:w-[320px] lg:w-[360px] flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hidden md:flex">
+                <aside className={`w-full md:w-[320px] lg:w-[360px] flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${groupId ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                        <div className="md:hidden flex items-center gap-4">
-                            <button onClick={() => navigate('/home')} className="p-2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600">
-                                {ICONS.chevronLeft}
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => navigate('/home')} 
+                                className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
                             </button>
-                            <h1 className="text-2xl font-bold">Groups</h1>
+                            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Groups</h1>
                         </div>
                         <div className="hidden md:block">
                              <h1 className="text-3xl font-bold">Groups</h1>

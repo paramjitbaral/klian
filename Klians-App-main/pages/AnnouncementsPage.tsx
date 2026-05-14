@@ -121,7 +121,17 @@ export const AnnouncementsPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Announcements</h1>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => window.history.state?.idx > 0 ? window.history.back() : window.location.href = '/home'} 
+              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Announcements</h1>
+          </div>
           {isTeacherOrAdmin && (
             <button
               onClick={() => setIsCreateModalOpen(true)}

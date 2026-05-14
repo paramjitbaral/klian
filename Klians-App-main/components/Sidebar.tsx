@@ -81,6 +81,7 @@ export const Sidebar: React.FC = () => {
             <li key={link.to}>
               <NavLink 
                 to={link.to} 
+                end={link.to === '/profile'}
                 className={({ isActive }) => 
                   `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 font-medium ${isMessagesPage ? 'justify-center' : ''} ${
                     isActive 

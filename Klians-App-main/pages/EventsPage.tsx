@@ -47,58 +47,60 @@ const Calendar: React.FC<{
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6 px-2">
-        <button 
-          onClick={() => changeMonth(-1)} 
-          className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-        >
-          {ICONS.chevronLeft}
-        </button>
-        <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-          {monthName} {currentYear}
+    <div className="select-none">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-bold text-lg text-slate-900 dark:text-white tracking-tight">
+          {monthName} <span className="text-slate-400 font-medium">{currentYear}</span>
         </h3>
-        <button 
-          onClick={() => changeMonth(1)} 
-          className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-        >
-          {ICONS.chevronRight}
-        </button>
+        <div className="flex gap-1">
+          <button 
+            onClick={() => changeMonth(-1)} 
+            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            {ICONS.chevronLeft}
+          </button>
+          <button 
+            onClick={() => changeMonth(1)} 
+            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            {ICONS.chevronRight}
+          </button>
+        </div>
       </div>
       
-      <div className="grid grid-cols-7 gap-2 text-center">
+      <div className="grid grid-cols-7 gap-1 text-center">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-          <div key={`${day}-${idx}`} className="font-semibold text-slate-500 dark:text-slate-400 text-xs py-2">
+          <div key={`${day}-${idx}`} className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest py-2">
             {day}
           </div>
         ))}
-        {emptyDays.map(d => <div key={`empty-${d}`} />)}
+        {emptyDays.map(d => <div key={`empty-${d}`} className="h-10 w-10 sm:h-9 sm:w-9" />)}
         {days.map(day => {
           const date = new Date(currentYear, currentMonth, day);
           const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
           const isToday = isCurrentMonthInView && day === today.getDate();
           const hasEvent = eventDays.has(day);
-          const hasReminder = reminderDays.has(day);
-
-          const buttonClasses = `
-            h-9 w-9 rounded-lg flex items-center justify-center relative text-sm
-            transition-all duration-200 
-            ${isToday && !isSelected ? 'text-red-600 dark:text-red-400 font-bold ring-2 ring-red-500' : 'text-slate-700 dark:text-slate-300'}
-            ${isSelected ? 'bg-red-500 text-white font-bold shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}
-          `;
+          const isReminder = reminderDays.has(day);
+          const dateStr = date.toISOString().split('T')[0];
 
           return (
             <div key={day} className="flex justify-center items-center">
               <button
                 onClick={() => onDateChange(date)}
-                className={buttonClasses}
+                className={`
+                  h-10 w-10 sm:h-9 sm:w-9 rounded-xl flex flex-col items-center justify-center relative text-xs
+                  transition-all duration-200 
+                  ${isSelected 
+                    ? 'bg-red-600 text-white font-bold shadow-lg shadow-red-200 dark:shadow-none scale-105' 
+                    : isToday 
+                      ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold' 
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }
+                `}
               >
                 <span>{day}</span>
-                {(hasEvent || hasReminder) && (
-                  <div className="absolute bottom-0.5 flex items-center justify-center w-full space-x-0.5">
-                    {hasEvent && !hasReminder && <span key="event" className="h-1 w-1 bg-red-500 rounded-full"></span>}
-                    {hasReminder && <span key="reminder" className="h-1 w-1 bg-amber-500 rounded-full"></span>}
-                  </div>
+                {hasEvent && !isSelected && (
+                  <span className="absolute bottom-1.5 h-1 w-1 bg-red-500 rounded-full animate-pulse"></span>
                 )}
               </button>
             </div>
@@ -262,29 +264,39 @@ export const EventsPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-slate-50 dark:bg-slate-900 flex flex-col lg:overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 lg:overflow-hidden overflow-y-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-full">
-          {/* Left Column - Calendar (Static/Sticky) */}
-          <div className="lg:col-span-1 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={handleBack} 
-                  className="md:hidden p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm"
-                >
-                  {ICONS.chevronLeft}
-                </button>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Events</h1>
-              </div>
-              {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
-                <Button onClick={() => setIsModalOpen(true)} className="text-sm md:text-base">
-                  Create Event
-                </Button>
-              )}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col overflow-y-auto sm:overflow-hidden lg:h-screen">
+      {/* Header Section */}
+      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-4 sm:py-5 z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button 
+              onClick={handleBack} 
+              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events Dashboard</h1>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Coordinate and discover upcoming university events</p>
             </div>
-            
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 mb-4">
+          </div>
+          
+          {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
+            <Button onClick={() => setIsModalOpen(true)} className="rounded-xl shadow-lg shadow-red-100 dark:shadow-none whitespace-nowrap !px-3 sm:!px-4 !py-2 text-xs sm:text-sm">
+              Create Event
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto sm:overflow-hidden scrollbar-hide">
+        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-0 lg:divide-x divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-800 lg:bg-transparent lg:dark:bg-transparent">
+          
+          {/* Left Column - Sidebar/Calendar */}
+          <div className="lg:col-span-4 p-4 sm:p-6 bg-white dark:bg-slate-800 lg:bg-transparent flex flex-col gap-6 lg:overflow-y-auto scrollbar-hide">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
               <Calendar 
                 currentDate={currentDate}
                 changeMonth={changeMonth}
@@ -296,50 +308,91 @@ export const EventsPage: React.FC = () => {
             </div>
             
             {selectedDate && (
-              <Button 
-                variant="secondary" 
-                className="w-full" 
+              <button 
                 onClick={() => setSelectedDate(null)}
+                className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 uppercase tracking-widest text-center py-2 transition-colors"
               >
-                Clear Filter
-              </Button>
+                Reset Calendar View
+              </button>
             )}
           </div>
           
-          {/* Right Column - Events List (Scrollable on desktop only) */}
-          <div className="lg:col-span-2 flex flex-col lg:h-full lg:overflow-hidden">
-            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-6 flex-shrink-0">
-              {selectedDate ? `Events on ${selectedDate.toLocaleDateString()}` : "Upcoming Events"}
-            </h2>
-            <div className="lg:flex-1 lg:overflow-y-auto space-y-4 scrollbar-hide">
-              {isLoading && (
-                <>
+          {/* Right Column - Events Content */}
+          <div className="lg:col-span-8 bg-slate-50/50 dark:bg-slate-900/50 px-5 py-4 sm:p-6 flex flex-col lg:overflow-hidden">
+            <div className="mb-6 flex items-center justify-center sm:justify-between gap-4">
+              <div className="flex flex-col min-w-0">
+                <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  {selectedDate ? (
+                    <>Events for <span className="text-red-600 dark:text-red-400">{selectedDate.toLocaleDateString('default', { day: 'numeric', month: 'long' })}</span></>
+                  ) : "Upcoming Events"}
+                </h2>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span>{filteredEvents.length} Events Found</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 p-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-fit flex-shrink-0">
+                <button 
+                  onClick={() => setSelectedDate(null)}
+                  className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${!selectedDate ? 'bg-red-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                >
+                  Upcoming
+                </button>
+                <button 
+                  onClick={() => {
+                    const t = new Date();
+                    t.setHours(0,0,0,0);
+                    setSelectedDate(t);
+                  }}
+                  className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${selectedDate?.toDateString() === new Date().toDateString() ? 'bg-red-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                >
+                  Today
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 scrollbar-hide pb-10">
+              {isLoading ? (
+                <div className="grid grid-cols-1 gap-4">
                   {[1, 2, 3].map((i) => (
                     <EventCardSkeleton key={`event-skeleton-${i}`} />
                   ))}
-                </>
-              )}
-
-              {isCreating && !isLoading && <EventCardSkeleton />}
-
-              {!isLoading && filteredEvents.length > 0 && (
-                filteredEvents.map((event) => (
-                  <EventCard 
-                    key={event.id || event._id} 
-                    event={event} 
-                    isReminderSet={reminders.has(event.id || event._id)} 
-                    onToggleReminder={toggleReminder}
-                    onDelete={handleDeleteEvent}
-                  />
-                ))
-              )}
-
-              {!isLoading && !isCreating && filteredEvents.length === 0 && (
-                <Card className="bg-white dark:bg-slate-800">
-                  <p className="text-center py-12 text-slate-500 dark:text-slate-400">
-                    No events found.
+                </div>
+              ) : isCreating ? (
+                <EventCardSkeleton />
+              ) : filteredEvents.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {filteredEvents.map((event) => (
+                    <EventCard 
+                      key={event.id || event._id} 
+                      event={event} 
+                      isReminderSet={reminders.has(event.id || event._id)} 
+                      onToggleReminder={toggleReminder}
+                      onDelete={handleDeleteEvent}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[400px] text-center px-6">
+                  <div className="w-16 h-16 mb-6 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center text-red-600 dark:text-red-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">No events scheduled</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-[280px] font-medium leading-relaxed">
+                    The calendar is looking a bit empty. Check back soon or be the one to start something new!
                   </p>
-                </Card>
+                  {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => setIsModalOpen(true)} 
+                      className="mt-6 font-bold"
+                    >
+                      Plan an Event
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>

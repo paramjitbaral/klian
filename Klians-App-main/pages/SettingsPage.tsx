@@ -512,10 +512,15 @@ export const SettingsPage: React.FC = () => {
                     // Mobile Menu View
                     <div>
                         <div className="flex items-center gap-4 mb-6">
-                            <button onClick={handleBack} className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600">
-                                {ICONS.chevronLeft}
+                            <button 
+                                onClick={handleBack} 
+                                className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
                             </button>
-                            <h1 className="text-2xl font-bold">Settings</h1>
+                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
                         </div>
                         <nav>
                             <ul className="space-y-3">

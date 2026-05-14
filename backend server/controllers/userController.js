@@ -7,11 +7,11 @@ const searchUsers = async (req, res) => {
   try {
     const { q } = req.query;
     
-    if (!q || q.trim().length < 2) {
-      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+    if (!q || q.trim().length < 1) {
+      return res.status(400).json({ message: 'Search query must be at least 1 character' });
     }
 
-    const searchTerm = `%${q}%`;
+    const searchTerm = `${q}%`;
     const users = await query(
       'SELECT id, name, email, profile_picture AS profilePicture, role FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10',
       [searchTerm, searchTerm]
