@@ -1,44 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { User } from '../types';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar } from './ui/Avatar';
 import { Card } from './ui/Card';
-
-interface Notification {
-  _id: string;
-  type: 'like' | 'comment' | 'follow' | 'share' | 'announcement';
-  content: string;
-  sender: {
-    _id: string;
-    name: string;
-    profilePicture?: string;
-  };
-  read: boolean;
-  createdAt: string;
-}
+import { Notification } from '../src/api/notifications';
+import { ICONS } from '../constants';
 
 interface NotificationsDropdownProps {
+  notifications: Notification[];
   onClose: () => void;
+  onMarkAllRead: () => void;
 }
 
-export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ onClose }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+const getImageUrl = (url: string | undefined) => {
+    if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('http')) return url;
+    return `http://localhost:5000${url}`;
+};
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification._id === notificationId 
-          ? { ...notification, read: true } 
-          : notification
-      )
-    );
-  };
+const getFileType = (url: string): 'image' | 'video' | 'doc' | 'other' => {
+    if (!url) return 'other';
+    const ext = url.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) return 'image';
+    if (['mp4', 'webm', 'ogg', 'mov'].includes(ext || '')) return 'video';
+    if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'].includes(ext || '')) return 'doc';
+    return 'other';
+};
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ notifications, onClose, onMarkAllRead }) => {
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (notif: Notification) => {
+    if (notif.postId) {
+      navigate('/home', { state: { highlightPost: notif.postId } });
+    }
+    onClose();
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -54,29 +49,119 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ on
     return date.toLocaleDateString();
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationText = (notif: Notification) => {
+    switch (notif.type) {
+      case 'LIKE': return 'liked your post';
+      case 'COMMENT': return 'commented on your post';
+      case 'REPLY': return 'replied to your comment';
+      case 'SHARE': return 'shared your post';
+      default: return 'interacted with your content';
+    }
+  };
+
+  const getIcon = (type: string) => {
     switch (type) {
-      case 'announcement':
-        return (
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-600">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-            </svg>
-          </div>
-        );
-      default:
-        return null;
+      case 'LIKE': return <div className="text-red-500">{ICONS.likeSolid}</div>;
+      case 'COMMENT': return <div className="text-blue-500">{ICONS.comment}</div>;
+      case 'REPLY': return <div className="text-emerald-500">{ICONS.comment}</div>;
+      default: return <div className="text-slate-400">{ICONS.bell}</div>;
     }
   };
 
   return (
-    <Card className="absolute top-full right-0 mt-2 w-80 max-h-96 overflow-y-auto py-2 z-50">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700">
-        <h3 className="font-semibold text-slate-800 dark:text-slate-100">Notifications</h3>
+    <Card className="absolute top-full right-0 mt-2 w-[380px] max-h-[520px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Notifications</h3>
+        {notifications.some(n => !n.isRead) && (
+          <button 
+            onClick={onMarkAllRead}
+            className="text-[10px] font-bold text-blue-500 hover:text-blue-600 uppercase tracking-tight transition-colors"
+          >
+            Mark all read
+          </button>
+        )}
       </div>
       
-      <div className="text-center p-8">
-        <p className="text-sm text-slate-500 dark:text-slate-400">No notifications yet</p>
+      <div className="flex-1 overflow-y-auto scrollbar-hide py-1">
+        {notifications.length === 0 ? (
+          <div className="text-center py-12 px-6">
+            <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-slate-300 dark:text-slate-600">
+              {ICONS.bell}
+            </div>
+            <p className="text-sm font-medium text-slate-900 dark:text-white">No notifications yet</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">When people like or comment on your posts, they'll show up here.</p>
+          </div>
+        ) : (
+          notifications.map((notif) => (
+            <button
+              key={notif.id}
+              onClick={() => handleNotificationClick(notif)}
+              className={`w-full flex items-start gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left border-b border-slate-50 dark:border-slate-800/50 last:border-0 ${!notif.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+            >
+              <div className="relative shrink-0">
+                <Avatar src={notif.actor.avatar} alt={notif.actor.name} size="sm" />
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
+                  <div className="scale-[0.6]">
+                    {getIcon(notif.type)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] text-slate-800 dark:text-slate-200 leading-snug">
+                  <span className="font-bold text-slate-900 dark:text-white">{notif.actor.name}</span>
+                  {' '}
+                  {getNotificationText(notif)}
+                </p>
+                
+                {notif.commentText && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-1 italic bg-slate-100/50 dark:bg-slate-800/50 px-2 py-1 rounded-md border-l-2 border-slate-200 dark:border-slate-700">
+                    "{notif.commentText}"
+                  </p>
+                )}
+                
+                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-tighter flex items-center gap-2">
+                  <span>{getTimeAgo(notif.createdAt)}</span>
+                  {notif.postPreview?.content && (
+                     <span className="truncate max-w-[100px] border-l border-slate-200 dark:border-slate-700 pl-2">
+                       on: {notif.postPreview.content}
+                     </span>
+                  )}
+                </p>
+              </div>
+
+              {notif.postPreview?.image && (() => {
+                  const fileType = getFileType(notif.postPreview.image);
+                  return (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+                      {fileType === 'image' ? (
+                        <img src={getImageUrl(notif.postPreview.image)} className="w-full h-full object-cover" alt="Post thumbnail" />
+                      ) : (
+                        <div className="text-slate-400">
+                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                           </svg>
+                        </div>
+                      )}
+                    </div>
+                  );
+              })()}
+              
+              {!notif.isRead && (
+                <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-2"></div>
+              )}
+            </button>
+          ))
+        )}
+      </div>
+      
+      <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+          <button 
+            onClick={() => { navigate('/notifications'); onClose(); }}
+            className="w-full py-1.5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-slate-900 dark:hover:text-white transition-colors"
+          >
+            See all activity
+          </button>
       </div>
     </Card>
   );

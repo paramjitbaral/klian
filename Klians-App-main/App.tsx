@@ -26,6 +26,7 @@ import { Role } from './types';
 import { UsersPage } from './pages/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { VerifyPage } from './pages/VerifyPage';
+import NotificationsPage from './pages/NotificationsPage';
 import { prefetchPosts } from './hooks/usePosts';
 
 
@@ -60,6 +61,7 @@ const AppRoutes: React.FC = () => {
                         <BroadcastPage />
                     </ProtectedRoute>
                 } />
+                <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="*" element={<NotFoundPage />} />
             </Route>
         ) : (

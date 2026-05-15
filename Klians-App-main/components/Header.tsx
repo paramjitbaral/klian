@@ -9,6 +9,8 @@ import { Theme, Role } from '../types';
 import { SearchResultsDropdown } from './SearchResultsDropdown';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { AnnouncementsDropdown } from './AnnouncementsDropdown';
+import { notificationsAPI, Notification } from '../src/api/notifications';
+import { useSocket } from '../contexts/SocketContext';
 
 export const Header: React.FC = () => {
     const { user } = useAuth();
@@ -20,6 +22,61 @@ export const Header: React.FC = () => {
     const searchRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const announcementsRef = useRef<HTMLDivElement>(null);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const { socket } = useSocket();
+
+    // Fetch notifications
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const response = await notificationsAPI.getNotifications();
+                setNotifications(response.data);
+                setUnreadCount(response.data.filter(n => !n.isRead).length);
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
+            }
+        };
+        fetchNotifications();
+    }, []);
+
+    // Socket listeners
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewNotification = (notif: Notification) => {
+            setNotifications(prev => [notif, ...prev].slice(0, 50));
+            setUnreadCount(prev => prev + 1);
+        };
+
+        socket.on('new_notification', handleNewNotification);
+        
+        socket.on('delete_notification', (data: { id: number }) => {
+            setNotifications(prev => {
+                const notifToDelete = prev.find(n => n.id === data.id);
+                if (notifToDelete && !notifToDelete.isRead) {
+                    setUnreadCount(count => Math.max(0, count - 1));
+                }
+                return prev.filter(n => n.id !== data.id);
+            });
+        });
+
+        return () => {
+            socket.off('new_notification', handleNewNotification);
+            socket.off('delete_notification');
+        };
+    }, [socket]);
+
+    const handleMarkAllRead = async () => {
+        if (unreadCount === 0) return;
+        try {
+            await notificationsAPI.markAllAsRead();
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            setUnreadCount(0);
+        } catch (error) {
+            console.error('Error marking notifications read:', error);
+        }
+    };
 
     // Effect to handle clicks outside of the search component and notifications
     useEffect(() => {
@@ -116,12 +173,28 @@ export const Header: React.FC = () => {
 
                     <div ref={notificationsRef} className="relative">
                         <button
-                            onClick={() => setNotificationsVisible(!isNotificationsVisible)}
-                            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            onClick={() => {
+                                setNotificationsVisible(!isNotificationsVisible);
+                                if (!isNotificationsVisible) {
+                                    handleMarkAllRead();
+                                }
+                            }}
+                            className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${unreadCount > 0 ? 'bell-ring' : ''}`}
                         >
                             {ICONS.bell}
+                            {unreadCount > 0 && (
+                                <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
                         </button>
-                        {isNotificationsVisible && <NotificationsDropdown onClose={() => setNotificationsVisible(false)} />}
+                        {isNotificationsVisible && (
+                            <NotificationsDropdown 
+                                notifications={notifications}
+                                onClose={() => setNotificationsVisible(false)} 
+                                onMarkAllRead={handleMarkAllRead}
+                            />
+                        )}
                     </div>
 
                     <button onClick={toggleTheme} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">

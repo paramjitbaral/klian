@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { query } = require('../config/db');
+const { createNotification, deleteNotification } = require('./notificationController');
 
 // Helper to save base64 file to uploads folder
 const saveFile = (base64String, originalName = null) => {
@@ -371,6 +372,18 @@ const deletePost = async (req, res) => {
     }
 
     await query('DELETE FROM posts WHERE id = ?', [req.params.id]);
+
+    // Cleanup ALL notifications for this post
+    const io = req.app.get('io');
+    const notifs = await query('SELECT id, user_id FROM notifications WHERE post_id = ?', [req.params.id]);
+    await query('DELETE FROM notifications WHERE post_id = ?', [req.params.id]);
+    
+    if (io) {
+       notifs.forEach(n => {
+         io.to(`user:${n.user_id}`).emit('delete_notification', { id: n.id });
+       });
+    }
+
     res.json({ message: 'Post removed' });
   } catch (error) {
     console.error('[PostDelete] Error:', error);
@@ -399,6 +412,16 @@ const likePost = async (req, res) => {
         postId: req.params.id, 
         likesCount: count[0].cnt 
       });
+
+      // Send notification
+      const postRows = await query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+      if (postRows.length) {
+        const postOwnerId = postRows[0].user_id;
+        const notification = await createNotification(postOwnerId, userId, 'LIKE', req.params.id);
+        if (notification) {
+          io.to(`user:${postOwnerId}`).emit('new_notification', notification);
+        }
+      }
     }
 
     res.json({ likesCount: count[0].cnt });
@@ -427,6 +450,12 @@ const unlikePost = async (req, res) => {
         postId: req.params.id, 
         likesCount: count[0].cnt 
       });
+
+      // Cleanup notification
+      const delResult = await deleteNotification('LIKE', req.params.id, userId);
+      if (delResult) {
+        io.to(`user:${delResult.recipientId}`).emit('delete_notification', { id: delResult.id });
+      }
     }
 
     res.json({ likesCount: count[0].cnt });
@@ -449,17 +478,39 @@ const commentOnPost = async (req, res) => {
     const insertResult = await query('INSERT INTO post_comments (post_id, user_id, text, parent_id) VALUES (?, ?, ?, ?)', [req.params.id, userId, text, parentId]);
     const commentId = insertResult.insertId;
 
-    // Get total comment count for real-time update
-    const countRows = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = ?', [req.params.id]);
-    
     // Emit real-time update
     const io = req.app.get('io');
     if (io) {
+      const countResult = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = ?', [req.params.id]);
       io.emit('post_update', { 
         type: 'COMMENT_CHANGE', 
         postId: req.params.id, 
-        commentCount: countRows[0].cnt 
+        commentCount: countResult[0].cnt 
       });
+
+      // Send notification to post owner
+      const postRows = await query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+      if (postRows.length) {
+        const postOwnerId = postRows[0].user_id;
+        const notification = await createNotification(postOwnerId, userId, 'COMMENT', req.params.id, commentId);
+        if (notification) {
+          io.to(`user:${postOwnerId}`).emit('new_notification', notification);
+        }
+      }
+
+      // If it's a reply, notify the parent comment owner too
+      if (parentId) {
+        const parentRows = await query('SELECT user_id FROM post_comments WHERE id = ?', [parentId]);
+        if (parentRows.length) {
+          const parentOwnerId = parentRows[0].user_id;
+          if (parentOwnerId !== userId) { // Don't notify if replying to own comment
+             const replyNotification = await createNotification(parentOwnerId, userId, 'REPLY', req.params.id, commentId);
+             if (replyNotification) {
+               io.to(`user:${parentOwnerId}`).emit('new_notification', replyNotification);
+             }
+          }
+        }
+      }
     }
 
     // Fetch the newly created comment with user info
@@ -521,6 +572,19 @@ const deleteComment = async (req, res) => {
         postId: req.params.id, 
         commentCount: countRows[0].cnt 
       });
+
+      // Cleanup notification
+      // We don't know if it was a COMMENT or REPLY here easily, so we try to find by commentId
+      const delResult = await deleteNotification('COMMENT', req.params.id, userId, req.params.comment_id);
+      if (delResult) {
+        io.to(`user:${delResult.recipientId}`).emit('delete_notification', { id: delResult.id });
+      } else {
+        // Try REPLY type
+        const delReply = await deleteNotification('REPLY', req.params.id, userId, req.params.comment_id);
+        if (delReply) {
+          io.to(`user:${delReply.recipientId}`).emit('delete_notification', { id: delReply.id });
+        }
+      }
     }
 
     res.json({ message: 'Comment deleted successfully', commentCount: countRows[0].cnt });

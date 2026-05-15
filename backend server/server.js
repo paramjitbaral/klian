@@ -173,6 +173,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/emails', require('./routes/emailRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Basic route
 app.get('/', (req, res) => {
