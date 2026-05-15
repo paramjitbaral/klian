@@ -152,9 +152,30 @@ const deleteNotification = async (type, postId, actorId, commentId = null) => {
   }
 };
 
+// @desc    Delete a notification by ID
+// @route   DELETE /api/notifications/:id
+// @access  Private
+const deleteNotificationById = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const notifId = req.params.id;
+    
+    // Check ownership
+    const rows = await query('SELECT id FROM notifications WHERE id = ? AND user_id = ?', [notifId, userId]);
+    if (!rows.length) return res.status(404).json({ message: 'Notification not found or unauthorized' });
+
+    await query('DELETE FROM notifications WHERE id = ?', [notifId]);
+    res.json({ message: 'Notification deleted' });
+  } catch (error) {
+    console.error('[Notifications] Delete Error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getNotifications,
   markAllAsRead,
   createNotification,
-  deleteNotification
+  deleteNotification,
+  deleteNotificationById
 };

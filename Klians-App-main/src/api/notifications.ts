@@ -26,6 +26,10 @@ export const notificationsAPI = {
   
   markAllAsRead: () => {
     return API.put('/notifications/read-all');
+  },
+
+  deleteNotification: (id: number) => {
+    return API.delete(`/notifications/${id}`);
   }
 };
 

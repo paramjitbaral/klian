@@ -137,6 +137,38 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
+// Mark all announcements as read for current user
+exports.markAllAsRead = async (req, res) => {
+  try {
+    const currentUserId = req.user.id || req.user._id;
+    
+    // Insert into announcement_reads for all announcements the user hasn't read yet
+    // and that are targeted to them
+    let sql = `INSERT IGNORE INTO announcement_reads (announcement_id, user_id)
+               SELECT a.id, ? 
+                 FROM announcements a
+                WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?)`;
+    
+    const params = [currentUserId, currentUserId];
+
+    if (req.user.role !== 'Admin' && req.user.role !== 'admin') {
+      const userRole = req.user.role === 'faculty' ? 'faculty' : 'student';
+      sql += ' AND (a.target = "All" OR a.target = ?)';
+      params.push(userRole);
+    }
+
+    await query(sql, params);
+
+    res.json({ message: 'All announcements marked as read' });
+  } catch (error) {
+    console.error('Error marking all announcements as read:', error);
+    res.status(500).json({
+      message: 'Server error while marking all as read',
+      error: error.message
+    });
+  }
+};
+
 // Delete announcement (author or admin only)
 exports.deleteAnnouncement = async (req, res) => {
   try {

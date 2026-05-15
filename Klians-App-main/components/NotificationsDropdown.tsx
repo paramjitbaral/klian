@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from './ui/Avatar';
 import { Card } from './ui/Card';
-import { Notification } from '../src/api/notifications';
+import { Notification, notificationsAPI } from '../src/api/notifications';
 import { ICONS } from '../constants';
 
 interface NotificationsDropdownProps {
   notifications: Notification[];
   onClose: () => void;
   onMarkAllRead: () => void;
+  onDelete: (id: number) => void;
 }
 
 const getImageUrl = (url: string | undefined) => {
@@ -26,8 +27,19 @@ const getFileType = (url: string): 'image' | 'video' | 'doc' | 'other' => {
     return 'other';
 };
 
-export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ notifications, onClose, onMarkAllRead }) => {
+export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ notifications, onClose, onMarkAllRead, onDelete }) => {
   const navigate = useNavigate();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleDeleteNotification = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    try {
+      await notificationsAPI.deleteNotification(id);
+      onDelete(id);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
 
   const handleNotificationClick = (notif: Notification) => {
     if (notif.postId) {
@@ -69,7 +81,9 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
   };
 
   return (
-    <Card className="absolute top-full right-0 mt-2 w-[380px] max-h-[520px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200">
+    <Card 
+      className={`absolute top-full right-0 mt-2 w-[380px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200 transition-all ease-in-out ${isExpanded ? 'max-h-[80vh]' : 'max-h-[500px]'}`}
+    >
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
         <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Notifications</h3>
         {notifications.some(n => !n.isRead) && (
@@ -92,7 +106,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">When people like or comment on your posts, they'll show up here.</p>
           </div>
         ) : (
-          notifications.map((notif) => (
+          (isExpanded ? notifications : notifications.slice(0, 4)).map((notif) => (
             <button
               key={notif.id}
               onClick={() => handleNotificationClick(notif)}
@@ -147,9 +161,18 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
                   );
               })()}
               
-              {!notif.isRead && (
+               {!notif.isRead && (
                 <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-2"></div>
               )}
+
+              <button 
+                onClick={(e) => handleDeleteNotification(e, notif.id)}
+                className="absolute right-2 top-2 p-1 rounded-md text-slate-200 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </button>
           ))
         )}
@@ -157,10 +180,10 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
       
       <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
           <button 
-            onClick={() => { navigate('/notifications'); onClose(); }}
+            onClick={() => setIsExpanded(!isExpanded)}
             className="w-full py-1.5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-slate-900 dark:hover:text-white transition-colors"
           >
-            See all activity
+            {isExpanded ? 'Show less activity' : 'See all activity'}
           </button>
       </div>
     </Card>

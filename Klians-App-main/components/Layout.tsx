@@ -11,7 +11,7 @@ export const Layout: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const isChatPage = ['/messages', '/groups'].some(path => location.pathname.startsWith(path));
-  const showHeader = location.pathname === '/home' || location.pathname.startsWith('/settings');
+  const showHeader = ['/home', '/settings', '/notifications'].some(path => location.pathname.startsWith(path));
   const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings'].includes(location.pathname);
 
   return (

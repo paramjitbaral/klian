@@ -62,6 +62,17 @@ export const announcementsAPI = {
     }
   },
 
+  // Mark all as read
+  markAllAsRead: async () => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/read-all`, {}, axiosConfig());
+      return response.data;
+    } catch (error) {
+      console.error('Error marking all announcements as read:', error);
+      throw error;
+    }
+  },
+
   // Update announcement
   updateAnnouncement: async (announcementId, data) => {
     try {

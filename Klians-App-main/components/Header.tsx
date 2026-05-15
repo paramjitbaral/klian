@@ -66,6 +66,13 @@ export const Header: React.FC = () => {
             socket.off('delete_notification');
         };
     }, [socket]);
+    
+    // Auto-mark as read if dropdown is open when new notifs arrive
+    useEffect(() => {
+        if (isNotificationsVisible && unreadCount > 0) {
+            handleMarkAllRead();
+        }
+    }, [isNotificationsVisible, unreadCount, notifications.length]);
 
     const handleMarkAllRead = async () => {
         if (unreadCount === 0) return;
@@ -76,6 +83,16 @@ export const Header: React.FC = () => {
         } catch (error) {
             console.error('Error marking notifications read:', error);
         }
+    };
+
+    const handleDeleteNotification = (id: number) => {
+        setNotifications(prev => {
+            const notif = prev.find(n => n.id === id);
+            if (notif && !notif.isRead) {
+                setUnreadCount(count => Math.max(0, count - 1));
+            }
+            return prev.filter(n => n.id !== id);
+        });
     };
 
     // Effect to handle clicks outside of the search component and notifications
@@ -193,6 +210,7 @@ export const Header: React.FC = () => {
                                 notifications={notifications}
                                 onClose={() => setNotificationsVisible(false)} 
                                 onMarkAllRead={handleMarkAllRead}
+                                onDelete={handleDeleteNotification}
                             />
                         )}
                     </div>

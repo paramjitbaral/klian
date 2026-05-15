@@ -17,6 +17,9 @@ router.get('/unread-count', protect, getUnreadCount);
 // Create announcement (teachers and admins only)
 router.post('/', protect, facultyOnly, createAnnouncement);
 
+// Mark all as read
+router.put('/read-all', protect, markAllAsRead);
+
 // Mark as read
 router.put('/read/:announcementId', protect, markAsRead);
 
