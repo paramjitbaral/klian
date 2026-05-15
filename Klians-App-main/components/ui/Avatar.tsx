@@ -20,7 +20,12 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', online = 
   };
 
   // Handle empty strings by converting to null
-  const imageSrc = src && src.trim() ? src : null;
+  let imageSrc = src && src.trim() ? src : null;
+  
+  // Prepend backend URL if it's a relative path
+  if (imageSrc && !imageSrc.startsWith('data:') && !imageSrc.startsWith('http')) {
+    imageSrc = `http://localhost:5000${imageSrc}`;
+  }
   
   // Get initials from alt text
   const getInitials = (name: string) => {

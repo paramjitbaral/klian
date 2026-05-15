@@ -21,6 +21,11 @@ export const postsAPI = {
   createPost: (postData: any) => {
     return API.post('/posts', postData);
   },
+
+  // Update a post
+  updatePost: (postId: string, postData: any) => {
+    return API.put(`/posts/${postId}`, postData);
+  },
   
   // Delete a post
   deletePost: (postId: string) => {

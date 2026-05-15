@@ -18,7 +18,7 @@ exports.createAnnouncement = async (req, res) => {
     const announcementId = result.insertId;
     
     const rows = await query(
-      `SELECT a.id, a.title, a.content, a.target, a.created_at AS createdAt,
+      `SELECT a.id, a.title, a.content, a.target, DATE_FORMAT(a.created_at, '%Y-%m-%dT%H:%i:%sZ') AS createdAt,
               u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole
          FROM announcements a
          JOIN users u ON u.id = a.author_id
@@ -49,7 +49,7 @@ exports.createAnnouncement = async (req, res) => {
 exports.getAnnouncements = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
-    let sql = `SELECT a.id, a.title, a.content, a.target, a.created_at AS createdAt,
+    let sql = `SELECT a.id, a.title, a.content, a.target, DATE_FORMAT(a.created_at, '%Y-%m-%dT%H:%i:%sZ') AS createdAt,
                       u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole,
                       (SELECT COUNT(*) FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?) AS isRead
                  FROM announcements a

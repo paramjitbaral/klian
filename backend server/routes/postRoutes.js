@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
   createPost,
+  updatePost,
   getPosts,
   getBroadcasts,
   getPostById,
@@ -11,7 +12,8 @@ const {
   commentOnPost,
   deleteComment,
   likeComment,
-  unlikeComment
+  unlikeComment,
+  getTrendingHashtags
 } = require('../controllers/postController');
 const { protect, facultyOnly } = require('../middleware/auth');
 
@@ -21,6 +23,7 @@ router.route('/')
   .get(protect, getPosts);
 
 router.get('/broadcasts', protect, getBroadcasts);
+router.get('/trending-hashtags', protect, getTrendingHashtags);
 
 // Specific action routes MUST come before generic /:id route
 router.put('/like/:id', protect, likePost);
@@ -34,6 +37,7 @@ router.put('/comment/unlike/:id/:comment_id', protect, unlikeComment);
 // Generic /:id route comes last
 router.route('/:id')
   .get(protect, getPostById)
+  .put(protect, updatePost)
   .delete(protect, deletePost);
 
 // Share post route

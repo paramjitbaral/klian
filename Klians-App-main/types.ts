@@ -3,6 +3,7 @@
 export enum Role {
   STUDENT = 'Student',
   TEACHER = 'Teacher',
+  DEAN = 'Dean',
   ADMIN = 'Admin',
 }
 
@@ -38,7 +39,7 @@ export interface Post {
 }
 
 export interface Message {
-  id:string;
+  id: string;
   sender?: User; // Sender can be optional for system messages
   text: string;
   timestamp: string;

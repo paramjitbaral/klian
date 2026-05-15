@@ -11,9 +11,9 @@ export const Layout: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const isChatPage = ['/messages', '/groups'].some(path => location.pathname.startsWith(path));
-  const showHeader = location.pathname === '/home';
-  const showBottomNav = ['/home', '/groups', '/events', '/profile'].includes(location.pathname);
-  
+  const showHeader = location.pathname === '/home' || location.pathname.startsWith('/settings');
+  const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings'].includes(location.pathname);
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
       <Sidebar />

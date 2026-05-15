@@ -52,11 +52,11 @@ const SettingsPanel: React.FC<{ title: string, description: string, children: Re
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{title}</h2>
             <p className="text-sm sm:text-base text-slate-500 mt-2">{description}</p>
         </div>
-        <div className="flex-grow space-y-8 sm:space-y-10 pb-24 sm:pb-20">
+        <div className="flex-grow space-y-8 sm:space-y-10 pb-6 sm:pb-8">
             {children}
         </div>
         {footer && (
-            <div className="fixed bottom-0 right-0 left-0 md:left-[280px] p-4 sm:p-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex justify-end z-[40]">
+            <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                 <div className="max-w-4xl w-full mx-auto flex justify-end items-center gap-4">
                     {footer}
                 </div>
@@ -307,24 +307,26 @@ export const SettingsPage: React.FC = () => {
                                             alt={user.name}
                                             className="w-full h-full object-cover"
                                         />
-                                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                            {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-6 w-6 text-white" })}
-                                            <input type="file" accept="image/*" onChange={handleProfilePictureChange} className="hidden" />
-                                        </label>
                                     </div>
-                                    <button className="absolute bottom-1 right-1 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-md border border-slate-100 dark:border-slate-700">
-                                        {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3.5 w-3.5 text-slate-500" })}
-                                    </button>
+                                    <label className="absolute bottom-1 right-1 bg-white dark:bg-slate-800 p-2 rounded-full shadow-md border border-slate-100 dark:border-slate-700 cursor-pointer hover:scale-110 active:scale-95 transition-all z-10 group-hover:shadow-red-500/20">
+                                        {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-4 w-4 text-slate-600 dark:text-slate-400" })}
+                                        <input type="file" accept="image/*" onChange={handleProfilePictureChange} className="hidden" />
+                                    </label>
                                 </div>
                                 <div className="text-center mt-3">
                                     <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{profileName || user.name}</h1>
-                                    <button className="text-blue-500 text-[11px] font-bold mt-1 hover:text-blue-600 transition-colors">Change Profile Photo</button>
+                                    <button 
+                                        onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+                                        className="text-blue-500 text-[11px] font-bold mt-1 hover:text-blue-600 transition-colors"
+                                    >
+                                        Change Profile Photo
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Professional List-style Settings */}
-                        <div className="max-w-3xl mx-auto px-4 sm:px-0 pb-32">
+                        <div className="max-w-3xl mx-auto px-4 sm:px-0 pb-12">
                             {/* General Section */}
                             <div className="bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">

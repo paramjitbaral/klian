@@ -3,26 +3,39 @@ import { Broadcast } from '../types';
 import { ICONS } from '../constants';
 import { Card } from './ui/Card';
 
-const timeAgo = (date: string | number | Date) => {
-    if (!date) return "some time ago";
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return "recently";
-    
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - d.getTime()) / 1000);
-    
-    if (seconds < 60) return "just now";
-    
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
- 
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
- 
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const useTimeAgo = (date: string | number | Date) => {
+    const [time, setTime] = React.useState('...');
+
+    React.useEffect(() => {
+        const calculateTime = () => {
+            if (!date) return "just now";
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return "just now";
+            
+            const now = new Date();
+            const diffSeconds = (now.getTime() - d.getTime()) / 1000;
+            const seconds = Math.max(0, Math.floor(diffSeconds));
+            
+            if (seconds < 60) return "just now";
+            
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+        
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+        
+            const days = Math.floor(hours / 24);
+            if (days < 7) return `${days}d ago`;
+            
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+
+        setTime(calculateTime());
+        const interval = setInterval(() => setTime(calculateTime()), 30000); // Update every 30s
+        return () => clearInterval(interval);
+    }, [date]);
+
+    return time;
 };
 
 const PinBadge: React.FC = () => (
@@ -33,6 +46,8 @@ const PinBadge: React.FC = () => (
 );
 
 export const BroadcastCard: React.FC<{ broadcast: Broadcast; isPinned: boolean }> = ({ broadcast, isPinned }) => {
+  const timeDisplay = useTimeAgo(broadcast.timestamp);
+
   return (
     <Card className="mb-4 relative overflow-hidden border-l-4 border-red-600 bg-red-50/30 dark:bg-red-900/10">
       {isPinned && <PinBadge />}
@@ -47,7 +62,7 @@ export const BroadcastCard: React.FC<{ broadcast: Broadcast; isPinned: boolean }
             <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{broadcast.content}</p>
             <div className="mt-3 flex items-center justify-end text-right">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Sent by <span className="font-semibold">{broadcast.author.name}</span> &middot; {timeAgo(broadcast.timestamp)}
+                    Sent by <span className="font-semibold">{broadcast.author.name}</span> &middot; {timeDisplay}
                 </p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 const express = require('express');
+// Restart trigger
 const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -18,7 +19,11 @@ dotenv.config();
 let redis;
 try {
   initPool();
-  redis = getRedis();
+  if (process.env.USE_REDIS === 'true') {
+    redis = getRedis();
+  } else {
+    console.warn('Redis is disabled via USE_REDIS env var.');
+  }
 } catch (err) {
   console.warn('DB/Redis initialization failed, falling back to mock mode:', err.message);
 }
@@ -32,6 +37,9 @@ const io = socketIo(server, {
     methods: ['GET', 'POST']
   }
 });
+
+// Attach socket.io to app for use in controllers
+app.set('io', io);
 
 // Import socket handlers
 const setupMessageHandlers = require('./socket/messageHandlers');

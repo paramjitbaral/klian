@@ -30,14 +30,14 @@ export const UsersPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Get auth token from localStorage
         const token = localStorage.getItem('token');
-        
+
         if (!token) {
           throw new Error('No authentication token found');
         }
-        
+
         const response = await fetch('http://localhost:5000/api/users', {
           method: 'GET',
           headers: {
@@ -45,27 +45,27 @@ export const UsersPage: React.FC = () => {
             'Authorization': `Bearer ${token}`
           }
         });
-        
+
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log('Fetched users:', data);
-        
+
         // Get current user ID
         const currentUserId = (currentUser as any)?._id || (currentUser as any)?.id;
-        
+
         // Filter out current user - be flexible with ID matching
-        const otherUsers = Array.isArray(data) 
+        const otherUsers = Array.isArray(data)
           ? data.filter((u: User) => {
-              const userId = u._id || u.id;
-              return userId && userId !== currentUserId;
-            })
+            const userId = u._id || u.id;
+            return userId && userId !== currentUserId;
+          })
           : [];
-        
+
         console.log('Filtered users (current user removed):', otherUsers);
-        
+
         setAllUsers(otherUsers);
         setFilteredUsers(otherUsers);
       } catch (error: any) {
@@ -108,32 +108,32 @@ export const UsersPage: React.FC = () => {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    
+
     const searchVal = query.toLowerCase().trim();
-    
+
     if (!searchVal) {
       setFilteredUsers(allUsers);
       return;
     }
-    
+
     const filtered = allUsers.filter(u => {
       const name = (u.name || '').toLowerCase();
       const email = (u.email || '').toLowerCase();
       const username = (u.username || '').toLowerCase();
       const idStr = (u._id || u.id || '').toString().toLowerCase();
       const emailPrefix = email.split('@')[0];
-      
+
       // Match if any word in name starts with query OR any field starts with query
       const nameWords = name.split(/\s+/);
       const nameMatch = nameWords.some(word => word.startsWith(searchVal));
-      
-      return nameMatch || 
-             email.startsWith(searchVal) || 
-             username.startsWith(searchVal) ||
-             idStr.startsWith(searchVal) ||
-             emailPrefix.startsWith(searchVal);
+
+      return nameMatch ||
+        email.startsWith(searchVal) ||
+        username.startsWith(searchVal) ||
+        idStr.startsWith(searchVal) ||
+        emailPrefix.startsWith(searchVal);
     });
-    
+
     setFilteredUsers(filtered);
   };
 
@@ -148,8 +148,8 @@ export const UsersPage: React.FC = () => {
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate(-1)} 
+            <button
+              onClick={() => navigate(-1)}
               className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,22 +157,22 @@ export const UsersPage: React.FC = () => {
               </svg>
             </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Users</h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Connect and message with other users</p>
+              <h1 className="text-[22px] font-bold text-slate-900 dark:text-white">Users</h1>
+              <p className="text-[11.5px] text-slate-500 dark:text-slate-400">Connect and message with other users</p>
             </div>
           </div>
-          
-          <div className="relative w-full sm:w-80" ref={searchRef}>
+
+          <div className="relative w-full sm:w-[350px]" ref={searchRef}>
             <input
               type="text"
               value={searchQuery}
               onFocus={() => setIsSearchFocused(true)}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search users..."
-              className="w-full px-3 py-2 pl-9 rounded-xl bg-slate-100 dark:bg-slate-700 border-transparent focus:bg-white dark:focus:bg-slate-600 focus:ring-2 focus:ring-red-500 transition-all text-xs text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
+              className="w-full px-4 pl-10 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 border-transparent focus:bg-white dark:focus:bg-slate-600 focus:ring-2 focus:ring-red-500 transition-all text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
             />
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -190,7 +190,7 @@ export const UsersPage: React.FC = () => {
               <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 py-1">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent</span>
-                  <button 
+                  <button
                     onMouseDown={(e) => {
                       e.preventDefault();
                       setRecentSearches([]);
@@ -213,9 +213,9 @@ export const UsersPage: React.FC = () => {
                       className="flex items-center gap-3 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-700">
-                        <img 
-                          src={u.profilePicture || u.avatar || '/default-avatar.png'} 
-                          alt={u.name} 
+                        <img
+                          src={u.profilePicture || u.avatar || '/default-avatar.png'}
+                          alt={u.name}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -245,7 +245,7 @@ export const UsersPage: React.FC = () => {
                 <div className="flex items-center gap-4 flex-1">
                   {/* Avatar Skeleton */}
                   <div className="w-14 h-14 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
-                  
+
                   {/* Text Skeleton */}
                   <div className="flex-1 space-y-2">
                     <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div>
@@ -282,9 +282,8 @@ export const UsersPage: React.FC = () => {
             {filteredUsers.map((u, index) => (
               <div
                 key={u._id || u.id || `user-${index}`}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
-                  index !== filteredUsers.length - 1 ? 'border-b border-slate-100 dark:border-slate-700' : ''
-                }`}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${index !== filteredUsers.length - 1 ? 'border-b border-slate-100 dark:border-slate-700' : ''
+                  }`}
               >
                 {/* User Info */}
                 <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -323,7 +322,7 @@ export const UsersPage: React.FC = () => {
             ))}
           </div>
         )}
-        </div>
       </div>
-    );
+    </div>
+  );
 };

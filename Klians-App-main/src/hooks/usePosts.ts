@@ -28,8 +28,10 @@ export const usePosts = (enabled = true) => {
     queryFn: async () => {
       try {
         const response = await postsAPI.getPosts();
-        console.log('[React Query] Posts fetched:', response.data?.length || 0, 'posts');
-        return response.data || [];
+        // Backend returns { items, nextCursor, hasMore }
+        const data = response.data;
+        console.log('[React Query] Posts fetched:', data?.items?.length || 0, 'posts');
+        return data || { items: [], hasMore: false };
       } catch (error) {
         console.error('[React Query] Error fetching posts:', error);
         throw error;
@@ -65,7 +67,8 @@ export const useBroadcasts = (enabled = true) => {
     queryKey: postsQueryKeys.broadcasts(),
     queryFn: async () => {
       const response = await postsAPI.getBroadcasts();
-      return response.data || [];
+      // Backend returns { items, nextCursor, hasMore }
+      return response.data || { items: [], hasMore: false };
     },
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -91,29 +94,35 @@ export const useCreatePost = () => {
       // Cancel ongoing queries
       await queryClient.cancelQueries({ queryKey: postsQueryKeys.list() });
 
-      // Get previous data
-      const previousPosts = queryClient.getQueryData<Post[]>(postsQueryKeys.list());
+      // Get previous data - handle both array and paginated object formats
+      const previousData = queryClient.getQueryData<any>(postsQueryKeys.list());
+      const previousPosts = Array.isArray(previousData) ? previousData : (previousData?.items || []);
 
       // Optimistically update cache with temporary post
-      if (previousPosts) {
-        const optimisticPost = {
-          id: `optimistic-${Date.now()}`,
-          ...newPost,
-          timestamp: new Date().toISOString(),
-          likes: 0,
-          comments: 0,
-          isLiked: false,
-        } as any;
+      const optimisticPost = {
+        id: `optimistic-${Date.now()}`,
+        ...newPost,
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        comments: 0,
+        isLiked: false,
+      } as any;
 
-        queryClient.setQueryData(postsQueryKeys.list(), [optimisticPost, ...previousPosts]);
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData(postsQueryKeys.list(), [optimisticPost, ...previousData]);
+      } else {
+        queryClient.setQueryData(postsQueryKeys.list(), {
+          ...previousData,
+          items: [optimisticPost, ...(previousData?.items || [])]
+        });
       }
 
-      return { previousPosts };
+      return { previousData };
     },
     onError: (error, newPost, context) => {
       // Revert optimistic update on error
-      if (context?.previousPosts) {
-        queryClient.setQueryData(postsQueryKeys.list(), context.previousPosts);
+      if (context?.previousData) {
+        queryClient.setQueryData(postsQueryKeys.list(), context.previousData);
       }
       console.error('[React Query] Error creating post:', error);
     },
@@ -137,28 +146,33 @@ export const useLikePost = () => {
     onMutate: async (postId) => {
       await queryClient.cancelQueries({ queryKey: postsQueryKeys.list() });
 
-      const previousPosts = queryClient.getQueryData<Post[]>(postsQueryKeys.list());
-
-      if (previousPosts) {
-        queryClient.setQueryData(
-          postsQueryKeys.list(),
-          previousPosts.map((post) =>
-            post.id === postId
-              ? {
-                  ...post,
-                  isLiked: true,
-                  likes: (post.likes || 0) + 1,
-                }
-              : post
-          )
+      const previousData = queryClient.getQueryData<any>(postsQueryKeys.list());
+      
+      const updatePosts = (posts: Post[]) => 
+        posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: true,
+                likes: (post.likes || 0) + 1,
+              }
+            : post
         );
+
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData(postsQueryKeys.list(), updatePosts(previousData));
+      } else if (previousData?.items) {
+        queryClient.setQueryData(postsQueryKeys.list(), {
+          ...previousData,
+          items: updatePosts(previousData.items)
+        });
       }
 
-      return { previousPosts };
+      return { previousData };
     },
     onError: (error, postId, context) => {
-      if (context?.previousPosts) {
-        queryClient.setQueryData(postsQueryKeys.list(), context.previousPosts);
+      if (context?.previousData) {
+        queryClient.setQueryData(postsQueryKeys.list(), context.previousData);
       }
     },
     onSuccess: () => {
@@ -179,32 +193,57 @@ export const useUnlikePost = () => {
     onMutate: async (postId) => {
       await queryClient.cancelQueries({ queryKey: postsQueryKeys.list() });
 
-      const previousPosts = queryClient.getQueryData<Post[]>(postsQueryKeys.list());
+      const previousData = queryClient.getQueryData<any>(postsQueryKeys.list());
 
-      if (previousPosts) {
-        queryClient.setQueryData(
-          postsQueryKeys.list(),
-          previousPosts.map((post) =>
-            post.id === postId
-              ? {
-                  ...post,
-                  isLiked: false,
-                  likes: Math.max(0, (post.likes || 0) - 1),
-                }
-              : post
-          )
+      const updatePosts = (posts: Post[]) =>
+        posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: false,
+                likes: Math.max(0, (post.likes || 0) - 1),
+              }
+            : post
         );
+
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData(postsQueryKeys.list(), updatePosts(previousData));
+      } else if (previousData?.items) {
+        queryClient.setQueryData(postsQueryKeys.list(), {
+          ...previousData,
+          items: updatePosts(previousData.items)
+        });
       }
 
-      return { previousPosts };
+      return { previousData };
     },
     onError: (error, postId, context) => {
-      if (context?.previousPosts) {
-        queryClient.setQueryData(postsQueryKeys.list(), context.previousPosts);
+      if (context?.previousData) {
+        queryClient.setQueryData(postsQueryKeys.list(), context.previousData);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: postsQueryKeys.list() });
+    },
+  });
+};
+
+/**
+ * useUpdatePost Mutation
+ * - Updates an existing post
+ */
+export const useUpdatePost = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const response = await postsAPI.updatePost(postId, { content });
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch posts
+      queryClient.invalidateQueries({ queryKey: postsQueryKeys.list() });
+      console.log('[React Query] Post updated successfully');
     },
   });
 };
@@ -221,20 +260,24 @@ export const useDeletePost = () => {
     onMutate: async (postId) => {
       await queryClient.cancelQueries({ queryKey: postsQueryKeys.list() });
 
-      const previousPosts = queryClient.getQueryData<Post[]>(postsQueryKeys.list());
+      const previousData = queryClient.getQueryData<any>(postsQueryKeys.list());
 
-      if (previousPosts) {
-        queryClient.setQueryData(
-          postsQueryKeys.list(),
-          previousPosts.filter((post) => post.id !== postId)
-        );
+      const updatePosts = (posts: Post[]) => posts.filter((post) => post.id !== postId);
+
+      if (Array.isArray(previousData)) {
+        queryClient.setQueryData(postsQueryKeys.list(), updatePosts(previousData));
+      } else if (previousData?.items) {
+        queryClient.setQueryData(postsQueryKeys.list(), {
+          ...previousData,
+          items: updatePosts(previousData.items)
+        });
       }
 
-      return { previousPosts };
+      return { previousData };
     },
     onError: (error, postId, context) => {
-      if (context?.previousPosts) {
-        queryClient.setQueryData(postsQueryKeys.list(), context.previousPosts);
+      if (context?.previousData) {
+        queryClient.setQueryData(postsQueryKeys.list(), context.previousData);
       }
     },
     onSuccess: () => {

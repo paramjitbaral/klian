@@ -15,13 +15,11 @@ async function initPool() {
       database: process.env.MYSQL_DATABASE || 'klians',
       waitForConnections: true,
       connectionLimit: Number(process.env.MYSQL_POOL_SIZE || 15),
-      queueLimit: 0,
-      timezone: 'Z',
+      queueLimit: 0
     });
     // Simple test query to validate connection at boot
-    await pool.query("SET time_zone = '+00:00'");
     await pool.query('SELECT 1');
-    console.log('MySQL pool initialized and timezone set to UTC');
+    console.log('MySQL pool initialized (Native Timezone)');
     return pool;
   } catch (err) {
     console.error('Failed to initialize MySQL pool:', err.message);

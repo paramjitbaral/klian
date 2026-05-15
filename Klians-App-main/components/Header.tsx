@@ -56,7 +56,7 @@ export const Header: React.FC = () => {
                         {React.cloneElement(ICONS.messages, { className: "h-6 w-6" })}
                     </Link>
                     <div ref={announcementsRef} className="relative">
-                        <button 
+                        <button
                             className="text-slate-600 dark:text-slate-300 relative"
                             onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
                         >
@@ -79,19 +79,19 @@ export const Header: React.FC = () => {
                         KLIAS
                     </Link>
                 </div>
-                
+
                 {/* Center: Search */}
                 <div className="flex-1 max-w-xl relative" ref={searchRef}>
-                    <Input 
-                        placeholder="Search KLIAS..." 
-                        icon={SearchIcon} 
+                    <Input
+                        placeholder="Search KLIAS..."
+                        icon={SearchIcon}
                         className="bg-slate-100 dark:bg-slate-700 !rounded-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onFocus={() => setDropdownVisible(true)}
                     />
                     {isDropdownVisible && (
-                        <SearchResultsDropdown 
+                        <SearchResultsDropdown
                             searchTerm={searchTerm}
                             onClose={() => {
                                 setDropdownVisible(false);
@@ -104,7 +104,7 @@ export const Header: React.FC = () => {
                 {/* Right: Actions */}
                 <div className="flex items-center space-x-6">
                     <div ref={announcementsRef} className="relative">
-                        <button 
+                        <button
                             onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
                             className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative"
                         >
@@ -115,7 +115,7 @@ export const Header: React.FC = () => {
                     </div>
 
                     <div ref={notificationsRef} className="relative">
-                        <button 
+                        <button
                             onClick={() => setNotificationsVisible(!isNotificationsVisible)}
                             className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                         >
@@ -127,7 +127,7 @@ export const Header: React.FC = () => {
                     <button onClick={toggleTheme} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                         {theme === Theme.LIGHT ? ICONS.moon : ICONS.sun}
                     </button>
-                
+
                     <Link to="/profile" className="flex items-center space-x-3">
                         <Avatar src={user.avatar} alt={user.name} size="md" />
                         <div>
