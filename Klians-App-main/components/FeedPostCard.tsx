@@ -113,6 +113,13 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
     const [showLikesModal, setShowLikesModal] = useState(false);
     const [likes, setLikes] = useState<User[]>([]);
 
+    // Keep state in sync with props when they change (e.g. on refresh or refetch)
+    useEffect(() => {
+        setIsLiked(post.isLiked || false);
+        setLikeCount(post.likes);
+        setCommentCount(post.comments);
+    }, [post.id, post.likes, post.comments, post.isLiked]);
+
     // Mutation hooks for instant updates
     const deleteMutation = useDeletePost();
     const updateMutation = useUpdatePost();

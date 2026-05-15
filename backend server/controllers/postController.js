@@ -117,29 +117,37 @@ const getPosts = async (req, res) => {
     const limit = Math.min(Number(req.query.limit || 20), 50);
     const cursor = req.query.cursor ? decodeCursor(req.query.cursor) : null;
 
+    const currentUserId = req?.user?.id || req?.user?._id || 0;
+
     let rows;
     if (cursor && cursor.createdAt && cursor.id) {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
                 UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+                (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
-          WHERE (p.created_at < ? OR (p.created_at = ? AND p.id < ?))
+          WHERE (p.created_at < FROM_UNIXTIME(? / 1000) OR (p.created_at = FROM_UNIXTIME(? / 1000) AND p.id < ?))
           ORDER BY p.created_at DESC, p.id DESC
           LIMIT ?`,
-        [cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
+        [currentUserId, cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
       );
     } else {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
                 UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+                (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
           ORDER BY p.created_at DESC, p.id DESC
           LIMIT ?`,
-        [limit + 1]
+        [currentUserId, limit + 1]
       );
     }
 
@@ -203,30 +211,38 @@ const getBroadcasts = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 50);
     const cursor = req.query.cursor ? decodeCursor(req.query.cursor) : null;
+    const currentUserId = req?.user?.id || req?.user?._id || 0;
+
     let rows;
     if (cursor && cursor.createdAt && cursor.id) {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
                 UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+                (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
-          WHERE p.is_broadcast = 1 AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))
+          WHERE p.is_broadcast = 1 AND (p.created_at < FROM_UNIXTIME(? / 1000) OR (p.created_at = FROM_UNIXTIME(? / 1000) AND p.id < ?))
           ORDER BY p.created_at DESC, p.id DESC
           LIMIT ?`,
-        [cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
+        [currentUserId, cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
       );
     } else {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
                 UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+                (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
           WHERE p.is_broadcast = 1
           ORDER BY p.created_at DESC, p.id DESC
           LIMIT ?`,
-        [limit + 1]
+        [currentUserId, limit + 1]
       );
     }
     const hasMore = rows.length > limit;
@@ -265,7 +281,38 @@ const getPostById = async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ message: 'Post not found' });
     const post = rows[0];
-    res.json({ ...post, likes: [] });
+    const userId = req.user?.id || req.user?._id || 0;
+    
+    // Fetch comments for this post
+    const comments = await query(
+      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
+              (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
+              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = ?) AS isLiked
+         FROM post_comments c
+         JOIN users u ON u.id = c.user_id
+        WHERE c.post_id = ?
+        ORDER BY (c.user_id = ?) DESC, c.created_at DESC`,
+      [userId, req.params.id, userId]
+    );
+
+    // Format comments to match frontend expectation (nested user object)
+    const formattedComments = comments.map(c => ({
+      _id: c._id,
+      text: c.text,
+      date: c.date,
+      parentId: c.parentId,
+      user: {
+        id: c.userId,
+        name: c.name,
+        email: c.email,
+        profilePicture: c.profilePicture
+      },
+      likesCount: c.likesCount || 0,
+      isLiked: !!c.isLiked,
+      likes: [] // Keep for backward compatibility if any client uses it
+    }));
+
+    res.json({ ...post, likes: [], comments: formattedComments });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -398,8 +445,10 @@ const commentOnPost = async (req, res) => {
     if (!postRow.length) return res.status(404).json({ message: 'Post not found' });
     const userId = req.user.id || req.user._id;
     const text = req.body.text || '';
-    await query('INSERT INTO post_comments (post_id, user_id, text) VALUES (?, ?, ?)', [req.params.id, userId, text]);
-    
+    const parentId = req.body.parentId || null;
+    const insertResult = await query('INSERT INTO post_comments (post_id, user_id, text, parent_id) VALUES (?, ?, ?, ?)', [req.params.id, userId, text, parentId]);
+    const commentId = insertResult.insertId;
+
     // Get total comment count for real-time update
     const countRows = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = ?', [req.params.id]);
     
@@ -413,16 +462,32 @@ const commentOnPost = async (req, res) => {
       });
     }
 
-    const comments = await query(
-      `SELECT c.id, c.text, c.created_at, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture
+    // Fetch the newly created comment with user info
+    const newCommentRows = await query(
+      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
+              0 AS likesCount,
+              0 AS isLiked
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
-        WHERE c.post_id = ?
-        ORDER BY c.created_at DESC, c.id DESC
-        LIMIT 50`,
-      [req.params.id]
+        WHERE c.id = ?`,
+      [commentId]
     );
-    res.json(comments);
+
+    const formattedComment = {
+      ...newCommentRows[0],
+      parentId: newCommentRows[0].parentId,
+      user: {
+        id: newCommentRows[0].userId,
+        name: newCommentRows[0].name,
+        email: newCommentRows[0].email,
+        profilePicture: newCommentRows[0].profilePicture
+      },
+      likesCount: 0,
+      isLiked: false,
+      likes: []
+    };
+
+    res.json(formattedComment);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -437,13 +502,78 @@ const deleteComment = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const rows = await query('SELECT user_id FROM post_comments WHERE id = ? AND post_id = ? LIMIT 1', [req.params.comment_id, req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Post or comment not found' });
+    
     const ownerId = rows[0].user_id;
-    if (String(ownerId) !== String(userId) && req.user.role !== 'faculty') {
+    if (String(ownerId) !== String(userId) && req.user.role !== 'faculty' && req.user.role !== 'admin') {
       return res.status(401).json({ message: 'User not authorized' });
     }
+    
     await query('DELETE FROM post_comments WHERE id = ? AND post_id = ?', [req.params.comment_id, req.params.id]);
-    const comments = await query('SELECT id, text FROM post_comments WHERE post_id = ? ORDER BY created_at DESC, id DESC LIMIT 50', [req.params.id]);
-    res.json(comments);
+    
+    // Get total comment count for real-time update
+    const countRows = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = ?', [req.params.id]);
+    
+    // Emit real-time update
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('post_update', { 
+        type: 'COMMENT_CHANGE', 
+        postId: req.params.id, 
+        commentCount: countRows[0].cnt 
+      });
+    }
+
+    res.json({ message: 'Comment deleted successfully', commentCount: countRows[0].cnt });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update comment
+// @route   PUT /api/posts/comment/:id/:comment_id
+// @access  Private
+const updateComment = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id || 0;
+    const { text } = req.body;
+    
+    const rows = await query('SELECT user_id FROM post_comments WHERE id = ? AND post_id = ? LIMIT 1', [req.params.comment_id, req.params.id]);
+    if (!rows.length) return res.status(404).json({ message: 'Post or comment not found' });
+    
+    const ownerId = rows[0].user_id;
+    if (String(ownerId) !== String(userId)) {
+      return res.status(401).json({ message: 'User not authorized to edit this comment' });
+    }
+    
+    await query('UPDATE post_comments SET text = ? WHERE id = ?', [text, req.params.comment_id]);
+    
+    // Fetch the updated comment with user info
+    const updatedRows = await query(
+      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
+              (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
+              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = ?) AS isLiked
+         FROM post_comments c
+         JOIN users u ON u.id = c.user_id
+        WHERE c.id = ?`,
+      [userId, req.params.comment_id]
+    );
+
+    const formattedComment = {
+      ...updatedRows[0],
+      parentId: updatedRows[0].parentId,
+      user: {
+        id: updatedRows[0].userId,
+        name: updatedRows[0].name,
+        email: updatedRows[0].email,
+        profilePicture: updatedRows[0].profilePicture
+      },
+      likesCount: updatedRows[0].likesCount || 0,
+      isLiked: !!updatedRows[0].isLiked,
+      likes: []
+    };
+
+    res.json(formattedComment);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -480,6 +610,45 @@ const unlikeComment = async (req, res) => {
   }
 };
 
+// @desc    Share a post via message
+// @route   POST /api/posts/share/:id
+// @access  Private
+const sharePost = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const { recipientEmails } = req.body;
+    const senderId = req.user.id || req.user._id;
+
+    if (!recipientEmails || !Array.isArray(recipientEmails)) {
+      return res.status(400).json({ message: 'recipientEmails must be an array' });
+    }
+
+    if (recipientEmails.length === 0) {
+      return res.status(400).json({ message: 'No recipients provided' });
+    }
+
+    // Find user IDs for these emails
+    const users = await query('SELECT id, email FROM users WHERE email IN (?)', [recipientEmails]);
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'No valid recipients found' });
+    }
+
+    // Create a message for each recipient
+    for (const user of users) {
+      await query(
+        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES (?, ?, ?, ?, ?)',
+        [senderId, user.id, '', 'post', postId]
+      );
+    }
+
+    res.status(200).json({ message: `Post shared with ${users.length} users` });
+  } catch (error) {
+    console.error('Error sharing post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createPost,
   updatePost,
@@ -491,7 +660,9 @@ module.exports = {
   unlikePost,
   commentOnPost,
   deleteComment,
+  updateComment,
   likeComment,
   unlikeComment,
-  getTrendingHashtags
+  getTrendingHashtags,
+  sharePost
 };

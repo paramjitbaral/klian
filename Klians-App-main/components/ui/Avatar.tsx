@@ -3,7 +3,7 @@ import React from 'react';
 interface AvatarProps {
   src?: string | null;
   alt: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   online?: boolean;
   className?: string;
 }
@@ -13,6 +13,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', online = 
   const [imageError, setImageError] = React.useState(false);
   
   const sizeClasses = {
+    xs: 'h-6 w-6 text-[10px]',
     sm: 'h-8 w-8 text-xs',
     md: 'h-10 w-10 text-sm',
     lg: 'h-16 w-16 text-xl',

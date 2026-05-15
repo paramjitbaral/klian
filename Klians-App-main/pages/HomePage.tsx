@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../contexts/SocketContext';
 import { usePosts, useCreatePost } from '../src/hooks/usePosts';
@@ -49,6 +50,8 @@ export const HomePage: React.FC = () => {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [broadcastsLoading, setBroadcastsLoading] = useState(true);
   const { socket } = useSocket();
+  const location = useLocation();
+  
 
   // Fetch broadcasts from API
   useEffect(() => {
@@ -124,12 +127,9 @@ export const HomePage: React.FC = () => {
           content: p.content,
           image: p.image,
           timestamp: p.created_at || p.createdAt || p.timestamp,
-          likes: p.likes?.length || 0,
-          comments: p.comments?.length || 0,
-          isLiked: p.likes?.some((like: any) => {
-            const likeId = typeof like._id === 'string' ? like._id : like._id?.toString();
-            return likeId === userId || like === userId;
-          }),
+          likes: p.likes || 0,
+          comments: p.comments || 0,
+          isLiked: !!p.isLiked,
           type: 'post' as const
         }))
         : [];
@@ -160,6 +160,21 @@ export const HomePage: React.FC = () => {
       return [];
     }
   }, [postsResponse, broadcasts, user?.id]);
+
+  // Handle scrolling to highlighted post
+  useEffect(() => {
+    const highlightId = (location.state as any)?.highlightPost;
+    if (highlightId && feedItems.length > 0) {
+      setTimeout(() => {
+        const element = document.getElementById(`post-${highlightId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-xl', 'animate-pulse');
+          setTimeout(() => element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'animate-pulse'), 3000);
+        }
+      }, 500);
+    }
+  }, [location.state, feedItems]);
 
   const handleCreatePost = async (content: string, image?: string, fileName?: string) => {
     if ((!content.trim() && !image) || !user) return;
@@ -231,19 +246,21 @@ export const HomePage: React.FC = () => {
           ) : (
             feedItems.map((item, index) => (
               item.type === 'post' ? (
-                <FeedPostCard
-                  key={`${item.id || index}-post`}
-                  post={item}
-                  onDelete={(postId) => {
-                    console.log('[React Query] Post deleted:', postId);
-                  }}
-                />
+                <div id={`post-${item.id}`} key={`${item.id || index}-post`}>
+                  <FeedPostCard
+                    post={item}
+                    onDelete={(postId) => {
+                      console.log('[React Query] Post deleted:', postId);
+                    }}
+                  />
+                </div>
               ) : (
-                <BroadcastCard
-                  key={`${item.id || index}-broadcast`}
-                  broadcast={item}
-                  isPinned={new Date(item.timestamp) > twentyFourHoursAgo}
-                />
+                <div id={`post-${item.id}`} key={`${item.id || index}-broadcast`}>
+                  <BroadcastCard
+                    broadcast={item}
+                    isPinned={new Date(item.timestamp) > twentyFourHoursAgo}
+                  />
+                </div>
               )
             ))
           )}

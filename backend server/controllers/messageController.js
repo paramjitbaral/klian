@@ -66,10 +66,14 @@ const getMessagesWith = async (req, res) => {
     const rows = await query(
       `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at AS createdAt,
               s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-              r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture
+              r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture,
+              p.content AS postContent, p.image_url AS postImage, p.created_at AS postCreatedAt,
+              pu.name AS postUserName, pu.profile_picture AS postUserProfilePicture
          FROM messages m
          JOIN users s ON s.id = m.sender_id
          JOIN users r ON r.id = m.recipient_id
+         LEFT JOIN posts p ON p.id = m.post_id
+         LEFT JOIN users pu ON pu.id = p.user_id
         WHERE (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
         ORDER BY m.created_at ASC`,
       [currentUserId, otherUserId, otherUserId, currentUserId]
@@ -80,7 +84,13 @@ const getMessagesWith = async (req, res) => {
       id: msg.id,
       content: msg.content,
       type: msg.type,
-      postId: msg.postId,
+      postId: msg.postId ? {
+        _id: msg.postId,
+        content: msg.postContent,
+        image: msg.postImage,
+        createdAt: msg.postCreatedAt,
+        user: { name: msg.postUserName, profilePicture: msg.postUserProfilePicture }
+      } : null,
       read: !!msg.read,
       createdAt: msg.createdAt,
       sender: { _id: msg.senderId, id: msg.senderId, name: msg.senderName, email: msg.senderEmail, profilePicture: msg.senderProfilePicture },

@@ -43,8 +43,13 @@ export const postsAPI = {
   },
   
   // Add a comment to a post
-  addComment: (postId: string, text: string) => {
-    return API.post(`/posts/comment/${postId}`, { text });
+  addComment: (postId: string, text: string, parentId?: string) => {
+    return API.post(`/posts/comment/${postId}`, { text, parentId });
+  },
+
+  // Update a comment
+  updateComment: (postId: string, commentId: string, text: string) => {
+    return API.put(`/posts/comment/${postId}/${commentId}`, { text });
   },
   
   // Delete a comment from a post

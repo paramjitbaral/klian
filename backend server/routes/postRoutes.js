@@ -13,7 +13,8 @@ const {
   deleteComment,
   likeComment,
   unlikeComment,
-  getTrendingHashtags
+  getTrendingHashtags,
+  sharePost
 } = require('../controllers/postController');
 const { protect, facultyOnly } = require('../middleware/auth');
 
@@ -41,9 +42,6 @@ router.route('/:id')
   .delete(protect, deletePost);
 
 // Share post route
-router.post('/share/:id', protect, async (req, res) => {
-  // Use Socket.IO event 'share-post' for realtime sharing in this backend.
-  res.status(501).json({ message: 'Share via WebSocket: emit "share-post" with { senderId, recipientId, postId, message }' });
-});
+router.post('/share/:id', protect, sharePost);
 
 module.exports = router;
