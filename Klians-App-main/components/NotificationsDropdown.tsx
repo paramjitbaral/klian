@@ -10,6 +10,7 @@ interface NotificationsDropdownProps {
   onClose: () => void;
   onMarkAllRead: () => void;
   onDelete: (id: number) => void;
+  className?: string;
 }
 
 const getImageUrl = (url: string | undefined) => {
@@ -27,7 +28,7 @@ const getFileType = (url: string): 'image' | 'video' | 'doc' | 'other' => {
     return 'other';
 };
 
-export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ notifications, onClose, onMarkAllRead, onDelete }) => {
+export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ notifications, onClose, onMarkAllRead, onDelete, className }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -82,7 +83,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
 
   return (
     <Card 
-      className={`absolute top-full right-0 mt-2 w-[380px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200 transition-all ease-in-out ${isExpanded ? 'max-h-[80vh]' : 'max-h-[500px]'}`}
+      className={className || `absolute top-full right-0 mt-2 w-[380px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200 transition-all ease-in-out ${isExpanded ? 'max-h-[80vh]' : 'max-h-[500px]'}`}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
         <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Notifications</h3>
@@ -107,14 +108,17 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
           </div>
         ) : (
           (isExpanded ? notifications : notifications.slice(0, 4)).map((notif) => (
-            <button
+            <div
               key={notif.id}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if(e.key === 'Enter') handleNotificationClick(notif) }}
               onClick={() => handleNotificationClick(notif)}
-              className={`w-full flex items-start gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left border-b border-slate-50 dark:border-slate-800/50 last:border-0 ${!notif.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
+              className={`w-full flex items-start gap-3 p-3 md:p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left border-b border-slate-50 dark:border-slate-800/50 last:border-0 cursor-pointer ${!notif.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
             >
-              <div className="relative shrink-0">
-                <Avatar src={notif.actor.avatar} alt={notif.actor.name} size="sm" />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
+              <div className="relative shrink-0 mt-0.5 md:mt-0">
+                <Avatar src={notif.actor.avatar} alt={notif.actor.name} size="xs" className="md:w-8 md:h-8" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
                   <div className="scale-[0.6]">
                     {getIcon(notif.type)}
                   </div>
@@ -173,7 +177,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </button>
+            </div>
           ))
         )}
       </div>

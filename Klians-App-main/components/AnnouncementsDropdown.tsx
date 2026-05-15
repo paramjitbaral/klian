@@ -8,11 +8,13 @@ import { Card } from './ui/Card';
 import { ICONS } from '../constants';
 
 interface Announcement {
-  _id: string;
+  id: string;
+  _id?: string;
   title: string;
   content: string;
   author: {
-    _id: string;
+    id?: string;
+    _id?: string;
     name: string;
     avatar: string;
     role: string;
@@ -25,9 +27,10 @@ interface Announcement {
 interface AnnouncementsDropdownProps {
   onClose: () => void;
   isOpen?: boolean;
+  className?: string;
 }
 
-export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ onClose, isOpen }) => {
+export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ onClose, isOpen, className }) => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -43,11 +46,13 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
     }
 
     if (socket) {
-      const handleNewAnnouncement = (newAnnouncement: Announcement) => {
+      const handleNewAnnouncement = (newAnnouncement: any) => {
         setAnnouncements(prev => {
-          const exists = prev.some(ann => ann._id === newAnnouncement._id);
+          const incomingId = String(newAnnouncement.id || newAnnouncement._id);
+          const exists = prev.some(ann => String(ann.id || ann._id) === incomingId);
           if (exists) return prev;
-          return [newAnnouncement, ...prev];
+          // Normalize the incoming announcement
+          return [{ ...newAnnouncement, id: incomingId }, ...prev];
         });
         // If dropdown is open, mark the incoming one as read too
         if (isOpen !== false) {
@@ -87,7 +92,7 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
       await announcementsAPI.markAsRead(announcementId);
       setAnnouncements(prev =>
         prev.map(ann =>
-          ann._id === announcementId ? { ...ann, isRead: true } : ann
+          String(ann.id || ann._id) === announcementId ? { ...ann, isRead: true } : ann
         )
       );
     } catch (err) {
@@ -97,8 +102,7 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
 
   const handleDeleteAnnouncement = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    // Assuming a delete endpoint exists or we just hide it locally
-    setAnnouncements(prev => prev.filter(ann => ann._id !== id));
+    setAnnouncements(prev => prev.filter(ann => String(ann.id || ann._id) !== id));
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -115,7 +119,7 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
 
   return (
     <Card 
-      className={`absolute top-full right-0 mt-2 w-[380px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200 transition-all ease-in-out ${isExpanded ? 'max-h-[80vh]' : 'max-h-[500px]'}`}
+      className={className || `absolute top-full right-0 mt-2 w-[380px] overflow-hidden flex flex-col z-50 shadow-2xl border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-2 duration-200 transition-all ease-in-out ${isExpanded ? 'max-h-[80vh]' : 'max-h-[500px]'}`}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
         <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Announcements</h3>
@@ -147,46 +151,49 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
             <p className="text-sm font-medium text-slate-900 dark:text-white">No announcements</p>
           </div>
         ) : (
-          (isExpanded ? announcements : announcements.slice(0, 4)).map((ann) => (
-            <div
-              key={ann._id}
-              onClick={() => handleMarkAsRead(ann._id)}
-              className={`group relative flex items-start gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-b border-slate-50 dark:border-slate-800/50 last:border-0 ${!ann.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
-            >
-              <div className="shrink-0 relative">
-                <Avatar src={ann.author.avatar} alt={ann.author.name} size="sm" />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
-                   <div className="text-blue-500 scale-[0.6]">
-                      {ICONS.announcement}
-                   </div>
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                   <span className="text-[12px] font-bold text-slate-900 dark:text-white truncate">{ann.author.name}</span>
-                   <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-tighter shrink-0">{getTimeAgo(ann.createdAt)}</span>
-                </div>
-                <p className="text-[11px] font-black text-blue-500 uppercase tracking-tight mt-0.5">{ann.title}</p>
-                <p className="text-[12px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-snug">
-                  {ann.content}
-                </p>
-              </div>
-
-              {!ann.isRead && (
-                <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-2"></div>
-              )}
-
-              <button 
-                onClick={(e) => handleDeleteAnnouncement(e, ann._id)}
-                className="absolute right-2 top-2 p-1 rounded-md text-slate-200 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+          (isExpanded ? announcements : announcements.slice(0, 4)).map((ann) => {
+            const annId = String(ann.id || ann._id || Math.random());
+            return (
+              <div
+                key={annId}
+                onClick={() => handleMarkAsRead(annId)}
+                className={`group relative flex items-start gap-3 p-3 md:p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer border-b border-slate-50 dark:border-slate-800/50 last:border-0 ${!ann.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))
+                <div className="shrink-0 relative mt-0.5 md:mt-0">
+                  <Avatar src={ann.author.avatar} alt={ann.author.name} size="xs" className="md:w-8 md:h-8" />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
+                     <div className="text-blue-500 scale-[0.6]">
+                        {ICONS.announcement}
+                     </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                     <span className="text-[12px] font-bold text-slate-900 dark:text-white truncate">{ann.author.name}</span>
+                     <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-tighter shrink-0">{getTimeAgo(ann.createdAt)}</span>
+                  </div>
+                  <p className="text-[11px] font-black text-blue-500 uppercase tracking-tight mt-0.5">{ann.title}</p>
+                  <p className="text-[12px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-snug">
+                    {ann.content}
+                  </p>
+                </div>
+
+                {!ann.isRead && (
+                  <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-2"></div>
+                )}
+
+                <button 
+                  onClick={(e) => handleDeleteAnnouncement(e, annId)}
+                  className="absolute right-2 top-2 p-1 rounded-md text-slate-200 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })
         )}
       </div>
 

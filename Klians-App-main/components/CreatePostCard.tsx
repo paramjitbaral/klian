@@ -30,14 +30,14 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ user, onComposeC
     
     return (
         <div 
-            className="mb-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700/50 p-2 pl-3 flex items-center gap-4 transition-all hover:border-slate-200 dark:hover:border-slate-600 cursor-pointer group"
+            className="mb-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700/50 p-2 pl-3 flex items-center gap-2 md:gap-4 transition-all hover:border-slate-200 dark:hover:border-slate-600 cursor-pointer group"
             onClick={onComposeClick}
             role="button"
             aria-label="Create a new post"
         >
-            <Avatar src={user.avatar} alt={user.name} size="sm" />
+            <Avatar src={user.avatar} alt={user.name} size="sm" className="flex-shrink-0" />
             
-            <div className="flex-grow text-slate-400 dark:text-slate-500 text-sm font-medium">
+            <div className="flex-grow text-slate-400 dark:text-slate-500 text-sm font-medium truncate pr-2">
                 What's on your mind?
             </div>
 

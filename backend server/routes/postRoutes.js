@@ -11,6 +11,7 @@ const {
   unlikePost,
   commentOnPost,
   deleteComment,
+  updateComment,
   likeComment,
   unlikeComment,
   getTrendingHashtags,
@@ -32,6 +33,7 @@ router.put('/unlike/:id', protect, unlikePost);
 
 router.post('/comment/:id', protect, commentOnPost);
 router.delete('/comment/:id/:comment_id', protect, deleteComment);
+router.put('/comment/:id/:comment_id', protect, updateComment);
 router.put('/comment/like/:id/:comment_id', protect, likeComment);
 router.put('/comment/unlike/:id/:comment_id', protect, unlikeComment);
 

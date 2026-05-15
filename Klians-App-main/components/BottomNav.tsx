@@ -4,6 +4,8 @@ import { ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import { Role } from '../types';
 
+import { Avatar } from './ui/Avatar';
+
 interface BottomNavProps {
   onSearchClick: () => void;
 }
@@ -41,7 +43,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onSearchClick }) => {
         {isTeacherOrAdmin ? (
           <NavItem to="/broadcast" icon={ICONS.broadcast} activeIcon={ICONS.broadcast} label="Broadcast" />
         ) : (
-          <NavItem to="/profile" icon={ICONS.profile} activeIcon={ICONS.profileSolid} label="Profile" />
+          <NavItem 
+            to="/profile" 
+            icon={<Avatar src={user.avatar} alt={user.name} size="xs" className="opacity-80 transition-all duration-200 hover:opacity-100" />} 
+            activeIcon={<Avatar src={user.avatar} alt={user.name} size="xs" className="ring-[2px] ring-brand-gradient-from ring-offset-2 dark:ring-offset-slate-800 transition-all duration-200" />} 
+            label="Profile" 
+          />
         )}
       </nav>
 

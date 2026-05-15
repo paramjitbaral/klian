@@ -164,17 +164,23 @@ export const BroadcastPage: React.FC = () => {
 
         if (socket) {
             socket.on('announcement-created', (newAnnouncement) => {
+                const authorId = newAnnouncement.author?.id || newAnnouncement.author?._id || newAnnouncement.author_id;
+                const currentUserId = user?.id || user?._id;
+                
+                // Only add to history if it's our broadcast (matches mount filter)
+                if (String(authorId) !== String(currentUserId)) return;
+
                 const newBroadcast: Broadcast = {
-                    id: newAnnouncement._id,
+                    id: newAnnouncement.id || newAnnouncement._id,
                     title: newAnnouncement.title,
                     content: newAnnouncement.content,
                     author: newAnnouncement.author,
                     target: newAnnouncement.target,
-                    timestamp: newAnnouncement.createdAt,
+                    timestamp: newAnnouncement.createdAt || newAnnouncement.created_at,
                 };
+                
                 setBroadcasts(prev => {
-                    // Deduplicate by id
-                    if (prev.some(b => b.id === newBroadcast.id)) {
+                    if (prev.some(b => String(b.id) === String(newBroadcast.id))) {
                         return prev;
                     }
                     return [newBroadcast, ...prev];
@@ -193,16 +199,16 @@ export const BroadcastPage: React.FC = () => {
             const data = await announcementsAPI.getAnnouncements();
             const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
             const broadcastsFromAPI: Broadcast[] = data.map((ann: any) => ({
-                id: ann._id,
+                id: String(ann.id || ann._id),
                 title: ann.title,
                 content: ann.content,
                 author: ann.author,
                 target: ann.target,
-                timestamp: ann.createdAt,
+                timestamp: ann.createdAt || ann.created_at,
             }));
             const filtered = broadcastsFromAPI
               .filter(b => new Date(b.timestamp).getTime() >= sevenDaysAgo)
-              .filter(b => (b.author as any)?.id === user?.id || (b.author as any)?._id === user?.id)
+              .filter(b => String((b.author as any)?.id || (b.author as any)?._id) === String(user?.id || user?._id))
               .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
             setBroadcasts(filtered);
         } catch (err) {
@@ -270,7 +276,7 @@ export const BroadcastPage: React.FC = () => {
         if (!deleteModal.id) return;
         try {
             await announcementsAPI.deleteAnnouncement(deleteModal.id);
-            setBroadcasts(prev => prev.filter(b => b.id !== deleteModal.id));
+            setBroadcasts(prev => prev.filter(b => String(b.id) !== String(deleteModal.id)));
             setDeleteModal({ open: false, id: null });
         } catch (err) {
             console.error('Failed to delete broadcast:', err);
@@ -358,9 +364,9 @@ export const BroadcastPage: React.FC = () => {
                                                     {!loading && broadcasts.length > 0 && (
                                                         broadcasts.map(b => (
                                                             <BroadcastHistoryItem 
-                                                                key={b.id} 
+                                                                key={`broadcast-${b.id}`} 
                                                                 broadcast={b} 
-                                                                currentUserId={user?.id}
+                                                                currentUserId={user?.id || user?._id}
                                                                 onDelete={handleDeleteBroadcast}
                                                             />
                                                         ))
@@ -370,18 +376,19 @@ export const BroadcastPage: React.FC = () => {
                                                             <p>No past broadcasts.</p>
                                                         </div>
                                                     )}
-                                                            {/* --- DELETE CONFIRMATION MODAL --- */}
-                                                            <Modal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} title="Delete Broadcast?">
-                                                                <p className="mb-4">Are you sure you want to delete this broadcast? This action cannot be undone.</p>
-                                                                <div className="flex justify-end gap-3">
-                                                                    <Button variant="secondary" onClick={() => setDeleteModal({ open: false, id: null })}>Cancel</Button>
-                                                                    <Button variant="danger" onClick={confirmDeleteBroadcast}>Delete</Button>
-                                                                </div>
-                                                            </Modal>
-                                                </div>
+                                            </div>
                     </Card>
                 </div>
             </div>
+
+            {/* --- DELETE CONFIRMATION MODAL --- */}
+            <Modal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} title="Delete Broadcast?">
+                <p className="mb-4">Are you sure you want to delete this broadcast? This action cannot be undone.</p>
+                <div className="flex justify-end gap-3">
+                    <Button variant="secondary" onClick={() => setDeleteModal({ open: false, id: null })}>Cancel</Button>
+                    <Button variant="danger" onClick={confirmDeleteBroadcast}>Delete</Button>
+                </div>
+            </Modal>
 
             {/* --- PREVIEW MODAL --- */}
             <Modal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} title="Broadcast Preview">

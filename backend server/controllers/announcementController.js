@@ -18,7 +18,7 @@ exports.createAnnouncement = async (req, res) => {
     const announcementId = result.insertId;
     
     const rows = await query(
-      `SELECT a.id, a.title, a.content, a.target, DATE_FORMAT(a.created_at, '%Y-%m-%dT%H:%i:%sZ') AS createdAt,
+      `SELECT a.id, a.title, a.content, a.target, UNIX_TIMESTAMP(a.created_at) * 1000 AS createdAt,
               u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole
          FROM announcements a
          JOIN users u ON u.id = a.author_id
@@ -31,6 +31,10 @@ exports.createAnnouncement = async (req, res) => {
       ...rows[0],
       author: { id: rows[0].authorId, name: rows[0].authorName, avatar: rows[0].authorAvatar, role: rows[0].authorRole }
     };
+
+    // Emit to all connected clients for real-time feed updates
+    const io = req.app.get('io');
+    if (io) io.emit('announcement-created', announcement);
 
     res.status(201).json({
       message: 'Announcement created successfully',
@@ -49,7 +53,7 @@ exports.createAnnouncement = async (req, res) => {
 exports.getAnnouncements = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
-    let sql = `SELECT a.id, a.title, a.content, a.target, DATE_FORMAT(a.created_at, '%Y-%m-%dT%H:%i:%sZ') AS createdAt,
+    let sql = `SELECT a.id, a.title, a.content, a.target, UNIX_TIMESTAMP(a.created_at) * 1000 AS createdAt,
                       u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole,
                       (SELECT COUNT(*) FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?) AS isRead
                  FROM announcements a
@@ -57,10 +61,16 @@ exports.getAnnouncements = async (req, res) => {
     
     const params = [currentUserId];
 
+    // Admin sees all announcements (no WHERE filter)
     if (req.user.role !== 'Admin' && req.user.role !== 'admin') {
-      const userRole = req.user.role === 'faculty' ? 'faculty' : 'student';
-      sql += ' WHERE a.target = "All" OR a.target = ?';
-      params.push(userRole);
+      const role = req.user.role;
+      if (role === 'Teacher') {
+        // Teachers see: All Users + Teachers
+        sql += ` WHERE (LOWER(a.target) IN ('all', 'all users', 'teacher', 'teachers'))`;
+      } else {
+        // Students only see: All Users + Students
+        sql += ` WHERE (LOWER(a.target) IN ('all', 'all users', 'student', 'students'))`;
+      }
     }
     
     sql += ' ORDER BY a.created_at DESC';
@@ -93,10 +103,14 @@ exports.getUnreadCount = async (req, res) => {
     
     const params = [currentUserId];
 
+    // Admin sees all (no filter)
     if (req.user.role !== 'Admin' && req.user.role !== 'admin') {
-      const userRole = req.user.role === 'faculty' ? 'faculty' : 'student';
-      sql += ' AND (a.target = "All" OR a.target = ?)';
-      params.push(userRole);
+      const role = req.user.role;
+      if (role === 'Teacher') {
+        sql += ` AND (LOWER(a.target) IN ('all', 'all users', 'teacher', 'teachers'))`;
+      } else {
+        sql += ` AND (LOWER(a.target) IN ('all', 'all users', 'student', 'students'))`;
+      }
     }
     
     const rows = await query(sql, params);
@@ -185,7 +199,15 @@ exports.deleteAnnouncement = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this announcement' });
     }
 
+    // First delete associated reads to avoid foreign key constraints
+    await query('DELETE FROM announcement_reads WHERE announcement_id = ?', [announcementId]);
+    
+    // Then delete the announcement itself
     await query('DELETE FROM announcements WHERE id = ?', [announcementId]);
+
+    // Emit to all connected clients so their feeds update instantly
+    const io = req.app.get('io');
+    if (io) io.emit('announcement-deleted', { id: announcementId });
 
     res.json({ message: 'Announcement deleted successfully' });
   } catch (error) {

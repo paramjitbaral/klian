@@ -10,6 +10,7 @@ import { SearchResultsDropdown } from './SearchResultsDropdown';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { AnnouncementsDropdown } from './AnnouncementsDropdown';
 import { notificationsAPI, Notification } from '../src/api/notifications';
+import { announcementsAPI } from '../src/api/announcements';
 import { useSocket } from '../contexts/SocketContext';
 
 export const Header: React.FC = () => {
@@ -24,20 +25,25 @@ export const Header: React.FC = () => {
     const announcementsRef = useRef<HTMLDivElement>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [broadcastUnreadCount, setBroadcastUnreadCount] = useState(0);
     const { socket } = useSocket();
 
     // Fetch notifications
     useEffect(() => {
-        const fetchNotifications = async () => {
+        const fetchCounts = async () => {
             try {
-                const response = await notificationsAPI.getNotifications();
-                setNotifications(response.data);
-                setUnreadCount(response.data.filter(n => !n.isRead).length);
+                const [notifRes, broadcastCount] = await Promise.all([
+                    notificationsAPI.getNotifications(),
+                    announcementsAPI.getUnreadCount()
+                ]);
+                setNotifications(notifRes.data);
+                setUnreadCount(notifRes.data.filter(n => !n.isRead).length);
+                setBroadcastUnreadCount(broadcastCount);
             } catch (error) {
-                console.error('Error fetching notifications:', error);
+                console.error('Error fetching initial data:', error);
             }
         };
-        fetchNotifications();
+        fetchCounts();
     }, []);
 
     // Socket listeners
@@ -50,7 +56,7 @@ export const Header: React.FC = () => {
         };
 
         socket.on('new_notification', handleNewNotification);
-        
+
         socket.on('delete_notification', (data: { id: number }) => {
             setNotifications(prev => {
                 const notifToDelete = prev.find(n => n.id === data.id);
@@ -61,18 +67,50 @@ export const Header: React.FC = () => {
             });
         });
 
+        const handleNewAnnouncement = (newAnnouncement: any) => {
+            // Filter by role before incrementing unread count
+            const target = (newAnnouncement?.target || 'All').toLowerCase();
+            const role = user?.role?.toLowerCase() || '';
+
+            const isAdmin = role === 'admin';
+            const isTeacher = role === 'teacher';
+
+            let isVisible = false;
+            if (isAdmin) {
+                isVisible = true;
+            } else if (isTeacher) {
+                isVisible = ['all', 'all users', 'teacher', 'teachers'].includes(target);
+            } else {
+                isVisible = ['all', 'all users', 'student', 'students'].includes(target);
+            }
+
+            if (isVisible) {
+                setBroadcastUnreadCount(prev => prev + 1);
+            }
+        };
+        socket.on('announcement-created', handleNewAnnouncement);
+
         return () => {
             socket.off('new_notification', handleNewNotification);
             socket.off('delete_notification');
+            socket.off('announcement-created', handleNewAnnouncement);
         };
     }, [socket]);
-    
+
     // Auto-mark as read if dropdown is open when new notifs arrive
     useEffect(() => {
-        if (isNotificationsVisible && unreadCount > 0) {
+        // Mark as read if desktop dropdown is open OR if mobile unified overlay is open
+        const isMobileOverlay = window.innerWidth < 768 && isAnnouncementsVisible;
+        if ((isNotificationsVisible || isMobileOverlay) && unreadCount > 0) {
             handleMarkAllRead();
         }
-    }, [isNotificationsVisible, unreadCount, notifications.length]);
+    }, [isNotificationsVisible, isAnnouncementsVisible, unreadCount, notifications.length]);
+
+    useEffect(() => {
+        if (isAnnouncementsVisible && broadcastUnreadCount > 0) {
+            handleMarkAllBroadcastsRead();
+        }
+    }, [isAnnouncementsVisible, broadcastUnreadCount]);
 
     const handleMarkAllRead = async () => {
         if (unreadCount === 0) return;
@@ -93,6 +131,16 @@ export const Header: React.FC = () => {
             }
             return prev.filter(n => n.id !== id);
         });
+    };
+
+    const handleMarkAllBroadcastsRead = async () => {
+        if (broadcastUnreadCount === 0) return;
+        try {
+            await announcementsAPI.markAllAsRead();
+            setBroadcastUnreadCount(0);
+        } catch (error) {
+            console.error('Error marking broadcasts read:', error);
+        }
     };
 
     // Effect to handle clicks outside of the search component and notifications
@@ -121,26 +169,50 @@ export const Header: React.FC = () => {
     return (
         <header className="bg-white dark:bg-slate-800 fixed md:sticky top-0 z-20 w-full border-b border-slate-200 dark:border-slate-700">
             {/* Mobile Header */}
-            <div className="md:hidden p-4 h-16 flex items-center justify-between">
-                <Link to="/home" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to">
-                    KLIAS
-                </Link>
-                <div className="flex items-center space-x-3">
-                    <Link to="/messages" className="text-slate-600 dark:text-slate-300">
-                        {React.cloneElement(ICONS.messages, { className: "h-6 w-6" })}
+            <div className="md:hidden px-4 h-14 grid grid-cols-3 items-center">
+                {/* Left: Combined Activity (Mobile) */}
+                <div ref={announcementsRef} className="relative justify-self-start">
+                    <button
+                        className="p-2 -ml-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative"
+                        onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
+                    >
+                        {React.cloneElement(ICONS.announcement, { className: "h-[24px] w-[24px]" })}
+                        {(broadcastUnreadCount > 0 || unreadCount > 0) && (
+                            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
+                        )}
+                    </button>
+                    {isAnnouncementsVisible && (
+                        <div className="fixed inset-x-0 top-14 bottom-16 bg-black/20 z-50 animate-in fade-in" onClick={() => setAnnouncementsVisible(false)}>
+                            <div className="absolute top-0 left-0 w-full h-full overflow-y-auto bg-slate-50 dark:bg-slate-900 shadow-xl border-t border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+                                <NotificationsDropdown
+                                    notifications={notifications}
+                                    onClose={() => setAnnouncementsVisible(false)}
+                                    onMarkAllRead={handleMarkAllRead}
+                                    onDelete={handleDeleteNotification}
+                                    className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
+                                />
+                                <div className="h-2 bg-slate-100 dark:bg-slate-900 w-full border-y border-slate-200 dark:border-slate-700" />
+                                <AnnouncementsDropdown
+                                    isOpen={isAnnouncementsVisible}
+                                    onClose={() => setAnnouncementsVisible(false)}
+                                    className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Center: Logo */}
+                <div className="flex justify-center">
+                    <Link to="/home" className="text-xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
+                        KLIAS
                     </Link>
-                    <div ref={announcementsRef} className="relative">
-                        <button
-                            className="text-slate-600 dark:text-slate-300 relative"
-                            onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
-                        >
-                            {React.cloneElement(ICONS.announcement, { className: "h-6 w-6" })}
-                            <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-                        </button>
-                        {isAnnouncementsVisible && <AnnouncementsDropdown isOpen={isAnnouncementsVisible} onClose={() => setAnnouncementsVisible(false)} />}
-                    </div>
-                    <Link to="/profile">
-                        <Avatar src={user.avatar} alt={user.name} size="sm" />
+                </div>
+
+                {/* Right: Messages */}
+                <div className="flex justify-end">
+                    <Link to="/messages" className="p-2 -mr-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150">
+                        {React.cloneElement(ICONS.messages, { className: "h-[24px] w-[24px]" })}
                     </Link>
                 </div>
             </div>
@@ -180,12 +252,24 @@ export const Header: React.FC = () => {
                     <div ref={announcementsRef} className="relative">
                         <button
                             onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
-                            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative"
+                            className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${broadcastUnreadCount > 0 ? 'bell-ring' : ''}`}
                         >
                             {ICONS.announcement}
-                            <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+                            {broadcastUnreadCount > 0 && (
+                                <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
+                                    {broadcastUnreadCount > 9 ? '9+' : broadcastUnreadCount}
+                                </span>
+                            )}
                         </button>
-                        {isAnnouncementsVisible && <AnnouncementsDropdown isOpen={isAnnouncementsVisible} onClose={() => setAnnouncementsVisible(false)} />}
+                        {isAnnouncementsVisible && (
+                            <AnnouncementsDropdown
+                                isOpen={isAnnouncementsVisible}
+                                onClose={() => {
+                                    setAnnouncementsVisible(false);
+                                    setBroadcastUnreadCount(0);
+                                }}
+                            />
+                        )}
                     </div>
 
                     <div ref={notificationsRef} className="relative">
@@ -206,9 +290,9 @@ export const Header: React.FC = () => {
                             )}
                         </button>
                         {isNotificationsVisible && (
-                            <NotificationsDropdown 
+                            <NotificationsDropdown
                                 notifications={notifications}
-                                onClose={() => setNotificationsVisible(false)} 
+                                onClose={() => setNotificationsVisible(false)}
                                 onMarkAllRead={handleMarkAllRead}
                                 onDelete={handleDeleteNotification}
                             />

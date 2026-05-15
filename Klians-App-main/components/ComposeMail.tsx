@@ -177,7 +177,7 @@ export const ComposeMail: React.FC<ComposeMailProps> = ({ windowState, onWindowS
 
     const windowClasses = {
         normal: 'fixed inset-0 w-full h-full md:bottom-0 md:right-4 md:w-[580px] md:h-[500px] md:inset-auto md:shadow-2xl md:rounded-t-lg z-40',
-        minimized: 'fixed bottom-0 right-4 w-[280px] h-12 shadow-2xl rounded-t-lg z-40',
+        minimized: 'fixed bottom-20 right-4 w-[280px] h-12 shadow-2xl rounded-lg md:bottom-0 md:rounded-t-lg md:rounded-b-none z-40',
         maximized: 'fixed inset-0 w-full h-full z-50',
     };
     

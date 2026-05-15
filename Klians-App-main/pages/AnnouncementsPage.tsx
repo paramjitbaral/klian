@@ -6,11 +6,13 @@ import { Role } from '../types';
 import { Modal } from '../components/ui/Modal';
 
 interface Announcement {
-  _id: string;
+  id: string;
+  _id?: string;
   title: string;
   content: string;
   author: {
-    _id: string;
+    id?: string;
+    _id?: string;
     name: string;
     avatar: string;
     role: string;
@@ -40,8 +42,30 @@ export const AnnouncementsPage: React.FC = () => {
     fetchAnnouncements();
 
     if (socket) {
-      socket.on('announcement-created', (newAnnouncement) => {
-        setAnnouncements(prev => [newAnnouncement, ...prev]);
+      socket.on('announcement-created', (newAnnouncement: any) => {
+        // Filter by role before adding to state
+        const target = (newAnnouncement.target || 'All').toLowerCase();
+        const role = user?.role?.toLowerCase() || '';
+        
+        const isAdmin = role === 'admin';
+        const isTeacher = role === 'teacher';
+        
+        let isVisible = false;
+        if (isAdmin) {
+          isVisible = true;
+        } else if (isTeacher) {
+          isVisible = ['all', 'all users', 'teacher', 'teachers'].includes(target);
+        } else {
+          isVisible = ['all', 'all users', 'student', 'students'].includes(target);
+        }
+
+        if (!isVisible) return;
+
+        const incomingId = String(newAnnouncement.id || newAnnouncement._id);
+        setAnnouncements(prev => {
+          if (prev.some(a => String(a.id || a._id) === incomingId)) return prev;
+          return [{ ...newAnnouncement, id: incomingId }, ...prev];
+        });
       });
 
       return () => {
@@ -96,7 +120,7 @@ export const AnnouncementsPage: React.FC = () => {
       await announcementsAPI.markAsRead(announcementId);
       setAnnouncements(prev =>
         prev.map(ann =>
-          ann._id === announcementId ? { ...ann, isRead: true } : ann
+          String(ann.id || ann._id) === announcementId ? { ...ann, isRead: true } : ann
         )
       );
     } catch (err) {
@@ -108,7 +132,7 @@ export const AnnouncementsPage: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this announcement?')) {
       try {
         await announcementsAPI.deleteAnnouncement(announcementId);
-        setAnnouncements(prev => prev.filter(ann => ann._id !== announcementId));
+        setAnnouncements(prev => prev.filter(ann => String(ann.id || ann._id) !== announcementId));
       } catch (err) {
         setError('Failed to delete announcement');
         console.error(err);
@@ -233,9 +257,11 @@ export const AnnouncementsPage: React.FC = () => {
               No announcements yet
             </div>
           ) : (
-            announcements.map((announcement) => (
+            announcements.map((announcement) => {
+              const annId = String(announcement.id || announcement._id);
+              return (
               <div
-                key={announcement._id}
+                key={annId}
                 className={`bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6 ${
                   !announcement.isRead ? 'border-l-4 border-blue-500' : ''
                 }`}
@@ -257,9 +283,9 @@ export const AnnouncementsPage: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  {isTeacherOrAdmin && announcement.author._id === user?._id && (
+                  {isTeacherOrAdmin && String(announcement.author.id || announcement.author._id) === String(user?.id || user?._id) && (
                     <button
-                      onClick={() => handleDeleteAnnouncement(announcement._id)}
+                      onClick={() => handleDeleteAnnouncement(annId)}
                       className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm font-medium"
                     >
                       Delete
@@ -288,7 +314,7 @@ export const AnnouncementsPage: React.FC = () => {
                   </div>
                   {!announcement.isRead && (
                     <button
-                      onClick={() => handleMarkAsRead(announcement._id)}
+                      onClick={() => handleMarkAsRead(annId)}
                       className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
                     >
                       Mark as read
@@ -296,7 +322,8 @@ export const AnnouncementsPage: React.FC = () => {
                   )}
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

@@ -57,8 +57,23 @@ export const CommentModal: React.FC<CommentModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadComments();
+    } else {
+      setShowEmojiPicker(false);
+      setEditingCommentId(null);
     }
   }, [isOpen]);
+
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   const loadComments = async () => {
     setIsLoadingComments(true);
@@ -259,7 +274,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={commentsListRef}>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide" ref={commentsListRef}>
           {isLoadingComments ? (
             <>
               <CommentSkeleton />
@@ -280,7 +295,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
                 .map((comment) => {
                   const replies = displayedComments.filter(r => String(r.parentId) === String(comment._id));
 
-                  const RenderComment = ({ item, isReply = false }: { item: any, isReply?: boolean, key?: any }) => {
+                  const renderComment = (item: any, isReply = false) => {
                     const itemIsLiked = item.isLiked;
                     const itemLikeCount = item.likesCount || 0;
                     const itemIsAuthor = String(item.user?.id) === String(user?.id);
@@ -308,7 +323,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
                           </div>
                           {itemIsEditing ? (
                             <div className="mt-1">
-                              <textarea value={editValue} onChange={(e) => setEditValue(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none shadow-inner" rows={2} autoFocus />
+                              <textarea value={editValue} onChange={(e) => setEditValue(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none shadow-inner" rows={2} />
                               <div className="flex justify-end gap-2 mt-2">
                                 <button onClick={() => setEditingCommentId(null)} className="px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-md transition-colors">Cancel</button>
                                 <button onClick={() => handleUpdateComment(item._id)} disabled={!editValue.trim() || isLoading} className="px-3 py-1 text-xs font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50 shadow-sm">Save</button>
@@ -336,10 +351,14 @@ export const CommentModal: React.FC<CommentModalProps> = ({
 
                   return (
                     <div key={comment._id} className="space-y-1">
-                      <RenderComment item={comment} />
+                      {renderComment(comment)}
                       {replies.length > 0 && (
                         <div className="relative border-l-2 border-slate-100 dark:border-slate-700 ml-4 pl-2 space-y-2 mb-4">
-                          {replies.map(reply => <RenderComment key={reply._id} item={reply} isReply={true} />)}
+                          {replies.map(reply => (
+                            <React.Fragment key={reply._id}>
+                              {renderComment(reply, true)}
+                            </React.Fragment>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -369,7 +388,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
             <img src={user?.avatar || '/default-avatar.png'} alt="Your avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-slate-200 dark:border-slate-600" />
             <div className="flex-1 relative">
               <div className={`flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded-full transition-all ${replyTo ? 'ring-2 ring-blue-500/30' : ''}`}>
-                <div className="relative">
+                <div className="relative" ref={emojiPickerRef}>
                   <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-1 text-slate-500 hover:text-blue-500 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
                   {showEmojiPicker && (
                     <div className="absolute bottom-full left-0 mb-3 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 grid grid-cols-4 gap-2 z-50 w-max min-w-[160px]">

@@ -5,6 +5,7 @@ const {
   getAnnouncements,
   getUnreadCount,
   markAsRead,
+  markAllAsRead,
   deleteAnnouncement,
   updateAnnouncement
 } = require('../controllers/announcementController');

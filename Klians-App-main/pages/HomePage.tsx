@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../contexts/SocketContext';
@@ -51,6 +51,12 @@ export const HomePage: React.FC = () => {
   const [broadcastsLoading, setBroadcastsLoading] = useState(true);
   const { socket } = useSocket();
   const location = useLocation();
+
+  // Pull-to-refresh state
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartRef = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
 
   // Fetch broadcasts from API
@@ -60,12 +66,12 @@ export const HomePage: React.FC = () => {
         setBroadcastsLoading(true);
         const data = await announcementsAPI.getAnnouncements();
         const formattedBroadcasts: Broadcast[] = data.map((ann: any) => ({
-          id: ann._id,
+          id: String(ann.id || ann._id),
           title: ann.title,
           content: ann.content,
           author: ann.author,
           target: ann.target,
-          timestamp: ann.createdAt,
+          timestamp: ann.createdAt || ann.created_at,
         }));
         setBroadcasts(formattedBroadcasts);
       } catch (error) {
@@ -81,22 +87,94 @@ export const HomePage: React.FC = () => {
     // Listen for new broadcasts via socket
     if (socket) {
       socket.on('announcement-created', (newAnnouncement: any) => {
+        console.log('[Socket] New announcement received:', newAnnouncement);
+        
+        // Filter by role before adding to state
+        const target = (newAnnouncement.target || 'All').toLowerCase();
+        const role = user?.role?.toLowerCase() || '';
+        
+        const isAdmin = role === 'admin';
+        const isTeacher = role === 'teacher';
+        
+        let isVisible = false;
+        if (isAdmin) {
+          isVisible = true;
+        } else if (isTeacher) {
+          isVisible = ['all', 'all users', 'teacher', 'teachers'].includes(target);
+        } else {
+          isVisible = ['all', 'all users', 'student', 'students'].includes(target);
+        }
+
+        if (!isVisible) {
+          console.log('[Socket] Skipping broadcast meant for different role:', newAnnouncement.target);
+          return;
+        }
+
+        const timestamp = newAnnouncement.createdAt || newAnnouncement.created_at || new Date().toISOString();
+        const id = newAnnouncement.id || newAnnouncement._id;
+
+        if (!id) {
+          console.warn('[Socket] Announcement missing ID, skipping live update');
+          return;
+        }
+
         const newBroadcast: Broadcast = {
-          id: newAnnouncement._id,
-          title: newAnnouncement.title,
-          content: newAnnouncement.content,
-          author: newAnnouncement.author,
-          target: newAnnouncement.target,
-          timestamp: newAnnouncement.createdAt,
+          id: String(id),
+          title: newAnnouncement.title || 'Broadcast',
+          content: newAnnouncement.content || '',
+          author: newAnnouncement.author || { name: 'Admin', avatar: '' },
+          target: newAnnouncement.target || 'All',
+          timestamp: timestamp,
         };
-        setBroadcasts(prev => [newBroadcast, ...prev]);
+
+        setBroadcasts(prev => {
+          if (prev.some(b => String(b.id) === String(newBroadcast.id))) {
+            console.log('[Socket] Announcement already in state, skipping');
+            return prev;
+          }
+          console.log('[Socket] Adding new broadcast to state:', newBroadcast.id);
+          return [newBroadcast, ...prev];
+        });
+      });
+
+      socket.on('new-post', (newPost: any) => {
+        console.log('[Socket] New post received:', newPost);
+        
+        const id = newPost.id || newPost._id;
+        if (!id) return;
+
+        // Ensure post has correct format for feedItems memo
+        const formattedPost = {
+            ...newPost,
+            id: id,
+            type: 'post' as const,
+            timestamp: newPost.created_at || newPost.createdAt || new Date().toISOString()
+        };
+
+        queryClient.setQueryData(['posts'], (oldData: any) => {
+          if (!oldData) return { items: [formattedPost], nextCursor: null, hasMore: false };
+          const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
+          if (items.some((p: any) => String(p.id) === String(id))) return oldData;
+          console.log('[Socket] Injecting new post into React Query cache:', id);
+          return {
+            ...oldData,
+            items: [formattedPost, ...items]
+          };
+        });
+      });
+
+      socket.on('announcement-deleted', ({ id }: { id: string }) => {
+        console.log('[Socket] Broadcast deleted, removing from feed:', id);
+        setBroadcasts(prev => prev.filter(b => String(b.id) !== String(id)));
       });
 
       return () => {
         socket.off('announcement-created');
+        socket.off('new-post');
+        socket.off('announcement-deleted');
       };
     }
-  }, [socket]);
+  }, [socket, queryClient]);
 
   // Transform API posts to feed items
   const feedItems = React.useMemo(() => {
@@ -112,7 +190,7 @@ export const HomePage: React.FC = () => {
       // Convert DB posts to FeedItems
       const postsForFeed: FeedItem[] = (rawPosts && rawPosts.length > 0)
         ? rawPosts.map((p: any) => ({
-          id: p.id || p._id,
+          id: String(p.id || p._id),
           author: {
             id: p.userId || p.user_id,
             name: p.name,
@@ -130,30 +208,49 @@ export const HomePage: React.FC = () => {
           likes: p.likes || 0,
           comments: p.comments || 0,
           isLiked: !!p.isLiked,
-          type: 'post' as const
+          type: (p.isBroadcast || p.is_broadcast) ? 'broadcast' as const : 'post' as const
         }))
         : [];
 
-      console.log('[HomePage] Raw posts from API:', rawPosts.length, rawPosts[0]);
+      // Combine and sort
+      const combined = [...postsForFeed];
+      
+      // Add socket-loaded broadcasts that aren't already in postsForFeed
+      broadcasts.forEach(b => {
+        const uniqueId = String(b.id);
+        if (!combined.some(item => item.id === uniqueId)) {
+            combined.push({ 
+                ...b, 
+                id: uniqueId,
+                type: 'broadcast' as const 
+            });
+        }
+      });
+      // Identify broadcasts to pin (max 4, and must be < 24h)
+      const now = new Date();
+      
+      const allRecentBroadcasts = combined
+        .filter(item => item.type === 'broadcast' && new Date(item.timestamp) > twentyFourHoursAgo)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      const pinnedIds = new Set(allRecentBroadcasts.slice(0, 4).map(b => b.id));
 
-      // Add broadcasts from API
-      const broadcastsForFeed: FeedItem[] = broadcasts.map(b => ({ ...b, type: 'broadcast' as const }));
-
-      // Combine and sort with 24-hour pinning logic
-      const combined = [...postsForFeed, ...broadcastsForFeed];
       combined.sort((a, b) => {
-        const aIsRecentBroadcast = a.type === 'broadcast' && new Date(a.timestamp) > twentyFourHoursAgo;
-        const bIsRecentBroadcast = b.type === 'broadcast' && new Date(b.timestamp) > twentyFourHoursAgo;
+        const aIsPinned = pinnedIds.has(a.id);
+        const bIsPinned = pinnedIds.has(b.id);
 
-        // If one is recent broadcast and other isn't, recent broadcast goes first
-        if (aIsRecentBroadcast && !bIsRecentBroadcast) return -1;
-        if (!aIsRecentBroadcast && bIsRecentBroadcast) return 1;
+        if (aIsPinned && !bIsPinned) return -1;
+        if (!aIsPinned && bIsPinned) return 1;
 
-        // Otherwise, sort by timestamp (newest first)
-        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        
+        if (isNaN(timeA) || isNaN(timeB)) return 0;
+        return timeB - timeA;
       });
 
-      console.log('[HomePage] Feed items computed:', { posts: postsForFeed.length, broadcasts: broadcastsForFeed.length, total: combined.length });
+      console.log('[HomePage] Final Feed IDs:', combined.map(item => item.id));
+      console.log('[HomePage] Feed items computed:', { posts: postsForFeed.length, broadcasts: broadcasts.length, total: combined.length });
       return combined;
     } catch (error) {
       console.error('Error transforming feed items:', error);
@@ -209,6 +306,40 @@ export const HomePage: React.FC = () => {
     setCreatePostModalOpen(true);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0) {
+      touchStartRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartRef.current && !isRefreshing) {
+      const currentY = e.touches[0].clientY;
+      const diff = currentY - touchStartRef.current;
+      if (diff > 0) {
+        const distance = Math.min(Math.pow(diff, 0.75) * 1.5, 80);
+        setPullDistance(distance);
+      }
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 55) {
+      setIsRefreshing(true);
+      setPullDistance(50);
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['posts'] });
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } finally {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      }
+    } else {
+      setPullDistance(0);
+    }
+    touchStartRef.current = 0;
+  };
+
   if (!user) {
     return (
       <div className="max-w-7xl mx-auto py-16 text-center">
@@ -222,9 +353,31 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="h-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden px-6">
+      <div className="h-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden px-6 relative">
+        {/* Pull to refresh indicator */}
+        <div 
+            className="absolute top-0 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none z-[45]"
+            style={{ 
+                transform: `translate(-50%, ${pullDistance - 40}px)`,
+                opacity: Math.min(pullDistance / 50, 1),
+                transition: isRefreshing ? 'none' : 'transform 0.1s ease-out'
+            }}
+        >
+            <div className={`p-2 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-100 dark:border-slate-700 ${isRefreshing ? 'animate-spin' : ''}`}>
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ transform: `rotate(${pullDistance * 4}deg)` }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </div>
+        </div>
+
         {/* Center Feed - Scrollable without scrollbar */}
-        <div className="lg:col-span-8 h-full overflow-y-auto scrollbar-hide py-4 md:py-8">
+        <div 
+            ref={scrollContainerRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="lg:col-span-8 h-full overflow-y-auto scrollbar-hide py-4 md:py-8"
+        >
           {canPost && (
             <CreatePostCard
               user={user}
