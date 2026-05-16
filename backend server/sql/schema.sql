@@ -99,10 +99,26 @@ CREATE TABLE IF NOT EXISTS group_members (
   group_id INT UNSIGNED NOT NULL,
   user_id INT UNSIGNED NOT NULL,
   role ENUM('admin', 'member') NOT NULL DEFAULT 'member',
+  notification_setting ENUM('all', 'mentions', 'off') NOT NULL DEFAULT 'all',
+  last_read_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
   joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (group_id, user_id),
   CONSTRAINT fk_gm_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
   CONSTRAINT fk_gm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS group_messages (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  group_id INT UNSIGNED NOT NULL,
+  sender_id INT UNSIGNED NOT NULL,
+  content TEXT NOT NULL,
+  type ENUM('text', 'image', 'file') NOT NULL DEFAULT 'text',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_group_messages_group (group_id, created_at, id),
+  KEY idx_group_messages_sender (sender_id),
+  CONSTRAINT fk_gm_group_message_group FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
+  CONSTRAINT fk_gm_group_message_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS events (
@@ -124,6 +140,19 @@ CREATE TABLE IF NOT EXISTS event_attendees (
   PRIMARY KEY (event_id, user_id),
   CONSTRAINT fk_ea_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
   CONSTRAINT fk_ea_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_reminders (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  event_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  sent_at TIMESTAMP NULL DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_event_reminder (event_id, user_id),
+  KEY idx_event_reminders_user (user_id, sent_at),
+  CONSTRAINT fk_er_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_er_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS announcements (

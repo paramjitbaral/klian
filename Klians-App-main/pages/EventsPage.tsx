@@ -121,7 +121,13 @@ export const EventsPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const navigate = useNavigate();
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingEvent(null);
+  };
   
   // Fetch events from database
   useEffect(() => {
@@ -132,6 +138,7 @@ export const EventsPage: React.FC = () => {
       try {
         const response = await eventsAPI.getEvents();
         setEvents(response.data);
+        setReminders(new Set(response.data.filter((event: Event) => event.isReminderSet).map((event: Event) => String(event.id || event._id))));
       } catch (error) {
         console.error('Error fetching events:', error);
       } finally {
@@ -148,29 +155,59 @@ export const EventsPage: React.FC = () => {
     
     socket.on('new-event', (newEvent) => {
       setEvents(prevEvents => [newEvent, ...prevEvents]);
-      setIsCreating(false); // Clear skeleton when event arrives
+      setIsCreating(false); 
     });
     
     socket.on('event-deleted', (deletedEventId) => {
       setEvents(prevEvents => prevEvents.filter(e => 
-        (e.id || e._id) !== deletedEventId
+        String(e.id || e._id) !== String(deletedEventId)
       ));
+      setReminders(prev => {
+        const next = new Set(prev);
+        next.delete(String(deletedEventId));
+        return next;
+      });
     });
     
     socket.on('event-updated', (updatedEvent) => {
       setEvents(prevEvents => 
         prevEvents.map(e => 
-          (e.id || e._id) === (updatedEvent.id || updatedEvent._id) 
-            ? updatedEvent 
+          String(e.id || e._id) === String(updatedEvent.id || updatedEvent._id) 
+            ? { ...updatedEvent, isReminderSet: e.isReminderSet ?? updatedEvent.isReminderSet }
             : e
         )
       );
+    });
+
+    socket.on('event-attendance-updated', (updatedEvent) => {
+      setEvents(prevEvents => 
+        prevEvents.map(e => 
+          String(e.id || e._id) === String(updatedEvent.id || updatedEvent._id)
+            ? { ...updatedEvent, isReminderSet: e.isReminderSet ?? updatedEvent.isReminderSet }
+            : e
+        )
+      );
+    });
+
+    socket.on('event-reminder-updated', (payload: { eventId: string; isReminderSet: boolean }) => {
+      setEvents(prevEvents => prevEvents.map(e => (
+        String(e.id || e._id) === String(payload.eventId) ? { ...e, isReminderSet: payload.isReminderSet } : e
+      )));
+      setReminders(prev => {
+        const next = new Set(prev);
+        const normalizedEventId = String(payload.eventId);
+        if (payload.isReminderSet) next.add(normalizedEventId);
+        else next.delete(normalizedEventId);
+        return next;
+      });
     });
     
     return () => {
       socket.off('new-event');
       socket.off('event-deleted');
       socket.off('event-updated');
+      socket.off('event-attendance-updated');
+      socket.off('event-reminder-updated');
     };
   }, [socket]);
 
@@ -183,7 +220,17 @@ export const EventsPage: React.FC = () => {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    setEvents(prevEvents => prevEvents.filter(e => (e.id || e._id) !== eventId));
+    setEvents(prevEvents => prevEvents.filter(e => String(e.id || e._id) !== String(eventId)));
+    setReminders(prev => {
+      const next = new Set(prev);
+      next.delete(String(eventId));
+      return next;
+    });
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setIsModalOpen(true);
   };
 
   const currentMonth = currentDate.getMonth();
@@ -192,7 +239,7 @@ export const EventsPage: React.FC = () => {
   const changeMonth = (delta: number) => {
     setCurrentDate(prevDate => {
       const newDate = new Date(prevDate);
-      newDate.setDate(1); // Avoid issues with different month lengths
+      newDate.setDate(1); 
       newDate.setMonth(newDate.getMonth() + delta);
       return newDate;
     });
@@ -200,11 +247,12 @@ export const EventsPage: React.FC = () => {
 
   const toggleReminder = (eventId: string) => {
     setReminders(prev => {
+      const normalizedEventId = String(eventId);
         const newReminders = new Set(prev);
-        if (newReminders.has(eventId)) {
-            newReminders.delete(eventId);
+      if (newReminders.has(normalizedEventId)) {
+        newReminders.delete(normalizedEventId);
         } else {
-            newReminders.add(eventId);
+        newReminders.add(normalizedEventId);
         }
         return newReminders;
     });
@@ -233,14 +281,13 @@ export const EventsPage: React.FC = () => {
     if (!selectedDate) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        return events
-            .filter(event => new Date(event.date) >= today)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const sortedEvents = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return sortedEvents.filter(event => new Date(event.date) >= today);
     }
     return events.filter(event => new Date(event.date).toDateString() === selectedDate.toDateString());
   }, [events, selectedDate]);
 
-  const handleCreateEvent = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveEvent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
     
@@ -251,28 +298,35 @@ export const EventsPage: React.FC = () => {
     const minute = formData.get('minute') as string;
     const period = formData.get('period') as string;
     
-    let hourNum = parseInt(hour);
-    if (period === 'PM' && hourNum < 12) hourNum += 12;
-    if (period === 'AM' && hourNum === 12) hourNum = 0;
-    
-    const formattedHour = hourNum < 10 ? `0${hourNum}` : hourNum;
-    const timePart = `${formattedHour}:${minute}`;
+    let timePart = "00:00";
+    if (hour !== 'none') {
+        let hourNum = parseInt(hour);
+        if (period === 'PM' && hourNum < 12) hourNum += 12;
+        if (period === 'AM' && hourNum === 12) hourNum = 0;
+        const formattedHour = hourNum < 10 ? `0${hourNum}` : hourNum;
+        timePart = `${formattedHour}:${minute}`;
+    }
     
     const eventData = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       location: formData.get('location') as string || '',
-      date: new Date(`${datePart}T${timePart}`).toISOString()
+      date: `${datePart} ${timePart}:00`
     };
     
     try {
-      setIsModalOpen(false); // Close modal immediately
-      setIsCreating(true); // Show skeleton
-      await eventsAPI.createEvent(eventData);
-      // The socket will handle adding the new event to the list
+      setIsModalOpen(false);
+      if (editingEvent) {
+        await eventsAPI.updateEvent(editingEvent.id || editingEvent._id, eventData);
+        setEditingEvent(null);
+      } else {
+        setIsCreating(true);
+        await eventsAPI.createEvent(eventData);
+        setSelectedDate(null);
+      }
     } catch (error) {
-      console.error('Error creating event:', error);
-      setIsCreating(false); // Hide skeleton on error
+      console.error('Error saving event:', error);
+      setIsCreating(false);
     }
   };
 
@@ -295,7 +349,7 @@ export const EventsPage: React.FC = () => {
             </div>
           </div>
           
-          {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
+          {(user?.role === Role.TEACHER || user?.role === Role.ADMIN || user?.role === Role.DEAN) && (
             <Button onClick={() => setIsModalOpen(true)} className="rounded-lg shadow-lg shadow-red-100 dark:shadow-none whitespace-nowrap !px-5 sm:!px-6 !py-1.5 text-xs sm:text-sm font-bold tracking-wide flex-shrink-0">
               Create
             </Button>
@@ -336,7 +390,7 @@ export const EventsPage: React.FC = () => {
                 <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                   {selectedDate ? (
                     <>Events for <span className="text-red-600 dark:text-red-400">{selectedDate.toLocaleDateString('default', { day: 'numeric', month: 'long' })}</span></>
-                  ) : "Upcoming Events"}
+                  ) : 'Upcoming Events'}
                 </h2>
                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   <span>{filteredEvents.length} Events Found</span>
@@ -352,8 +406,9 @@ export const EventsPage: React.FC = () => {
                 </button>
                 <button 
                   onClick={() => {
+                    setSelectedDate(null);
                     const t = new Date();
-                    t.setHours(0,0,0,0);
+                    t.setHours(0, 0, 0, 0);
                     setSelectedDate(t);
                   }}
                   className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${selectedDate?.toDateString() === new Date().toDateString() ? 'bg-red-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
@@ -378,9 +433,10 @@ export const EventsPage: React.FC = () => {
                     <EventCard 
                       key={event.id || event._id} 
                       event={event} 
-                      isReminderSet={reminders.has(event.id || event._id)} 
+                      isReminderSet={reminders.has(String(event.id || event._id))} 
                       onToggleReminder={toggleReminder}
                       onDelete={handleDeleteEvent}
+                      onEdit={handleEditEvent}
                     />
                   ))}
                 </div>
@@ -395,7 +451,7 @@ export const EventsPage: React.FC = () => {
                   <p className="text-sm text-slate-500 dark:text-slate-400 max-w-[280px] font-medium leading-relaxed">
                     The calendar is looking a bit empty. Check back soon or be the one to start something new!
                   </p>
-                  {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
+                  {(user?.role === Role.TEACHER || user?.role === Role.ADMIN || user?.role === Role.DEAN) && (
                     <Button 
                       variant="secondary" 
                       onClick={() => setIsModalOpen(true)} 
@@ -410,16 +466,17 @@ export const EventsPage: React.FC = () => {
           </div>
         </div>
       </div>
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Event" size="sm">
-        <form onSubmit={handleCreateEvent} className="space-y-3 md:space-y-4">
-          <Input name="title" label="Event Title *" placeholder="e.g., Summer Summit" required />
-          <Input name="description" label="Description *" placeholder="What's happening?" required />
-          <Input name="location" label="Location" placeholder="e.g., Campus Plaza (Optional)" />
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingEvent ? "Edit Event" : "Create New Event"} size="sm">
+        <form onSubmit={handleSaveEvent} className="space-y-3 md:space-y-4">
+          <Input name="title" label="Event Title *" placeholder="e.g., Summer Summit" defaultValue={editingEvent?.title} required />
+          <Input name="description" label="Description *" placeholder="What's happening?" defaultValue={editingEvent?.description} required />
+          <Input name="location" label="Location" placeholder="e.g., Campus Plaza (Optional)" defaultValue={editingEvent?.location} />
           <div className="grid grid-cols-2 gap-3">
             <Input 
               name="dateOnly" 
               label="Event Date *" 
               type="date" 
+              defaultValue={editingEvent ? new Date(editingEvent.date).toISOString().split('T')[0] : ''}
               required 
               onClick={(e) => {
                 try {
@@ -442,8 +499,10 @@ export const EventsPage: React.FC = () => {
               <div className="grid grid-cols-3 gap-1.5">
                 <select 
                   name="hour"
+                  defaultValue="none"
                   className="w-full px-1 py-2 md:py-3 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors appearance-none text-center cursor-pointer"
                 >
+                  <option value="none">None</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
                     <option key={h} value={h < 10 ? `0${h}` : h}>{h}</option>
                   ))}
@@ -467,7 +526,7 @@ export const EventsPage: React.FC = () => {
             </div>
           </div>
           <div className="flex justify-end pt-2 md:pt-4">
-            <Button type="submit" className="rounded-lg !px-8">Create</Button>
+            <Button type="submit" className="rounded-lg !px-8">{editingEvent ? 'Save Changes' : 'Create'}</Button>
           </div>
         </form>
       </Modal>

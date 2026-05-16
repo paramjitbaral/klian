@@ -7,7 +7,8 @@ const {
   updateEvent,
   deleteEvent,
   attendEvent,
-  unattendEvent
+  unattendEvent,
+  toggleEventReminder
 } = require('../controllers/eventController');
 const { protect, facultyOnly } = require('../middleware/auth');
 
@@ -21,6 +22,7 @@ router.route('/:id')
   .put(protect, facultyOnly, updateEvent)
   .delete(protect, facultyOnly, deleteEvent);
 
+router.put('/reminder/:id', protect, toggleEventReminder);
 router.put('/attend/:id', protect, attendEvent);
 router.put('/unattend/:id', protect, unattendEvent);
 

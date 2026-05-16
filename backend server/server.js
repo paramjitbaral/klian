@@ -11,22 +11,12 @@ const http = require('http');
 const socketIo = require('socket.io');
 const { initPool } = require('./config/db');
 const { getRedis } = require('./config/redis');
+const ensureGroupChatSchema = require('./utils/ensureGroupChatSchema');
+
+let redis;
 
 // Load environment variables
 dotenv.config();
-
-// Initialize MySQL and Redis (Optional for demo)
-let redis;
-try {
-  initPool();
-  if (process.env.USE_REDIS === 'true') {
-    redis = getRedis();
-  } else {
-    console.warn('Redis is disabled via USE_REDIS env var.');
-  }
-} catch (err) {
-  console.warn('DB/Redis initialization failed, falling back to mock mode:', err.message);
-}
 
 const app = express();
 app.set('trust proxy', 1); // NGINX reverse proxy compatibility
@@ -43,6 +33,7 @@ app.set('io', io);
 
 // Import socket handlers
 const setupMessageHandlers = require('./socket/messageHandlers');
+const { startEventReminderScheduler } = require('./utils/eventReminderScheduler');
 
 // Security & performance middleware
 app.use(helmet({
@@ -106,6 +97,10 @@ io.on('connection', (socket) => {
       const role = userData.role ? String(userData.role).trim() : null;
       const name = userData.name || '';
 
+      socket.userId = userId;
+      socket.userRole = role;
+      socket.userName = name;
+
       socket.join('all-users');
       if (role) socket.join(`role:${role}`);
       if (userId) {
@@ -160,8 +155,30 @@ io.on('connection', (socket) => {
   });
 });
 
-// Make io accessible to our routes
-app.set('io', io);
+async function bootstrap() {
+  try {
+    await initPool();
+    await ensureGroupChatSchema();
+
+    if (process.env.USE_REDIS === 'true') {
+      redis = getRedis();
+    } else {
+      console.warn('Redis is disabled via USE_REDIS env var.');
+    }
+  } catch (err) {
+    console.warn('DB/Redis initialization failed, falling back to mock mode:', err.message);
+  }
+
+  // Make io accessible to our routes
+  app.set('io', io);
+  startEventReminderScheduler(io);
+
+  const PORT = process.env.PORT || 5000;
+
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT} and accessible on 0.0.0.0`);
+  });
+}
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -190,8 +207,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT} and accessible on 0.0.0.0`);
-});
+bootstrap();

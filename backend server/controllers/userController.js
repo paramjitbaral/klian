@@ -1,5 +1,58 @@
 const { query } = require('../config/db');
 
+const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv']);
+const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']);
+
+const getFileExtension = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  const cleanUrl = url.split('?')[0].split('#')[0];
+  const fileName = cleanUrl.split('/').pop() || '';
+  const extension = fileName.includes('.') ? fileName.split('.').pop() : '';
+  return (extension || '').toLowerCase();
+};
+
+const normalizePostAttachment = (url) => {
+  if (!url) {
+    return { image: null, video: null, fileUrl: null };
+  }
+
+  const extension = getFileExtension(url);
+
+  if (VIDEO_EXTENSIONS.has(extension)) {
+    return { image: null, video: url, fileUrl: null };
+  }
+
+  if (DOCUMENT_EXTENSIONS.has(extension)) {
+    return { image: null, video: null, fileUrl: url };
+  }
+
+  return { image: url, video: null, fileUrl: null };
+};
+
+const formatUserPost = (row) => {
+  const createdAt = row.created_at || row.createdAt || new Date().toISOString();
+  const attachment = normalizePostAttachment(row.image_url || row.image || row.mediaUrl);
+
+  return {
+    id: row.id,
+    content: row.content || '',
+    created_at: createdAt,
+    createdAt,
+    timestamp: createdAt,
+    userId: row.userId || row.user_id,
+    name: row.name,
+    email: row.email,
+    profilePicture: row.profilePicture,
+    coverPhoto: row.coverPhoto,
+    role: row.role,
+    bio: row.bio,
+    likes: Number(row.likes || row.likesCount || 0),
+    comments: Number(row.comments || row.commentsCount || 0),
+    isLiked: !!row.isLiked,
+    ...attachment
+  };
+};
+
 // @desc    Search users by name or email
 // @route   GET /api/users/search
 // @access  Private
@@ -61,6 +114,40 @@ const getUserById = async (req, res) => {
   }
 };
 
+// @desc    Get posts created by a user
+// @route   GET /api/users/:id/posts
+// @access  Private
+const getUserPosts = async (req, res) => {
+  try {
+    const rows = await query(
+      `SELECT p.id,
+              p.content,
+              p.image_url,
+              UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+              u.id AS userId,
+              u.name,
+              u.email,
+              u.profile_picture AS profilePicture,
+              u.cover_photo AS coverPhoto,
+              u.role,
+              u.bio,
+              (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+              (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
+              EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
+         FROM posts p
+         JOIN users u ON u.id = p.user_id
+        WHERE p.user_id = ?
+        ORDER BY p.created_at DESC, p.id DESC`,
+      [req.user.id || req.user._id || 0, req.params.id]
+    );
+
+    res.json(rows.map(formatUserPost));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // @desc    Update user profile
 // @route   PUT /api/users/:id
 // @access  Private
@@ -105,5 +192,6 @@ module.exports = {
   searchUsers,
   getUsers,
   getUserById,
+  getUserPosts,
   updateUser
 };

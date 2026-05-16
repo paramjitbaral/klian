@@ -90,6 +90,53 @@ const setupMessageHandlers = (io, socket, redis) => {
     }
   });
 
+  // Handle group messages
+  socket.on('send_group_message', async ({ groupId, content, type = 'text' }) => {
+    try {
+      const senderId = socket.userId || socket.decoded?.id || socket.handshake?.auth?.userId;
+      if (!senderId) {
+        socket.emit('message-error', { error: 'Sender not found for group message' });
+        return;
+      }
+      
+      // Save message to DB
+      const result = await query(
+        'INSERT INTO group_messages (group_id, sender_id, content, type) VALUES (?, ?, ?, ?)',
+        [groupId, senderId, content, type]
+      );
+      const msgId = result.insertId;
+
+      // Fetch populated message
+      const rows = await query(
+        `SELECT gm.id, gm.content, gm.type, gm.created_at AS createdAt,
+                u.id AS senderId, u.name AS senderName, u.profile_picture AS senderAvatar
+           FROM group_messages gm
+           JOIN users u ON u.id = gm.sender_id
+          WHERE gm.id = ? LIMIT 1`,
+        [msgId]
+      );
+      
+      const msg = rows[0];
+      const formatted = {
+        id: msg.id,
+        groupId,
+        content: msg.content,
+        type: msg.type,
+        createdAt: msg.createdAt,
+        sender: { id: msg.senderId, name: msg.senderName, avatar: msg.senderAvatar }
+      };
+
+      // Broadcast to group members
+      const members = await query('SELECT user_id FROM group_members WHERE group_id = ?', [groupId]);
+      members.forEach(m => {
+        io.to(`user:${m.user_id}`).emit('new_group_message', formatted);
+      });
+
+    } catch (error) {
+      console.error('Error sending group message:', error);
+    }
+  });
+
   // Handle post sharing
   socket.on('share-post', async ({ senderId, recipientId, postId, message }) => {
     try {

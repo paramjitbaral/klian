@@ -11,7 +11,9 @@ import { NotificationsDropdown } from './NotificationsDropdown';
 import { AnnouncementsDropdown } from './AnnouncementsDropdown';
 import { notificationsAPI, Notification } from '../src/api/notifications';
 import { announcementsAPI } from '../src/api/announcements';
+import { groupsAPI } from '../src/api/groups';
 import { useSocket } from '../contexts/SocketContext';
+import { useMessages } from '../contexts/MessagesContext';
 
 interface HeaderProps {
     isAnnouncementsOpen?: boolean;
@@ -37,8 +39,20 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const [unreadCount, setUnreadCount] = useState(0);
     const [broadcastUnreadCount, setBroadcastUnreadCount] = useState(0);
     const { socket } = useSocket();
+    const { 
+        unreadCount: dmUnreadCount, 
+        groupUnreadCount, 
+        groupAddedNotifsCount,
+        refreshGroupCounts 
+    } = useMessages();
+    
+    const totalMessageCount = dmUnreadCount + groupUnreadCount + groupAddedNotifsCount;
+    const shouldBellRing = unreadCount > 0 || broadcastUnreadCount > 0;
 
-    // Fetch notifications
+
+
+
+    // Fetch initial notifications and announcements
     useEffect(() => {
         const fetchCounts = async () => {
             try {
@@ -56,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
         fetchCounts();
     }, []);
 
-    // Socket listeners
+    // Socket listeners for real-time updates
     useEffect(() => {
         if (!socket) return;
 
@@ -65,47 +79,61 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             setUnreadCount(prev => prev + 1);
         };
 
-        socket.on('new_notification', handleNewNotification);
-
-        socket.on('delete_notification', (data: { id: number }) => {
+        const handleDeleteNotification = (data: { type?: string; groupId?: number | string; id?: number | string }) => {
             setNotifications(prev => {
-                const notifToDelete = prev.find(n => n.id === data.id);
-                if (notifToDelete && !notifToDelete.isRead) {
-                    setUnreadCount(count => Math.max(0, count - 1));
+                const toRemove = prev.find(n => 
+                    data.id ? String(n.id) === String(data.id) : 
+                    (data.type && data.groupId && n.type === data.type && String(n.groupId) === String(data.groupId))
+                );
+                if (toRemove) {
+                    if (!toRemove.isRead) setUnreadCount(c => Math.max(0, c - 1));
+                    return prev.filter(n => n.id !== toRemove.id);
                 }
-                return prev.filter(n => n.id !== data.id);
+                return prev;
             });
-        });
-
-        const handleNewAnnouncement = (newAnnouncement: any) => {
-            // Filter by role before incrementing unread count
-            const target = (newAnnouncement?.target || 'All').toLowerCase();
-            const role = user?.role?.toLowerCase() || '';
-
-            const isAdmin = role === 'admin';
-            const isTeacher = role === 'teacher';
-
-            let isVisible = false;
-            if (isAdmin) {
-                isVisible = true;
-            } else if (isTeacher) {
-                isVisible = ['all', 'all users', 'teacher', 'teachers'].includes(target);
-            } else {
-                isVisible = ['all', 'all users', 'student', 'students'].includes(target);
-            }
-
-            if (isVisible) {
-                setBroadcastUnreadCount(prev => prev + 1);
-            }
         };
+
+        const handleUpdateNotification = (data: { id?: number | string; isRead?: boolean }) => {
+            setNotifications(prev => prev.map(n => {
+                if (String(n.id) === String(data.id) && !n.isRead && data.isRead) {
+                    setUnreadCount(c => Math.max(0, c - 1));
+                    return { ...n, isRead: true };
+                }
+                return n;
+            }));
+        };
+
+        const handleNewAnnouncement = (data: any) => {
+            const target = (data?.target || 'All').toLowerCase();
+            const role = user?.role?.toLowerCase() || '';
+            let isVisible = role === 'admin' || 
+                (role === 'teacher' && ['all', 'all users', 'teacher', 'teachers'].includes(target)) ||
+                (['all', 'all users', 'student', 'students'].includes(target));
+
+            if (isVisible) setBroadcastUnreadCount(prev => prev + 1);
+        };
+
+        socket.on('new_notification', handleNewNotification);
+        socket.on('delete_notification', handleDeleteNotification);
+        socket.on('update_notification', handleUpdateNotification);
         socket.on('announcement-created', handleNewAnnouncement);
+        
+        // Group synchronization
+        socket.on('new_group_message', () => refreshGroupCounts());
+        socket.on('group_added_to', () => refreshGroupCounts());
+        socket.on('group_removed_from', () => refreshGroupCounts());
 
         return () => {
-            socket.off('new_notification', handleNewNotification);
+            socket.off('new_notification');
             socket.off('delete_notification');
-            socket.off('announcement-created', handleNewAnnouncement);
+            socket.off('update_notification');
+            socket.off('announcement-created');
+            socket.off('new_group_message');
+            socket.off('group_added_to');
+            socket.off('group_removed_from');
         };
-    }, [socket]);
+    }, [socket, user, refreshGroupCounts]);
+
 
     // Auto-mark as read if dropdown is open when new notifs arrive
     useEffect(() => {
@@ -178,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const SearchIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 
     return (
-        <header className="bg-white dark:bg-slate-800 fixed md:sticky top-0 z-[60] w-full border-b border-slate-200 dark:border-slate-700">
+        <header className="bg-white dark:bg-slate-800 fixed md:sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-700">
             {/* Mobile Header */}
             <div className="md:hidden px-4 h-14 grid grid-cols-3 items-center">
                 {/* Left: Combined Activity (Mobile) */}
@@ -193,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                         }}
                     >
                         {React.cloneElement(ICONS.bell, { className: "h-[24px] w-[24px]" })}
-                        {(broadcastUnreadCount > 0 || unreadCount > 0) && (
+                        {(unreadCount > 0 || broadcastUnreadCount > 0) && (
                             <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
                         )}
                     </button>
@@ -228,8 +256,13 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
 
                 {/* Right: Actions */}
                 <div className="flex justify-end items-center gap-1">
-                    <Link to="/messages" className="p-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150">
+                    <Link to="/messages" className="p-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative">
                         {React.cloneElement(ICONS.messages, { className: "h-[24px] w-[24px]" })}
+                        {totalMessageCount > 0 && (
+                            <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 animate-in zoom-in duration-300">
+                                {totalMessageCount > 9 ? '9+' : totalMessageCount}
+                            </span>
+                        )}
                     </Link>
                     {(user.role === Role.TEACHER || user.role === Role.ADMIN) && (
                         <Link to="/profile" className="ml-1 active:scale-90 transition-all duration-150">
@@ -298,11 +331,8 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                         <button
                             onClick={() => {
                                 setNotificationsVisible(!isNotificationsVisible);
-                                if (!isNotificationsVisible) {
-                                    handleMarkAllRead();
-                                }
                             }}
-                            className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${unreadCount > 0 ? 'bell-ring' : ''}`}
+                            className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${shouldBellRing ? 'bell-ring' : ''}`}
                         >
                             {ICONS.bell}
                             {unreadCount > 0 && (

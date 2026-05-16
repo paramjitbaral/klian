@@ -49,9 +49,10 @@ const validateAndConvertImage = (file: File): Promise<{ base64: string; error?: 
 const SettingsPanel: React.FC<{ title: string, description: string, children: React.ReactNode, footer?: React.ReactNode }> = ({ title, description, children, footer }) => (
     <div className="flex flex-col h-full max-w-5xl">
         <div className="mb-6 sm:mb-10 hidden sm:block">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{title}</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{title}</h2>
             <p className="text-sm sm:text-base text-slate-500 mt-2">{description}</p>
         </div>
+
         <div className="flex-grow space-y-8 sm:space-y-10 pb-6 sm:pb-8">
             {children}
         </div>
@@ -582,9 +583,10 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* DESKTOP VIEW */}
-            <div className="hidden md:flex flex-row h-screen bg-white dark:bg-slate-900 overflow-hidden">
-                <aside className="w-[280px] p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900">
+            <div className="hidden md:flex flex-row h-full bg-white dark:bg-slate-900 overflow-hidden">
+                <aside className="w-[280px] p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
                     <h1 className="text-3xl font-bold mb-6">Settings</h1>
+
                     <nav>
                         <ul className="space-y-2">
                             {settingsNav.map(item => {

@@ -7,40 +7,397 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { usersAPI } from '../src/api/users';
 import { postsAPI } from '../src/api/posts';
 import { ImageCropperModal } from '../components/ImageCropperModal';
 
-type ProfileTab = 'posts' | 'media' | 'saved';
+type ProfileTab = 'posts' | 'documents' | 'saved';
 
-const PostModal: React.FC<{ post: Post; onClose: () => void; author: User }> = ({ post, onClose, author }) => (
-    <div className="fixed inset-0 bg-black/80 z-50 flex justify-center items-center p-4" onClick={onClose}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-white hover:opacity-80 transition-opacity">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-        <div className="w-full max-w-5xl h-[90vh] bg-white dark:bg-slate-900 flex rounded-lg shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="w-full md:w-3/5 bg-black flex items-center justify-center rounded-l-lg">
-                <img src={post.image} alt={post.imageDescription} className="max-h-full max-w-full object-contain" />
-            </div>
-            <div className="hidden md:flex w-2/5 flex-col p-4">
-                <div className="flex items-center space-x-3 border-b border-slate-200 dark:border-slate-700 pb-3">
-                    <Avatar src={author.avatar} alt={author.name} size="md" />
-                    <div>
-                        <p className="font-semibold text-sm">{author.name}</p>
-                        <p className="text-xs text-slate-500">@{author.username}</p>
+
+const getImageUrl = (url: string | undefined) => {
+    if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('http')) return url;
+    return `http://localhost:5000${url}`;
+};
+
+const isDocumentFile = (url: string | undefined) => {
+    if (!url) return false;
+    return /\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(url);
+};
+
+const getMediaType = (url: string | undefined) => {
+    if (!url) return 'image';
+    const cleanUrl = url.split('?')[0].split('#')[0];
+    const extension = cleanUrl.includes('.') ? cleanUrl.split('.').pop()?.toLowerCase() : '';
+
+    if (extension && ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv'].includes(extension)) return 'video';
+    if (extension && ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) return 'document';
+    return 'image';
+};
+
+const formatPostDate = (value: string | number | Date) => {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+};
+
+type PostComment = {
+    _id: string;
+    text: string;
+    date: string;
+    parentId?: string | null;
+    user: {
+        id: string;
+        name: string;
+        email: string;
+        profilePicture?: string;
+    };
+    likesCount?: number;
+    isLiked?: boolean;
+};
+
+const normalizeProfilePost = (post: any): Post => {
+    const rawUrl = post.fileUrl || post.video || post.image || post.image_url || post.mediaUrl || '';
+    const mediaType = getMediaType(rawUrl);
+    const timestamp = post.created_at || post.createdAt || post.timestamp || post.date || new Date().toISOString();
+    const user = post.user || {};
+    const authorId = user?._id || user?.id || post.userId || post.user_id || '';
+    const authorName = user?.name || post.name || 'User';
+    const authorEmail = user?.email || post.email || '';
+    const authorAvatar = user?.profilePicture || user?.avatar || post.profilePicture || post.avatar || '';
+    const authorCoverPhoto = user?.coverPhoto || post.coverPhoto || '';
+    const authorBio = user?.bio || post.bio || '';
+    const authorRole = user?.role || post.role || 'Student';
+
+    return {
+        id: String(post._id || post.id),
+        author: {
+            id: String(authorId),
+            name: authorName,
+            username: authorEmail ? authorEmail.split('@')[0] : 'user',
+            email: authorEmail,
+            avatar: authorAvatar,
+            coverPhoto: authorCoverPhoto,
+            bio: authorBio,
+            role: authorRole,
+            createdAt: post.userCreatedAt || post.user_createdAt || timestamp,
+        },
+        content: post.content || '',
+        timestamp,
+        likes: Number(post.likes ?? post.likesCount ?? 0),
+        comments: Number(post.comments ?? post.commentsCount ?? 0),
+        image: mediaType === 'image' ? rawUrl : undefined,
+        video: mediaType === 'video' ? rawUrl : undefined,
+        fileUrl: mediaType === 'document' ? rawUrl : undefined,
+        imageDescription: post.imageDescription || '',
+        isLiked: !!post.isLiked,
+    };
+};
+
+
+
+const PostModal: React.FC<{ post: Post; onClose: () => void; author: User }> = ({ post, onClose, author }) => {
+    const mediaUrl = post.video || post.image || post.fileUrl;
+    const mediaType = getMediaType(mediaUrl);
+    const postedDate = formatPostDate(post.timestamp);
+    const [postDetails, setPostDetails] = useState<Post | null>(null);
+    const [comments, setComments] = useState<PostComment[]>([]);
+    const [commentsLoading, setCommentsLoading] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadPostDetails = async () => {
+            setCommentsLoading(true);
+            try {
+                const detailsResponse = await postsAPI.getPost(String(post.id));
+                const details = detailsResponse.data;
+
+                if (isMounted) {
+                    setPostDetails({
+                        ...post,
+                        likes: Number(details.likesCount ?? details.likes ?? post.likes ?? 0),
+                        comments: Number(details.commentsCount ?? details.comments?.length ?? post.comments ?? 0),
+                    });
+                    setComments(Array.isArray(details.comments) ? details.comments : []);
+                }
+            } catch (error) {
+                if (isMounted) {
+                    setPostDetails(post);
+                    setComments([]);
+                }
+            } finally {
+                if (isMounted) setCommentsLoading(false);
+            }
+        };
+
+        loadPostDetails();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [post, author.id]);
+
+    const commentRows = comments;
+    const commentCount = postDetails?.comments ?? post.comments;
+    const rootComments = commentRows.filter(comment => !comment.parentId);
+    const repliesByParent = commentRows.reduce((groups, comment) => {
+        if (!comment.parentId) return groups;
+        if (!groups[comment.parentId]) groups[comment.parentId] = [];
+        groups[comment.parentId].push(comment);
+        return groups;
+    }, {} as Record<string, PostComment[]>);
+
+    const renderComment = (comment: PostComment, depth = 0) => {
+        const replies = repliesByParent[comment._id] || [];
+
+        return (
+            <div key={comment._id} className={`${depth > 0 ? 'ml-8 pl-3 border-l border-slate-200/80 dark:border-slate-800/80' : ''}`}>
+                <div className="flex items-start gap-2 py-2">
+                    <Avatar
+                        src={getImageUrl(comment.user.profilePicture)}
+                        alt={comment.user.name}
+                        size="sm"
+                        className="shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-[13px] font-semibold text-slate-900 dark:text-white">{comment.user.name}</p>
+                            <p className="text-[10px] text-slate-400">{formatPostDate(comment.date)}</p>
+                        </div>
+                        <p className="mt-0.5 text-[12px] leading-5 text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words">
+                            {comment.text}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                            {comment.likesCount > 0 && <span>{comment.likesCount} {comment.likesCount === 1 ? 'like' : 'likes'}</span>}
+                            {comment.isLiked ? <span className="text-rose-500 font-semibold">Liked</span> : null}
+                        </div>
                     </div>
                 </div>
-                <div className="flex-1 py-4 space-y-4 text-sm overflow-y-auto">
-                    <p className="text-center text-xs text-slate-500 dark:text-slate-400 py-8">Comments are not yet implemented.</p>
+
+                {replies.length > 0 && (
+                    <div className="pb-2">
+                        {replies.map(reply => renderComment(reply, depth + 1))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4 pt-3 pb-[6.75rem] sm:pt-4 sm:pb-4" onClick={onClose}>
+            <button onClick={onClose} className="absolute top-4 right-4 text-white hover:opacity-80 transition-opacity z-10">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="w-full max-w-6xl h-[calc(100dvh-7.75rem)] sm:h-[90vh] bg-white dark:bg-slate-900 flex flex-col md:flex-row rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className={`w-full md:w-[58%] flex items-center justify-center overflow-hidden h-[220px] md:h-auto md:min-h-0 ${mediaType === 'document' ? 'bg-white items-start pt-2 sm:items-center sm:pt-0' : 'bg-black'}`}>
+                    {post.video ? (
+                        <video 
+                            src={getImageUrl(post.video)} 
+                            controls 
+                            autoPlay 
+                            className="max-h-full max-w-full object-contain"
+                        />
+                    ) : post.image ? (
+                        <img src={getImageUrl(post.image)} alt={post.imageDescription} className="max-h-full max-w-full object-contain" />
+                    ) : post.fileUrl ? (
+                        <div className="w-full h-full bg-white flex items-center justify-center p-3 sm:p-10">
+                            <div className="w-full max-w-[200px] sm:max-w-md rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-sm p-4 sm:p-10 text-center">
+                                <div className="mx-auto w-10 h-10 sm:w-16 sm:h-16 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-8 sm:w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 13h8M8 17h8M8 9h2" />
+                                    </svg>
+                                </div>
+                                <p className="mt-2.5 sm:mt-5 text-[14px] sm:text-lg font-semibold text-slate-900">Document Attached</p>
+                                <a 
+                                    href={getImageUrl(post.fileUrl)} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="mt-3.5 sm:mt-6 inline-flex items-center justify-center px-4 py-1.5 rounded-full bg-blue-600 text-white text-[10px] sm:text-base font-semibold hover:bg-blue-700 transition-colors"
+                                >
+                                    View Document
+                                </a>
+                            </div>
+                        </div>
+
+                    ) : (
+                        <div className="p-8 text-slate-500 text-sm italic">No media preview available</div>
+                    )}
+                </div>
+                <div
+                    className="w-full md:w-[40%] flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 overflow-y-auto scrollbar-hide"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    <div className="px-4 sm:px-5 py-3 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <Avatar src={author.avatar} alt={author.name} size="md" className="shrink-0" />
+                            <div className="min-w-0">
+                                <p className="font-semibold text-[14px] text-slate-900 dark:text-white truncate">{author.name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">@{author.username}</p>
+                            </div>
+                        </div>
+                        <Badge role={author.role} />
+                    </div>
+
+                    <div
+                        className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-4 scrollbar-hide"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-slate-400 font-bold">
+                                <span>Posted</span>
+                                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                                <span>{postedDate}</span>
+                            </div>
+                            {post.content ? (
+                                <p className="text-[13px] leading-5 text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                                    {post.content}
+                                </p>
+                            ) : (
+                                <p className="text-[13px] text-slate-500 dark:text-slate-400 italic">No caption provided.</p>
+                            )}
+
+                            <div className="flex items-center gap-4 pt-1">
+                                <div className="flex items-center gap-1.5">
+                                    <svg className="w-3.5 h-3.5 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.53L12 21.35z" /></svg>
+                                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{postDetails?.likes ?? post.likes}</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Likes</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <svg className="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">{commentCount}</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Comments</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                            <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Comments</p>
+                            </div>
+                            <div>
+                                {commentsLoading ? (
+                                    <div className="p-4 text-[13px] text-slate-500 dark:text-slate-400 animate-pulse">Loading comments...</div>
+                                ) : commentRows.length > 0 ? (
+                                    <div className="divide-y divide-slate-100 dark:divide-slate-800 px-3.5">
+                                        {rootComments.map(comment => renderComment(comment))}
+                                    </div>
+                                ) : (
+                                    <div className="px-4 py-6 text-center text-[13px] text-slate-500 dark:text-slate-400">
+                                        No comments yet.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
+
+import { useSocket } from '../contexts/SocketContext';
+
+const useTimeAgo = (date: string | number | Date) => {
+    const [time, setTime] = useState('...');
+
+    useEffect(() => {
+        const calculateTime = () => {
+            if (!date) return "just now";
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return "just now";
+            
+            const now = new Date();
+            const diffSeconds = (now.getTime() - d.getTime()) / 1000;
+            const seconds = Math.max(0, Math.floor(diffSeconds));
+            
+            if (seconds < 60) return "just now";
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            if (days < 7) return `${days}d ago`;
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+
+        setTime(calculateTime());
+        const interval = setInterval(() => setTime(calculateTime()), 30000);
+        return () => clearInterval(interval);
+    }, [date]);
+
+    return time;
+};
+
+const PostItem: React.FC<{ post: Post; onClick: () => void }> = ({ post, onClick }) => {
+    const dateFormatted = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const docUrl = post.fileUrl || post.image;
+    const extension = docUrl?.split('.').pop()?.toUpperCase() || 'DOC';
+    const fileName = docUrl?.split('/').pop()?.split('-').slice(2).join('-') || `document.${extension.toLowerCase()}`;
+
+    return (
+        <div 
+            onClick={onClick}
+            className="group bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-xl p-4 mb-2.5 flex items-center gap-5 hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer shadow-sm hover:shadow-md"
+        >
+            <div className="text-slate-400 group-hover:text-blue-500 transition-colors shrink-0">
+                <svg className="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+            </div>
+            
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2.5 mb-0.5">
+                    <h3 className="font-bold text-[14.5px] text-slate-800 dark:text-white truncate">
+                        {fileName}
+                    </h3>
+                    <span className="text-[9px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded uppercase tracking-wider border border-slate-100 dark:border-slate-700">
+                        {extension}
+                    </span>
+                </div>
+                
+                {post.content && (
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 line-clamp-1 mb-2 font-medium">
+                        {post.content}
+                    </p>
+                )}
+                
+                <div className="flex items-center justify-between border-t border-slate-50 dark:border-slate-800/30 pt-2 mt-0.5">
+                    <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400">
+                        <span className="flex items-center gap-1 opacity-70">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            {dateFormatted}
+                        </span>
+                        <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                                {post.likes}
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                {post.comments}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-blue-500 opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
+                        Open
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const ProfilePage: React.FC = () => {
     const { userId } = useParams();
     const { user: loggedInUser, updateProfile } = useAuth();
+    const { socket } = useSocket();
     const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [profileUser, setProfileUser] = useState<any>(null);
@@ -157,34 +514,10 @@ export const ProfilePage: React.FC = () => {
             if (!userToDisplay?.id && !userToDisplay?._id) return;
             setPostsLoading(true);
             try {
-                const response = await postsAPI.getPosts();
-                const allPosts = response.data.items || response.data || [];
                 const pid = userToDisplay._id || userToDisplay.id;
-                const filtered = Array.isArray(allPosts) ? allPosts.filter((p: any) => {
-                    const postUserId = p.user?._id || p.user?.id || p.user || p.userId;
-                    return String(postUserId) === String(pid) && p.image;
-                }) : [];
-
-                const mappedPosts: Post[] = filtered.map((p: any) => ({
-                    id: p._id || p.id,
-                    author: {
-                        id: p.user?._id || p.user?.id || '',
-                        name: p.user?.name || 'User',
-                        username: p.user?.email || 'user',
-                        email: p.user?.email || '',
-                        avatar: p.user?.profilePicture || '',
-                        coverPhoto: p.user?.coverPhoto || '',
-                        bio: p.user?.bio || '',
-                        role: p.user?.role || 'Student',
-                        createdAt: p.createdAt || new Date().toISOString(),
-                    },
-                    content: p.content || '',
-                    timestamp: p.createdAt || new Date().toISOString(),
-                    likes: p.likes?.length || 0,
-                    comments: p.comments?.length || 0,
-                    image: p.image,
-                    imageDescription: '',
-                }));
+                const response = await usersAPI.getUserPosts(String(pid));
+                const items = response.data?.items || response.data || [];
+                const mappedPosts: Post[] = Array.isArray(items) ? items.map((p: any) => normalizeProfilePost(p)) : [];
 
                 setUserPosts(mappedPosts);
             } catch (error) {
@@ -197,32 +530,97 @@ export const ProfilePage: React.FC = () => {
         fetchUserPosts();
     }, [userToDisplay]);
 
+    // Socket Listeners for Live Updates
+    useEffect(() => {
+        if (!socket) return;
+
+        const handlePostUpdate = (data: any) => {
+            setUserPosts(prev => prev.map(post => {
+                if (String(post.id) === String(data.postId)) {
+                    if (data.type === 'LIKE_CHANGE') {
+                        return { ...post, likes: data.likesCount };
+                    } else if (data.type === 'COMMENT_CHANGE') {
+                        return { ...post, comments: data.commentCount };
+                    }
+                }
+                return post;
+            }));
+        };
+
+        const handleNewPost = (newPost: any) => {
+            const pid = userToDisplay?._id || userToDisplay?.id;
+            const postUserId = newPost.user?._id || newPost.user?.id || newPost.user || newPost.userId;
+            
+            if (String(postUserId) === String(pid)) {
+                const mapped = normalizeProfilePost(newPost);
+                setUserPosts(prev => [mapped, ...prev]);
+            }
+        };
+
+        socket.on('post_update', handlePostUpdate);
+        socket.on('new-post', handleNewPost);
+
+        return () => {
+            socket.off('post_update', handlePostUpdate);
+            socket.off('new-post', handleNewPost);
+        };
+    }, [socket, userToDisplay]);
+
     if (loading) return <div className="p-8 text-center animate-pulse">Loading Profile...</div>;
     if (!profileUser) return <div className="p-8 text-center">User not found</div>;
 
     const renderContent = () => {
         switch (activeTab) {
             case 'posts':
-                if (userPosts.length === 0) {
-                    return <Card className="p-12 text-center text-slate-500">No posts yet</Card>;
+                const visualPosts = userPosts.filter(p => (p.image && !isDocumentFile(p.image)) || p.video);
+                if (visualPosts.length === 0) {
+                    return <Card className="p-12 text-center text-slate-500">No photos or videos yet</Card>;
                 }
                 return (
                     <div className="grid grid-cols-3 gap-1 sm:gap-4">
-                        {userPosts.map(post => (
-                            <div key={post.id} onClick={() => setSelectedPost(post)} className="aspect-square relative group cursor-pointer overflow-hidden rounded-md">
-                                <img src={post.image} alt="post" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-sm font-bold">
-                                    <span>♥ {post.likes}</span>
-                                    <span>💬 {post.comments}</span>
+                        {visualPosts.map(post => (
+                            <div key={post.id} onClick={() => setSelectedPost(post)} className="aspect-square relative group cursor-pointer overflow-hidden rounded-md bg-slate-100 dark:bg-slate-800">
+                                {post.image ? (
+                                    <img src={getImageUrl(post.image)} alt="post" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                ) : post.video ? (
+                                    <div className="w-full h-full relative">
+                                        <video src={getImageUrl(post.video)} className="w-full h-full object-cover" />
+                                        <div className="absolute top-2 right-2 bg-black/60 p-1 rounded-md">
+                                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.841z"/></svg>
+                                        </div>
+                                    </div>
+                                ) : null}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6 text-white text-xs sm:text-sm font-bold">
+                                    <span className="flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3c1.745 0 3.23.834 4.312 2.113C13.083 3.834 14.568 3 16.312 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" /></svg>
+                                        {post.likes}
+                                    </span>
+                                    <span className="flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                        {post.comments}
+                                    </span>
                                 </div>
                             </div>
                         ))}
                     </div>
                 );
+            case 'documents':
+                const docPosts = userPosts.filter(p => p.fileUrl || (p.image && isDocumentFile(p.image)));
+                if (docPosts.length === 0) {
+                    return <Card className="p-12 text-center text-slate-500">No documents shared yet</Card>;
+                }
+                return (
+                    <div className="flex flex-col gap-4">
+                        {docPosts.map(post => (
+                            <PostItem key={post.id} post={post} onClick={() => setSelectedPost(post)} />
+                        ))}
+                    </div>
+                );
+
+
             case 'saved':
                 return <Card className="p-12 text-center text-slate-500">No saved posts</Card>;
-            case 'media':
-                return <Card className="p-12 text-center text-slate-500">No tagged photos</Card>;
+
             default: return null;
         }
     };
@@ -264,10 +662,11 @@ export const ProfilePage: React.FC = () => {
                 <div className="h-32 sm:h-48 bg-slate-900 relative">
                     <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'banner')} />
                     {userToDisplay.coverPhoto ? (
-                        <img src={userToDisplay.coverPhoto} alt="banner" className={`w-full h-full object-cover ${bannerUploading ? 'opacity-40 animate-pulse' : ''}`} />
+                        <img src={getImageUrl(userToDisplay.coverPhoto)} alt="banner" className={`w-full h-full object-cover ${bannerUploading ? 'opacity-40 animate-pulse' : ''}`} />
                     ) : (
                         <div className="w-full h-full bg-[#0f172a]" />
                     )}
+
                     
                     {isOwnProfile && (
                         <button 
@@ -285,8 +684,9 @@ export const ProfilePage: React.FC = () => {
                         <div className="relative">
                             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} />
                             <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700 ${uploading ? 'animate-pulse' : ''}`}>
-                                <img src={userToDisplay.profilePicture || userToDisplay.avatar} alt="avatar" className="w-full h-full object-cover" />
+                                <img src={getImageUrl(userToDisplay.profilePicture || userToDisplay.avatar)} alt="avatar" className="w-full h-full object-cover" />
                             </div>
+
                             {isOwnProfile && (
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
@@ -356,7 +756,7 @@ export const ProfilePage: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex gap-8 border-b border-slate-200 dark:border-slate-700 mb-8 px-4">
-                {(['posts', 'saved', 'media'] as ProfileTab[]).map(tab => (
+                {(['posts', 'documents', 'saved'] as ProfileTab[]).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -370,6 +770,7 @@ export const ProfilePage: React.FC = () => {
                     </button>
                 ))}
             </div>
+
 
             <div className="px-1">{renderContent()}</div>
 

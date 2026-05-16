@@ -43,7 +43,11 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
   };
 
   const handleNotificationClick = (notif: Notification) => {
-    if (notif.postId) {
+    if (notif.type === 'GROUP_ADDED' && notif.groupId) {
+      navigate(`/groups/${notif.groupId}`);
+    } else if (notif.type === 'EVENT_REMINDER') {
+      navigate('/events');
+    } else if (notif.postId) {
       navigate('/home', { state: { highlightPost: notif.postId } });
     }
     onClose();
@@ -68,6 +72,8 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
       case 'COMMENT': return 'commented on your post';
       case 'REPLY': return 'replied to your comment';
       case 'SHARE': return 'shared your post';
+      case 'GROUP_ADDED': return notif.content ? '' : 'added you to a group';
+      case 'EVENT_REMINDER': return notif.content || 'your event is starting now';
       default: return 'interacted with your content';
     }
   };
@@ -77,6 +83,8 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
       case 'LIKE': return <div className="text-red-500">{ICONS.likeSolid}</div>;
       case 'COMMENT': return <div className="text-blue-500">{ICONS.comment}</div>;
       case 'REPLY': return <div className="text-emerald-500">{ICONS.comment}</div>;
+      case 'GROUP_ADDED': return <div className="text-blue-500">{ICONS.users}</div>;
+      case 'EVENT_REMINDER': return <div className="text-amber-500">{ICONS.bellSolid}</div>;
       default: return <div className="text-slate-400">{ICONS.bell}</div>;
     }
   };
@@ -117,7 +125,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
               className={`w-full flex items-start gap-3 p-3 md:p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left border-b border-slate-50 dark:border-slate-800/50 last:border-0 cursor-pointer ${!notif.isRead ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
             >
               <div className="relative shrink-0 mt-0.5 md:mt-0">
-                <Avatar src={notif.actor.avatar} alt={notif.actor.name} size="xs" className="md:w-8 md:h-8" />
+                <Avatar src={notif.actor?.avatar} alt={notif.actor?.name || 'System'} size="xs" className="md:w-8 md:h-8" />
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
                   <div className="scale-[0.6]">
                     {getIcon(notif.type)}
@@ -127,9 +135,15 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
               
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] text-slate-800 dark:text-slate-200 leading-snug">
-                  <span className="font-bold text-slate-900 dark:text-white">{notif.actor.name}</span>
+                  {notif.actor ? (
+                    <span className="font-bold text-slate-900 dark:text-white">{notif.actor.name}</span>
+                  ) : null}
                   {' '}
-                  {getNotificationText(notif)}
+                  {notif.type === 'GROUP_ADDED' && notif.content ? (
+                    <span className="font-medium">{notif.content}</span>
+                  ) : (
+                    getNotificationText(notif)
+                  )}
                 </p>
                 
                 {notif.commentText && (

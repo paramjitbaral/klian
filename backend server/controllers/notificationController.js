@@ -8,12 +8,12 @@ const getNotifications = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     const rows = await query(
-      `SELECT n.id, n.type, n.post_id AS postId, n.comment_id AS commentId, n.is_read AS isRead, n.created_at AS createdAt,
+      `SELECT n.id, n.type, n.post_id AS postId, n.comment_id AS commentId, n.group_id AS groupId, n.content, n.is_read AS isRead, n.created_at AS createdAt,
               a.id AS actorId, a.name AS actorName, a.profile_picture AS actorAvatar,
               pc.text AS commentText,
               p.content AS postContent, p.image_url AS postImage
          FROM notifications n
-         JOIN users a ON a.id = n.actor_id
+         LEFT JOIN users a ON a.id = n.actor_id
          LEFT JOIN post_comments pc ON pc.id = n.comment_id
          LEFT JOIN posts p ON p.id = n.post_id
         WHERE n.user_id = ?
@@ -27,6 +27,8 @@ const getNotifications = async (req, res) => {
       type: n.type,
       postId: n.postId,
       commentId: n.commentId,
+      groupId: n.groupId,
+      content: n.content,
       commentText: n.commentText,
       postPreview: {
         content: n.postContent,
@@ -34,11 +36,11 @@ const getNotifications = async (req, res) => {
       },
       isRead: !!n.isRead,
       createdAt: n.createdAt,
-      actor: {
+      actor: n.actorId ? {
         id: n.actorId,
         name: n.actorName,
         avatar: n.actorAvatar
-      }
+      } : null
     }));
 
     res.json(notifications);
@@ -62,22 +64,36 @@ const markAllAsRead = async (req, res) => {
   }
 };
 
-// Helper to create a notification
-const createNotification = async (userId, actorId, type, postId = null, commentId = null) => {
+const markByType = async (req, res) => {
   try {
-    // Don't notify if user is performing action on their own post/comment
-    if (String(userId) === String(actorId)) return null;
+    const currentUserId = req.user.id || req.user._id;
+    const { type } = req.params;
+    await query('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type = ?', [currentUserId, type]);
+    res.json({ message: `Notifications of type ${type} marked as read` });
+  } catch (error) {
+    console.error('[Notifications] Error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Helper to create a notification
+const createNotification = async (userId, actorId, type, postId = null, commentId = null, groupId = null, options = {}) => {
+  try {
+    const { allowSelf = false, content = null } = options;
+
+    // Don't notify if user is performing action on their own post/comment unless explicitly allowed
+    if (!allowSelf && actorId !== null && actorId !== undefined && String(userId) === String(actorId)) return null;
 
     const result = await query(
-      'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
-      [userId, actorId, type, postId, commentId]
+      'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, group_id, content) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [userId, actorId, type, postId, commentId, groupId, content]
     );
     
     const notifId = result.insertId;
     
     // Fetch formatted notif for socket emission
     const rows = await query(
-      `SELECT n.id, n.type, n.post_id AS postId, n.comment_id AS commentId, n.is_read AS isRead, n.created_at AS createdAt,
+      `SELECT n.id, n.type, n.post_id AS postId, n.comment_id AS commentId, n.group_id AS groupId, n.is_read AS isRead, n.created_at AS createdAt,
               a.id AS actorId, a.name AS actorName, a.profile_picture AS actorAvatar,
               pc.text AS commentText,
               p.content AS postContent, p.image_url AS postImage
@@ -99,6 +115,7 @@ const createNotification = async (userId, actorId, type, postId = null, commentI
       type: n.type,
       postId: n.postId,
       commentId: n.commentId,
+      content: content || n.content,
       commentText: n.commentText,
       postPreview: {
         content: n.postContent,
@@ -175,6 +192,7 @@ const deleteNotificationById = async (req, res) => {
 module.exports = {
   getNotifications,
   markAllAsRead,
+  markByType,
   createNotification,
   deleteNotification,
   deleteNotificationById

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { notificationsAPI } from '../src/api/notifications';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
@@ -10,6 +11,8 @@ import { ChatInput } from '../components/ChatInput';
 import { Card } from '../components/ui/Card';
 import { MessageSearchDropdown } from '../components/MessageSearchDropdown';
 import { messagesAPI } from '../src/api/messages';
+import { groupsAPI } from '../src/api/groups';
+import { useSocket } from '../contexts/SocketContext';
 
 export const MessagesPage: React.FC = () => {
   const { conversationId } = useParams();
@@ -22,7 +25,12 @@ export const MessagesPage: React.FC = () => {
     sendMessage,
     currentConversation,
     setCurrentConversation,
+    unreadCount: dmUnreadCount,
+    groupUnreadCount,
+    groupAddedNotifsCount,
+    refreshGroupCounts
   } = useMessages();
+  const { socket } = useSocket();
   const [searchEmail, setSearchEmail] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
@@ -43,6 +51,8 @@ export const MessagesPage: React.FC = () => {
       setCurrentConversation(null);
     }
   }, [conversationId, currentConversation, setCurrentConversation]);
+
+  // Socket and other effects continue below...
 
   const handleSearchEmail = async (email: string) => {
     if (!email.includes('@')) return;
@@ -82,6 +92,7 @@ export const MessagesPage: React.FC = () => {
   };
 
   const activeConversation = conversations.find(c => c.user._id === currentConversation);
+  const hasConversations = conversations.length > 0;
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-900">
@@ -99,12 +110,17 @@ export const MessagesPage: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate flex-1">Messages</h1>
             <button 
               onClick={() => navigate('/groups')}
-              className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2 relative"
               title="Groups"
             >
               <div className="h-6 w-6">
                 {ICONS.groups}
               </div>
+              {(groupUnreadCount > 0 || groupAddedNotifsCount > 0) && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
+                  {(groupUnreadCount + groupAddedNotifsCount) > 9 ? '9+' : (groupUnreadCount + groupAddedNotifsCount)}
+                </span>
+              )}
             </button>
           </header>
 
@@ -149,10 +165,12 @@ export const MessagesPage: React.FC = () => {
           <div className="flex-1 overflow-y-auto">
             {conversations.length === 0 ? (
               <div className="flex items-center justify-center h-full text-center p-6">
-                <div>
-                  <div className="text-5xl mb-3 text-slate-300 dark:text-slate-600">💬</div>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">No conversations yet</p>
-                  <p className="text-slate-500 dark:text-slate-500 text-xs mt-1">Search for someone to start a chat</p>
+                <div className="max-w-[240px]">
+                  <div className="mx-auto mb-4 h-16 w-16 rounded-3xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-sm border border-slate-100 dark:border-slate-700">
+                    {ICONS.messagesOff}
+                  </div>
+                  <p className="text-slate-900 dark:text-white text-base font-semibold">No chats yet</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 leading-relaxed">Search for someone to start a chat. Your messages will appear here once a conversation begins.</p>
                 </div>
               </div>
             ) : (
@@ -228,8 +246,8 @@ export const MessagesPage: React.FC = () => {
                     </div>
                   </div>
 
-              <div className="flex gap-2">
-                {[ICONS.search, ICONS.moreHorizontal].map((icon, idx) => (
+                  <div className="flex gap-2">
+                {[(hasConversations ? ICONS.search : ICONS.messagesOff), ICONS.moreHorizontal].map((icon, idx) => (
                   <button
                     key={idx}
                     className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"

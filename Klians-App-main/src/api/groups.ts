@@ -35,6 +35,31 @@ export const groupsAPI = {
   // Leave a group
   leaveGroup: (groupId: string) => {
     return API.put(`/groups/${groupId}/leave`);
+  },
+
+  // Add members to a group
+  addMembers: (groupId: string, userIds: string[]) => {
+    return API.post(`/groups/${groupId}/members`, { userIds });
+  },
+
+  // Update notification setting
+  updateNotificationSetting: (groupId: string, setting: 'all' | 'mentions' | 'off') => {
+    return API.put(`/groups/${groupId}/notification-setting`, { setting });
+  },
+
+  // Mark group as read
+  markAsRead: (groupId: string) => {
+    return API.put(`/groups/${groupId}/read`);
+  },
+  
+  // Remove a member from a group
+  removeMember: (groupId: string, userId: string) => {
+    return API.delete(`/groups/${groupId}/members/${userId}`);
+  },
+  
+  // Update a member's role
+  updateMemberRole: (groupId: string, userId: string, role: 'admin' | 'member') => {
+    return API.put(`/groups/${groupId}/members/role`, { userId, role });
   }
 };
 

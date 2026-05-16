@@ -35,6 +35,9 @@ export interface Post {
   comments: number;
   image?: string;
   imageDescription?: string;
+  video?: string;
+  videoThumbnail?: string;
+  fileUrl?: string;
   isLiked?: boolean;
 }
 
@@ -75,12 +78,14 @@ export interface Group {
 
 export interface Event {
   id: string;
+  _id?: string;
   title: string;
   description: string;
   location: string;
   date: string;
   creator: User;
   attendees: string[]; // User IDs
+  isReminderSet?: boolean;
 }
 
 export interface Broadcast {

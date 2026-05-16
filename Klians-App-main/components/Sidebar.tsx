@@ -1,25 +1,46 @@
 
 import React from 'react';
 import { useMessages } from '../contexts/MessagesContext';
+import { notificationsAPI } from '../src/api/notifications';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Role } from '../types';
 import { ICONS } from '../constants';
+import { groupsAPI } from '../src/api/groups';
+import { useSocket } from '../contexts/SocketContext';
+import { useState, useEffect } from 'react';
 
 export const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
-  const { unreadCount } = useMessages();
+  const { 
+    conversations,
+    unreadCount: dmUnreadCount, 
+    groupUnreadCount, 
+    groupAddedNotifsCount
+  } = useMessages();
   const location = useLocation();
   const isCollapsedPage = location.pathname.startsWith('/messages') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/settings');
+
+  const totalUnreadCount = dmUnreadCount + groupUnreadCount + groupAddedNotifsCount;
+  const hasChats = conversations.length > 0;
+
 
   // Main navigation links (top section)
   const mainNavLinks = [
     { to: '/home', label: 'Home', icon: ICONS.home, roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN] },
-    { to: '/messages', label: 'Messages', icon: ICONS.messages, roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN] },
+    { 
+      to: '/messages', 
+      label: 'Messages', 
+      icon: hasChats ? ICONS.messages : ICONS.messagesOff, 
+      roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN],
+      badge: totalUnreadCount > 0 ? (totalUnreadCount > 9 ? '9+' : totalUnreadCount) : undefined
+    },
+
     { to: '/users', label: 'Users', icon: ICONS.groups, roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN] },
     { to: '/mailbox', label: 'Mailbox', icon: ICONS.mailbox, roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN] },
     { to: '/events', label: 'Events', icon: ICONS.events, roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN] },
   ];
+
 
   // Secondary navigation links (middle section)
   const secondaryNavLinks = [
@@ -60,9 +81,9 @@ export const Sidebar: React.FC = () => {
               >
                 <span className="relative w-6 h-6 flex-shrink-0">
                   {link.icon}
-                  {link.label === 'Messages' && unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                  {link.badge && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 animate-in zoom-in duration-300">
+                      {link.badge}
                     </span>
                   )}
                 </span>

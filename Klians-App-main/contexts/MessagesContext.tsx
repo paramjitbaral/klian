@@ -44,6 +44,9 @@ interface MessagesContextType {
   sharePost: (recipientId: string, postId: string, message?: string) => Promise<void>;
   setCurrentConversation: (userId: string | null) => void;
   unreadCount: number;
+  groupUnreadCount: number;
+  groupAddedNotifsCount: number;
+  refreshGroupCounts: () => Promise<void>;
 }
 
 const MessagesContext = createContext<MessagesContextType>({
@@ -53,7 +56,10 @@ const MessagesContext = createContext<MessagesContextType>({
   sendMessage: async () => {},
   sharePost: async () => {},
   setCurrentConversation: () => {},
-  unreadCount: 0
+  unreadCount: 0,
+  groupUnreadCount: 0,
+  groupAddedNotifsCount: 0,
+  refreshGroupCounts: async () => {}
 });
 
 export const useMessages = () => useContext(MessagesContext);
@@ -65,6 +71,12 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [currentConversation, setCurrentConversation] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [groupUnreadCount, setGroupUnreadCount] = useState(0);
+  const [groupAddedNotifsCount, setGroupAddedNotifsCount] = useState(0);
+
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+
 
   // Helper function to get user ID (handle both _id and id)
   const getUserId = (userObj: any) => userObj?._id || userObj?.id;
@@ -91,6 +103,31 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     loadConversations();
+  }, [user]);
+
+  const refreshGroupCounts = async () => {
+
+    if (!user) return;
+    try {
+      const [groupsRes, notifRes] = await Promise.all([
+        import('../src/api/groups').then(m => m.groupsAPI.getGroups()),
+        import('../src/api/notifications').then(m => m.notificationsAPI.getNotifications())
+      ]);
+      
+      const total = groupsRes.data.reduce((acc: number, g: any) => acc + (g.unreadCount || 0), 0);
+      setGroupUnreadCount(total);
+      
+      const groupAddedCount = notifRes.data.filter((n: any) => n.type === 'GROUP_ADDED' && !n.isRead).length;
+      setGroupAddedNotifsCount(groupAddedCount);
+    } catch (error) {
+      console.error('Error refreshing group counts:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      refreshGroupCounts();
+    }
   }, [user]);
 
   // Load messages for current conversation
@@ -215,9 +252,43 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     });
 
+    // Group related socket events
+    const handleGroupUpdate = () => {
+        refreshGroupCounts();
+    };
+
+    const handleNewNotification = (notif: any) => {
+        if (notif.type === 'GROUP_ADDED') {
+            setGroupAddedNotifsCount(prev => prev + 1);
+        }
+    };
+
+
+
+    socket.on('new_group_message', handleGroupUpdate);
+    socket.on('group_added_to', handleGroupUpdate);
+    socket.on('group_removed_from', handleGroupUpdate);
+    socket.on('new_notification', handleNewNotification);
+    socket.on('update_notification', (data: any) => {
+        if (data.type === 'GROUP_ADDED' && data.isRead) {
+            setGroupAddedNotifsCount(prev => Math.max(0, prev - 1));
+        refreshGroupCounts();
+        }
+    });
+
+    socket.on('group_marked_read', () => {
+      refreshGroupCounts();
+    });
+
     return () => {
       socket.off('new-message');
       socket.off('messages-marked-read');
+      socket.off('new_group_message', handleGroupUpdate);
+      socket.off('group_added_to', handleGroupUpdate);
+      socket.off('group_removed_from', handleGroupUpdate);
+      socket.off('new_notification', handleNewNotification);
+      socket.off('update_notification');
+      socket.off('group_marked_read');
     };
   }, [socket, user, currentConversation]);
 
@@ -317,7 +388,10 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         sendMessage,
         sharePost,
         setCurrentConversation,
-        unreadCount
+        unreadCount,
+        groupUnreadCount,
+        groupAddedNotifsCount,
+        refreshGroupCounts
       }}
     >
       {children}

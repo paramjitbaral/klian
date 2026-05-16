@@ -35,6 +35,11 @@ export const eventsAPI = {
   // Unattend an event
   unattendEvent: (eventId: string) => {
     return API.put(`/events/unattend/${eventId}`);
+  },
+
+  // Toggle reminder for an event
+  toggleReminder: (eventId: string, enabled: boolean) => {
+    return API.put(`/events/reminder/${eventId}`, { enabled });
   }
 };
 

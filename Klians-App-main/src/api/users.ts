@@ -5,6 +5,11 @@ export const usersAPI = {
   getUserById: (id: string) => {
     return API.get(`/users/${id}`);
   },
+
+  // Get posts created by a user
+  getUserPosts: (id: string) => {
+    return API.get(`/users/${id}/posts`);
+  },
   
   // Get all users
   getUsers: () => {

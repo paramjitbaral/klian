@@ -7,7 +7,12 @@ const {
   updateGroup,
   deleteGroup,
   joinGroup,
-  leaveGroup
+  leaveGroup,
+  addMembers,
+  removeMember,
+  updateMemberRole,
+  updateNotificationSetting,
+  markAsRead
 } = require('../controllers/groupController');
 const { protect, facultyOnly } = require('../middleware/auth');
 
@@ -23,5 +28,12 @@ router.route('/:id')
 
 router.put('/join/:id', protect, joinGroup);
 router.put('/leave/:id', protect, leaveGroup);
+router.post('/:id/members', protect, addMembers);
+router.delete('/:id/members/:userId', protect, removeMember);
+router.put('/:id/members/role', protect, updateMemberRole);
+router.put('/:id/notification-setting', protect, updateNotificationSetting);
+router.put('/:id/read', protect, markAsRead);
+
+module.exports = router;
 
 module.exports = router;

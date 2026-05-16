@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Global design tokens and micro-interactions aligned to VISUAL_DESIGN_SPECIFICATION */
 :root {
   --red-50: #FEF2F2;
@@ -33,6 +37,26 @@
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+@keyframes shake-red {
+  0%, 100% { transform: translateX(0); border-color: rgb(239 68 68); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-shake-red {
+  animation: shake-red 0.4s ease-in-out;
+  border-color: #ef4444 !important;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 body {

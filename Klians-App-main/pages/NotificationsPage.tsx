@@ -163,10 +163,10 @@ const NotificationsPage: React.FC = () => {
 
                     <div className="flex-1 min-w-0 pr-4">
                       <p className="text-[14px] leading-[1.3] text-slate-900 dark:text-slate-100">
-                        <span className="font-black hover:underline">{notif.actor.name}</span>
+                        <span className="font-black hover:underline">{notif.actor?.name || 'System'}</span>
                         {' '}
                         <span className="text-slate-500 dark:text-slate-400">
-                           {notif.type === 'LIKE' ? 'liked your post.' : notif.type === 'COMMENT' ? 'commented on your post.' : notif.type === 'REPLY' ? 'replied to your comment.' : 'interacted with your content.'}
+                          {notif.type === 'LIKE' ? 'liked your post.' : notif.type === 'COMMENT' ? 'commented on your post.' : notif.type === 'REPLY' ? 'replied to your comment.' : notif.type === 'EVENT_REMINDER' ? 'your event is starting now.' : 'interacted with your content.'}
                         </span>
                       </p>
                       
