@@ -354,28 +354,9 @@ export const HomePage: React.FC = () => {
   return (
     <>
       <div className="h-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden px-6 relative">
-        {/* Pull to refresh indicator */}
-        <div 
-            className="absolute top-0 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none z-[45]"
-            style={{ 
-                transform: `translate(-50%, ${pullDistance - 40}px)`,
-                opacity: Math.min(pullDistance / 50, 1),
-                transition: isRefreshing ? 'none' : 'transform 0.1s ease-out'
-            }}
-        >
-            <div className={`p-2 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-100 dark:border-slate-700 ${isRefreshing ? 'animate-spin' : ''}`}>
-                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ transform: `rotate(${pullDistance * 4}deg)` }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-            </div>
-        </div>
-
         {/* Center Feed - Scrollable without scrollbar */}
         <div 
             ref={scrollContainerRef}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
             className="lg:col-span-8 h-full overflow-y-auto scrollbar-hide py-4 md:py-8"
         >
           {canPost && (

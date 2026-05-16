@@ -13,13 +13,22 @@ import { notificationsAPI, Notification } from '../src/api/notifications';
 import { announcementsAPI } from '../src/api/announcements';
 import { useSocket } from '../contexts/SocketContext';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+    isAnnouncementsOpen?: boolean;
+    setAnnouncementsOpen?: (open: boolean) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnouncementsOpen }) => {
     const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setDropdownVisible] = useState(false);
     const [isNotificationsVisible, setNotificationsVisible] = useState(false);
-    const [isAnnouncementsVisible, setAnnouncementsVisible] = useState(false);
+    
+    // Use props if available, otherwise fallback to local state (for desktop)
+    const [isAnnouncementsVisibleLocal, setAnnouncementsVisibleLocal] = useState(false);
+    const isAnnouncementsVisible = isAnnouncementsOpen ?? isAnnouncementsVisibleLocal;
+    const setAnnouncementsVisible = setAnnouncementsOpen ?? setAnnouncementsVisibleLocal;
     const searchRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const announcementsRef = useRef<HTMLDivElement>(null);
@@ -171,36 +180,42 @@ export const Header: React.FC = () => {
             {/* Mobile Header */}
             <div className="md:hidden px-4 h-14 grid grid-cols-3 items-center">
                 {/* Left: Combined Activity (Mobile) */}
-                <div ref={announcementsRef} className="relative justify-self-start">
+                <div className="relative justify-self-start">
                     <button
-                        className="p-2 -ml-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative"
-                        onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
+                        ref={announcementsRef}
+                        className={`p-2 -ml-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative ${isAnnouncementsVisible ? 'bg-slate-100 dark:bg-slate-700/60' : ''}`}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setAnnouncementsVisible(!isAnnouncementsVisible);
+                        }}
                     >
                         {React.cloneElement(ICONS.announcement, { className: "h-[24px] w-[24px]" })}
                         {(broadcastUnreadCount > 0 || unreadCount > 0) && (
                             <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
                         )}
                     </button>
-                    {isAnnouncementsVisible && (
-                        <div className="fixed inset-x-0 top-14 bottom-16 bg-black/20 z-50 animate-in fade-in" onClick={() => setAnnouncementsVisible(false)}>
-                            <div className="absolute top-0 left-0 w-full h-full overflow-y-auto bg-slate-50 dark:bg-slate-900 shadow-xl border-t border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
-                                <NotificationsDropdown
-                                    notifications={notifications}
-                                    onClose={() => setAnnouncementsVisible(false)}
-                                    onMarkAllRead={handleMarkAllRead}
-                                    onDelete={handleDeleteNotification}
-                                    className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
-                                />
-                                <div className="h-2 bg-slate-100 dark:bg-slate-900 w-full border-y border-slate-200 dark:border-slate-700" />
-                                <AnnouncementsDropdown
-                                    isOpen={isAnnouncementsVisible}
-                                    onClose={() => setAnnouncementsVisible(false)}
-                                    className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
-                                />
-                            </div>
-                        </div>
-                    )}
                 </div>
+
+                {isAnnouncementsVisible && (
+                    <div className="md:hidden fixed inset-x-0 top-14 bottom-16 bg-black/20 z-50 animate-in fade-in" onClick={() => setAnnouncementsVisible(false)}>
+                        <div className="absolute top-0 left-0 w-full h-full overflow-y-auto bg-slate-50 dark:bg-slate-900 shadow-xl border-t border-slate-200 dark:border-slate-700 pb-20" onClick={e => e.stopPropagation()}>
+                            <NotificationsDropdown
+                                notifications={notifications}
+                                onClose={() => setAnnouncementsVisible(false)}
+                                onMarkAllRead={handleMarkAllRead}
+                                onDelete={handleDeleteNotification}
+                                className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
+                            />
+                            <div className="h-2 bg-slate-100 dark:bg-slate-900 w-full border-y border-slate-200 dark:border-slate-700" />
+                            <AnnouncementsDropdown
+                                isOpen={isAnnouncementsVisible}
+                                onClose={() => setAnnouncementsVisible(false)}
+                                className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Center: Logo */}
                 <div className="flex justify-center">
