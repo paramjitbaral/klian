@@ -29,11 +29,13 @@ export const Layout: React.FC = () => {
   const showHeader = ['/home', '/settings', '/announcements'].some(path => location.pathname.startsWith(path));
   const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings', '/broadcast', '/announcements'].includes(location.pathname);
 
-  // Scroll to top on route change
+  // Scroll to top and close search on route change
   useEffect(() => {
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
     }
+    setIsSearchOpen(false);
+    setIsAnnouncementsOpen(false);
   }, [location.pathname]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -154,7 +156,15 @@ export const Layout: React.FC = () => {
           </div>
         </main>
 
-        {showBottomNav && <BottomNav onSearchClick={() => setIsSearchOpen(true)} />}
+        {showBottomNav && (
+          <BottomNav 
+            onSearchClick={() => setIsSearchOpen(true)} 
+            onLinkClick={() => {
+              setIsSearchOpen(false);
+              setIsAnnouncementsOpen(false);
+            }}
+          />
+        )}
         <SearchPage isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       </div>
     </div>

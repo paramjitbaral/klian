@@ -387,7 +387,7 @@ export const MailboxPage: React.FC = () => {
                     </div>
                 )}
             </header>
-            <div className="h-12 md:hidden"></div>
+            <div className="h-14 md:hidden"></div>
 
             <div className="flex-1 flex flex-row min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
                 <aside className="w-[260px] p-4 border-r border-slate-200 dark:border-slate-800 flex-col hidden md:flex bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
@@ -405,10 +405,7 @@ export const MailboxPage: React.FC = () => {
                         </div>
                         {activeFolder === 'inbox' && <FilterButtons />}
                     </div>
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-700/50 md:hidden">
-                        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
-                            {activeFolder}
-                        </h2>
+                    <div className="px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700/50 md:hidden">
                         {activeFolder === 'inbox' && <FilterButtons />}
                     </div>
                     <main className="flex-1 overflow-y-auto">

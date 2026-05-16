@@ -32,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const searchRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
     const announcementsRef = useRef<HTMLDivElement>(null);
+    const mobileAnnouncementsRef = useRef<HTMLButtonElement>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [broadcastUnreadCount, setBroadcastUnreadCount] = useState(0);
@@ -161,7 +162,8 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
                 setNotificationsVisible(false);
             }
-            if (announcementsRef.current && !announcementsRef.current.contains(event.target as Node)) {
+            if (announcementsRef.current && !announcementsRef.current.contains(event.target as Node) && 
+                mobileAnnouncementsRef.current && !mobileAnnouncementsRef.current.contains(event.target as Node)) {
                 setAnnouncementsVisible(false);
             }
         };
@@ -176,13 +178,13 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const SearchIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 
     return (
-        <header className="bg-white dark:bg-slate-800 fixed md:sticky top-0 z-20 w-full border-b border-slate-200 dark:border-slate-700">
+        <header className="bg-white dark:bg-slate-800 fixed md:sticky top-0 z-[60] w-full border-b border-slate-200 dark:border-slate-700">
             {/* Mobile Header */}
             <div className="md:hidden px-4 h-14 grid grid-cols-3 items-center">
                 {/* Left: Combined Activity (Mobile) */}
                 <div className="relative justify-self-start">
                     <button
-                        ref={announcementsRef}
+                        ref={mobileAnnouncementsRef}
                         className={`p-2 -ml-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative ${isAnnouncementsVisible ? 'bg-slate-100 dark:bg-slate-700/60' : ''}`}
                         onClick={(e) => {
                             e.preventDefault();
