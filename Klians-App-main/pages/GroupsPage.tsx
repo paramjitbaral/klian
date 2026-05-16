@@ -30,7 +30,7 @@ const AddGroupMembersModal: React.FC<{
     const existingMemberIds = new Set(group.members.map(m => m.id));
     const allUsers = Object.values(USERS);
 
-    const usersAvailableToAdd = allUsers.filter(user => 
+    const usersAvailableToAdd = allUsers.filter(user =>
         !existingMemberIds.has(user.id) &&
         (user.name.toLowerCase().includes(searchTerm.toLowerCase()) || user.username.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -55,7 +55,7 @@ const AddGroupMembersModal: React.FC<{
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Add Members to ${group.name}`}>
             <div className="space-y-4">
-                <Input 
+                <Input
                     placeholder="Search for users..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
@@ -168,7 +168,7 @@ const GroupSettingsModal: React.FC<{
     const [groupDescription, setGroupDescription] = useState(group.description || '');
     const [notificationSetting, setNotificationSetting] = useState<NotificationSetting>('all');
     const isAdmin = group.admins.includes(currentUser.id);
-    
+
     const handleSaveChanges = () => {
         // In a real app, you'd also save the notificationSetting for the current user.
         onUpdateGroup({ ...group, name: groupName, description: groupDescription });
@@ -205,7 +205,7 @@ const GroupSettingsModal: React.FC<{
             onClose();
         }
     };
-    
+
     const handleDeleteGroup = () => {
         if (window.confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
             // In a real app, this would be a DELETE request. Here we'll simulate it.
@@ -216,13 +216,12 @@ const GroupSettingsModal: React.FC<{
     }
 
 
-    const tabButtonClasses = (tab: GroupSettingsTab) => 
-        `px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-        activeTab === tab 
+    const tabButtonClasses = (tab: GroupSettingsTab) =>
+        `px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab
             ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
             : 'hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-300'
-    }`;
-    
+        }`;
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Group Settings">
             <div className="flex border-b border-slate-200 dark:border-slate-700 mb-4">
@@ -306,7 +305,7 @@ const GroupSettingsModal: React.FC<{
                     </div>
                 )}
                 {activeTab === 'Danger Zone' && (
-                     <div className="space-y-4">
+                    <div className="space-y-4">
                         <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
                             <div>
                                 <h3 className="font-medium text-red-800 dark:text-red-300">Leave Group</h3>
@@ -315,7 +314,7 @@ const GroupSettingsModal: React.FC<{
                             <Button onClick={handleLeaveGroup} className="bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white">Leave</Button>
                         </div>
                         {isAdmin && (
-                             <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                            <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
                                 <div>
                                     <h3 className="font-medium text-red-800 dark:text-red-300">Delete Group</h3>
                                     <p className="text-sm text-red-600 dark:text-red-400">This will permanently delete the group for everyone. This cannot be undone.</p>
@@ -331,24 +330,24 @@ const GroupSettingsModal: React.FC<{
 }
 
 const parseMarkdownToHTML = (text: string): string => {
-  let escapedText = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    let escapedText = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
-  escapedText = escapedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  escapedText = escapedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  escapedText = escapedText.replace(/__(.*?)__/g, '<u>$1</u>');
+    escapedText = escapedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    escapedText = escapedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    escapedText = escapedText.replace(/__(.*?)__/g, '<u>$1</u>');
 
-  return escapedText;
+    return escapedText;
 };
 
-const ChatWindow: React.FC<{ 
-    group: Group | undefined, 
+const ChatWindow: React.FC<{
+    group: Group | undefined,
     onUpdateGroup: (updatedGroup: Group) => void,
-    onSetMessageToDelete: (details: { groupId: string; msgId: string }) => void 
+    onSetMessageToDelete: (details: { groupId: string; msgId: string }) => void
 }> = ({ group, onUpdateGroup, onSetMessageToDelete }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -364,21 +363,21 @@ const ChatWindow: React.FC<{
     useEffect(() => {
         scrollToBottom()
     }, [group?.messages]);
-    
+
     if (!user) return null;
 
     if (!group) {
         return (
-            <div className="flex-1 flex-col items-center justify-center text-slate-500 dark:text-slate-400 hidden md:flex">
-                <div className="text-center">
-                    {ICONS.groups}
-                    <h2 className="text-xl font-semibold mt-4">Select a group</h2>
-                    <p>Start chatting in your groups.</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hidden md:flex p-12 text-center animate-in fade-in duration-500">
+                <div className="mb-8 text-slate-300 dark:text-slate-600">
+                    {React.cloneElement(ICONS.groups as React.ReactElement, { className: "w-24 h-24" })}
                 </div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Select a group</h2>
+                <p className="text-base max-w-[300px] mx-auto">Choose a group from the list or create a new one to start chatting with your team.</p>
             </div>
         );
     }
-    
+
     const handleSendMessage = (messageText: string) => {
         if (!user || !group) return;
 
@@ -415,91 +414,91 @@ const ChatWindow: React.FC<{
 
     return (
         <>
-        <div className="flex-1 flex flex-col bg-white dark:bg-slate-800">
-            <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
-                <button 
-                    onClick={() => navigate('/groups')} 
-                    className="md:hidden p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <Avatar src={group.avatar} alt={group.name} />
-                <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">{group.name}</h2>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        <span className="cursor-pointer hover:underline" onClick={() => setIsMembersModalOpen(true)}>
-                            {group.members.length} members
-                        </span>
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-800">
+                <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+                    <button
+                        onClick={() => navigate('/groups')}
+                        className="md:hidden p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <Avatar src={group.avatar} alt={group.name} />
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">{group.name}</h2>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            <span className="cursor-pointer hover:underline" onClick={() => setIsMembersModalOpen(true)}>
+                                {group.members.length} members
+                            </span>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                    <button onClick={() => setIsMembersModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400" title="View Members">{ICONS.users}</button>
-                    <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400" title="Group Settings">{ICONS.settings}</button>
-                </div>
-            </header>
-            <div className="flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto bg-slate-100 dark:bg-slate-900">
-                {group.messages.map((msg, index) => {
-                    const prevMessage = group.messages[index - 1];
-                    const isFirstInSequence = !prevMessage || prevMessage.sender.id !== msg.sender.id;
-                    const isOwnMessage = msg.sender.id === user.id;
+                    <div className="flex items-center space-x-2">
+                        <button onClick={() => setIsMembersModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400" title="View Members">{ICONS.users}</button>
+                        <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400" title="Group Settings">{ICONS.settings}</button>
+                    </div>
+                </header>
+                <div className="flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto bg-slate-100 dark:bg-slate-900">
+                    {group.messages.map((msg, index) => {
+                        const prevMessage = group.messages[index - 1];
+                        const isFirstInSequence = !prevMessage || prevMessage.sender.id !== msg.sender.id;
+                        const isOwnMessage = msg.sender.id === user.id;
 
-                    if (isOwnMessage) {
-                        return <MessageBubble 
-                            key={msg.id} 
-                            message={msg} 
-                            isOwnMessage={true} 
-                            onDelete={() => onSetMessageToDelete({ groupId: group.id, msgId: msg.id })}
-                        />;
-                    }
-                    
-                    return (
-                        <div key={msg.id}>
-                            {isFirstInSequence && (
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <Avatar src={msg.sender.avatar} alt={msg.sender.name} size="sm" />
-                                  <p className="font-semibold text-sm text-red-500 dark:text-red-400">{msg.sender.name}</p>
-                                </div>
-                            )}
-                            <div className={`flex`}>
-                                {/* Indent subsequent messages to align with avatar */}
-                                <div className="w-10 flex-shrink-0"/>
-                                <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-none">
-                                    <p className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(msg.text) }}/>
-                                    <p className="text-xs mt-1 opacity-70 text-left">
-                                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
+                        if (isOwnMessage) {
+                            return <MessageBubble
+                                key={msg.id}
+                                message={msg}
+                                isOwnMessage={true}
+                                onDelete={() => onSetMessageToDelete({ groupId: group.id, msgId: msg.id })}
+                            />;
+                        }
+
+                        return (
+                            <div key={msg.id}>
+                                {isFirstInSequence && (
+                                    <div className="flex items-center space-x-2 mb-1">
+                                        <Avatar src={msg.sender.avatar} alt={msg.sender.name} size="sm" />
+                                        <p className="font-semibold text-sm text-red-500 dark:text-red-400">{msg.sender.name}</p>
+                                    </div>
+                                )}
+                                <div className={`flex`}>
+                                    {/* Indent subsequent messages to align with avatar */}
+                                    <div className="w-10 flex-shrink-0" />
+                                    <div className="max-w-xs md:max-w-md p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-none">
+                                        <p className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(msg.text) }} />
+                                        <p className="text-xs mt-1 opacity-70 text-left">
+                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )
-                })}
-                 <div ref={messagesEndRef} />
+                        )
+                    })}
+                    <div ref={messagesEndRef} />
+                </div>
+                <ChatInput onSendMessage={handleSendMessage} />
             </div>
-            <ChatInput onSendMessage={handleSendMessage} />
-        </div>
-        <GroupMembersModal 
-            isOpen={isMembersModalOpen}
-            onClose={() => setIsMembersModalOpen(false)}
-            members={group.members}
-            currentUser={user}
-            isAdmin={isAdmin}
-            onAddMemberClick={handleOpenAddMemberModal}
-        />
-        <GroupSettingsModal
-            isOpen={isSettingsModalOpen}
-            onClose={() => setIsSettingsModalOpen(false)}
-            group={group}
-            currentUser={user}
-            onUpdateGroup={onUpdateGroup}
-        />
-        <AddGroupMembersModal 
-            isOpen={isAddMemberModalOpen}
-            onClose={() => setIsAddMemberModalOpen(false)}
-            group={group}
-            onAddMembers={handleAddMembers}
-        />
+            <GroupMembersModal
+                isOpen={isMembersModalOpen}
+                onClose={() => setIsMembersModalOpen(false)}
+                members={group.members}
+                currentUser={user}
+                isAdmin={isAdmin}
+                onAddMemberClick={handleOpenAddMemberModal}
+            />
+            <GroupSettingsModal
+                isOpen={isSettingsModalOpen}
+                onClose={() => setIsSettingsModalOpen(false)}
+                group={group}
+                currentUser={user}
+                onUpdateGroup={onUpdateGroup}
+            />
+            <AddGroupMembersModal
+                isOpen={isAddMemberModalOpen}
+                onClose={() => setIsAddMemberModalOpen(false)}
+                group={group}
+                onAddMembers={handleAddMembers}
+            />
         </>
     );
 }
@@ -515,15 +514,15 @@ const CreateGroupModal: React.FC<{
     const allUsers = Object.values(USERS);
 
     const handleToggleUser = (user: User) => {
-        setSelectedUsers(prev => 
-            prev.some(u => u.id === user.id) 
+        setSelectedUsers(prev =>
+            prev.some(u => u.id === user.id)
                 ? prev.filter(u => u.id !== user.id)
                 : [...prev, user]
         );
     };
 
     const handleSubmit = () => {
-        if(groupName.trim() && selectedUsers.length > 1) {
+        if (groupName.trim() && selectedUsers.length > 1) {
             onCreate(groupName, selectedUsers);
             onClose();
             setGroupName('');
@@ -556,7 +555,7 @@ const CreateGroupModal: React.FC<{
                         ))}
                     </div>
                 </div>
-                 <div className="flex justify-end pt-2">
+                <div className="flex justify-end pt-2">
                     <Button onClick={handleSubmit}>Create Group</Button>
                 </div>
             </div>
@@ -571,7 +570,7 @@ export const GroupsPage: React.FC = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState<{ groupId: string; msgId: string } | null>(null);
     const navigate = useNavigate();
-    
+
     if (!user) return null;
 
     const handleBack = () => {
@@ -606,7 +605,7 @@ export const GroupsPage: React.FC = () => {
 
         const { groupId, msgId } = messageToDelete;
         const groupToUpdate = groups.find(g => g.id === groupId);
-        
+
         if (groupToUpdate) {
             const updatedGroup = {
                 ...groupToUpdate,
@@ -622,68 +621,87 @@ export const GroupsPage: React.FC = () => {
         <>
             <div className="h-full flex text-sm">
                 <aside className={`w-full md:w-[320px] lg:w-[360px] flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${groupId ? 'hidden md:flex' : 'flex'}`}>
-                <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
-                    <div className="flex items-center gap-4 min-w-0">
-                        <button 
-                            onClick={() => navigate('/home')} 
-                            className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </button>
-                        <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate md:hidden">Groups</h1>
-                    </div>
+                    <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <button
+                                onClick={() => navigate(-1)}
+                                className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Groups</h1>
+                        </div>
 
-                    <Button variant="ghost" className="!p-2" onClick={() => setIsCreateModalOpen(true)} title="Create new group">
-                        {ICONS.plus}
-                    </Button>
-                </header>
+                        <Button variant="ghost" className="!p-2" onClick={() => setIsCreateModalOpen(true)} title="Create new group">
+                            {ICONS.plus}
+                        </Button>
+                    </header>
                     <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                         <Input placeholder="Search groups..." />
                     </div>
                     <div className="flex-1 overflow-y-auto">
-                        <ul>
-                            {userGroups.map(group => {
-                                 const lastMessage = group.messages[group.messages.length - 1];
-                                 return (
-                                    <li key={group.id}>
-                                        <NavLink to={`/groups/${group.id}`} className={({ isActive }) => `flex items-center p-4 space-x-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-l-4 ${isActive ? 'border-red-500 bg-slate-50 dark:bg-slate-900/50' : 'border-transparent'}`}>
-                                            <Avatar src={group.avatar} alt={group.name} />
-                                            <div className="flex-1 overflow-hidden">
-                                                <div className="flex justify-between items-center">
-                                                    <p className="font-semibold truncate">{group.name}</p>
-                                                    {lastMessage && <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
+                        {userGroups.length === 0 ? (
+                            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500 min-h-[400px]">
+                                <div className="mb-6 text-slate-300 dark:text-slate-600">
+                                    {React.cloneElement(ICONS.groups as React.ReactElement, { className: "w-20 h-20 md:w-14 md:h-14 mx-auto" })}
+                                </div>
+                                <h3 className="text-xl md:text-lg font-bold text-slate-900 dark:text-white mb-2">No groups yet</h3>
+                                <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400 max-w-[240px] md:max-w-[180px] mx-auto leading-relaxed">
+                                    Create a group to start collaborating with others!
+                                </p>
+                                <Button 
+                                    variant="secondary" 
+                                    className="mt-8 px-8 md:mt-6 md:px-4 md:py-1.5 md:text-sm"
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                >
+                                    Create New Group
+                                </Button>
+                            </div>
+                        ) : (
+                            <ul>
+                                {userGroups.map(group => {
+                                    const lastMessage = group.messages[group.messages.length - 1];
+                                    return (
+                                        <li key={group.id}>
+                                            <NavLink to={`/groups/${group.id}`} className={({ isActive }) => `flex items-center p-4 space-x-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-l-4 ${isActive ? 'border-red-500 bg-slate-50 dark:bg-slate-900/50' : 'border-transparent'}`}>
+                                                <Avatar src={group.avatar} alt={group.name} />
+                                                <div className="flex-1 overflow-hidden">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="font-semibold truncate">{group.name}</p>
+                                                        {lastMessage && <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
+                                                    </div>
+                                                    <div className="flex justify-between items-center mt-0.5">
+                                                        {lastMessage ?
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{lastMessage.sender.name}: {lastMessage.text}</p>
+                                                            : <p className="text-xs text-slate-500 dark:text-slate-400 italic">No messages yet.</p>
+                                                        }
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-between items-center mt-0.5">
-                                                    {lastMessage ? 
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{lastMessage.sender.name}: {lastMessage.text}</p>
-                                                        : <p className="text-xs text-slate-500 dark:text-slate-400 italic">No messages yet.</p>
-                                                    }
-                                                </div>
-                                            </div>
-                                        </NavLink>
-                                    </li>
-                                 )
-                            })}
-                        </ul>
+                                            </NavLink>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        )}
                     </div>
                 </aside>
                 <div className={`${groupId ? 'flex' : 'hidden'} md:flex flex-1`}>
-                    <ChatWindow 
-                        group={activeGroup} 
+                    <ChatWindow
+                        group={activeGroup}
                         onUpdateGroup={handleUpdateGroup}
                         onSetMessageToDelete={setMessageToDelete}
                     />
                 </div>
             </div>
-            <CreateGroupModal 
+            <CreateGroupModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 onCreate={handleCreateGroup}
                 currentUser={user}
             />
-             <Modal
+            <Modal
                 isOpen={!!messageToDelete}
                 onClose={() => setMessageToDelete(null)}
                 title="Delete Message"

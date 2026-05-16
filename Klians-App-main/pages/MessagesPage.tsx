@@ -96,7 +96,16 @@ export const MessagesPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Messages</h1>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate flex-1">Messages</h1>
+            <button 
+              onClick={() => navigate('/groups')}
+              className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2"
+              title="Groups"
+            >
+              <div className="h-6 w-6">
+                {ICONS.groups}
+              </div>
+            </button>
           </header>
 
           <div className="p-4 border-b border-slate-200 dark:border-slate-700">
@@ -143,7 +152,7 @@ export const MessagesPage: React.FC = () => {
                 <div>
                   <div className="text-5xl mb-3 text-slate-300 dark:text-slate-600">💬</div>
                   <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">No conversations yet</p>
-                  <p className="text-slate-500 dark:text-slate-500 text-xs mt-1">Search for someone by email to start a chat</p>
+                  <p className="text-slate-500 dark:text-slate-500 text-xs mt-1">Search for someone to start a chat</p>
                 </div>
               </div>
             ) : (
@@ -250,16 +259,16 @@ export const MessagesPage: React.FC = () => {
           );
         })()
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900">
-            <Card className="text-center p-8">
-              <div className="text-slate-400 mb-4 text-3xl">
+          <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900 p-12">
+            <div className="text-center animate-in fade-in duration-500 flex flex-col items-center">
+              <div className="mb-6 opacity-20 scale-[2.5] text-slate-400">
                 {ICONS.messages}
               </div>
-              <h3 className="text-lg font-semibold mb-2">Your Messages</h3>
-              <p className="text-slate-500 dark:text-slate-400">
-                Search for someone by email to start a conversation
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Your Messages</h3>
+              <p className="text-slate-500 dark:text-slate-400 max-w-[280px]">
+                Search for someone to start a conversation or jump into your groups.
               </p>
-            </Card>
+            </div>
           </div>
         )}
       </div>

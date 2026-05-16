@@ -27,7 +27,7 @@ export const Layout: React.FC = () => {
 
   const isChatPage = ['/messages', '/groups'].some(path => location.pathname.startsWith(path));
   const showHeader = ['/home', '/settings', '/announcements'].some(path => location.pathname.startsWith(path));
-  const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings', '/broadcast', '/announcements'].includes(location.pathname);
+  const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings', '/broadcast', '/announcements'].includes(location.pathname) || location.pathname.startsWith('/groups/');
 
   // Scroll to top and close search on route change
   useEffect(() => {

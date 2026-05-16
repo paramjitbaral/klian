@@ -10,7 +10,7 @@ export const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const { unreadCount } = useMessages();
   const location = useLocation();
-  const isCollapsedPage = location.pathname.startsWith('/messages') || location.pathname.startsWith('/settings');
+  const isCollapsedPage = location.pathname.startsWith('/messages') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/settings');
 
   // Main navigation links (top section)
   const mainNavLinks = [
