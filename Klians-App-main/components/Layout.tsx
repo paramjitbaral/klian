@@ -9,10 +9,18 @@ import { SearchPage } from '../pages/SearchPage';
 export const Layout: React.FC = () => {
   const location = useLocation();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const mainRef = React.useRef<HTMLElement>(null);
 
   const isChatPage = ['/messages', '/groups'].some(path => location.pathname.startsWith(path));
   const showHeader = ['/home', '/settings', '/notifications'].some(path => location.pathname.startsWith(path));
-  const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings'].includes(location.pathname);
+  const showBottomNav = ['/home', '/groups', '/events', '/profile', '/mailbox', '/settings', '/broadcast'].includes(location.pathname);
+
+  // Scroll to top on route change
+  React.useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden">
@@ -21,8 +29,8 @@ export const Layout: React.FC = () => {
         {showHeader && <Header />}
 
         {/* Main content area - allow vertical overflow for page content */}
-        <main className="flex-1 overflow-y-auto scrollbar-hide">
-          <div className={`${isChatPage ? 'h-full' : `${showHeader ? 'pt-20 md:pt-0' : ''} ${showBottomNav ? 'pb-24 md:pb-0' : ''} `}`}>
+        <main ref={mainRef} className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className={`${isChatPage ? 'h-full' : `${showHeader ? 'pt-16 md:pt-0' : ''} ${showBottomNav ? 'pb-24 md:pb-0' : ''} `}`}>
             <Outlet />
           </div>
         </main>

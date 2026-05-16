@@ -35,7 +35,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onSearchClick }) => {
   return (
     <>
       {/* The main navigation bar with items and a placeholder for the central button */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-800 grid grid-cols-5 items-center z-20 md:hidden border-t border-slate-200 dark:border-slate-700">
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-800 grid grid-cols-5 items-center z-[100] md:hidden border-t border-slate-200 dark:border-slate-700">
         <NavItem to="/home" icon={ICONS.home} activeIcon={ICONS.homeSolid} label="Home" />
         <NavItem to="/mailbox" icon={ICONS.mailbox} activeIcon={ICONS.mailboxSolid} label="Mailbox" />
         <div /> {/* Placeholder for central button */}
@@ -54,7 +54,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onSearchClick }) => {
 
       {/* The elevated central search button assembly */}
       <div
-        className="fixed z-30 left-1/2 -translate-x-1/2 bottom-5 md:hidden group"
+        className="fixed z-[110] left-1/2 -translate-x-1/2 bottom-5 md:hidden group"
         onClick={onSearchClick}
         role="button"
         aria-label="Search"

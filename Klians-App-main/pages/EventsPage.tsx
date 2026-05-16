@@ -268,7 +268,7 @@ export const EventsPage: React.FC = () => {
       {/* Header Section */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-4 sm:py-5 z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <button 
               onClick={handleBack} 
               className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
@@ -277,15 +277,15 @@ export const EventsPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events Dashboard</h1>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Coordinate and discover upcoming university events</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events Dashboard</h1>
+              <p className="hidden sm:block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Coordinate and discover upcoming university events</p>
             </div>
           </div>
           
           {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
-            <Button onClick={() => setIsModalOpen(true)} className="rounded-xl shadow-lg shadow-red-100 dark:shadow-none whitespace-nowrap !px-3 sm:!px-4 !py-2 text-xs sm:text-sm">
-              Create Event
+            <Button onClick={() => setIsModalOpen(true)} className="rounded-xl shadow-lg shadow-red-100 dark:shadow-none whitespace-nowrap !px-5 sm:!px-6 !py-1.5 text-xs sm:text-sm font-bold tracking-wide flex-shrink-0">
+              Create
             </Button>
           )}
         </div>
@@ -295,8 +295,8 @@ export const EventsPage: React.FC = () => {
         <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-0 lg:divide-x divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-800 lg:bg-transparent lg:dark:bg-transparent">
           
           {/* Left Column - Sidebar/Calendar */}
-          <div className="lg:col-span-4 p-4 sm:p-6 bg-white dark:bg-slate-800 lg:bg-transparent flex flex-col gap-6 lg:overflow-y-auto scrollbar-hide">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="lg:col-span-4 p-3 sm:p-6 bg-white dark:bg-slate-800 lg:bg-transparent flex flex-col gap-6 lg:overflow-y-auto scrollbar-hide">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-6">
               <Calendar 
                 currentDate={currentDate}
                 changeMonth={changeMonth}
@@ -318,8 +318,8 @@ export const EventsPage: React.FC = () => {
           </div>
           
           {/* Right Column - Events Content */}
-          <div className="lg:col-span-8 bg-slate-50/50 dark:bg-slate-900/50 px-5 py-4 sm:p-6 flex flex-col lg:overflow-hidden">
-            <div className="mb-6 flex items-center justify-center sm:justify-between gap-4">
+          <div className="lg:col-span-8 bg-slate-50/50 dark:bg-slate-900/50 px-6 py-4 sm:p-6 flex flex-col lg:overflow-hidden">
+            <div className="mb-4 sm:mb-6 flex items-center justify-center sm:justify-between gap-6 md:gap-8">
               <div className="flex flex-col min-w-0">
                 <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                   {selectedDate ? (
@@ -409,6 +409,7 @@ export const EventsPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+      <div className="h-20 md:hidden" /> {/* Spacer for bottom nav */}
     </div>
   );
 };

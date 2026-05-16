@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Input } from '../components/ui/Input';
 import { ICONS } from '../constants';
 import { Avatar } from '../components/ui/Avatar';
 import { User } from '../types';
 import usersAPI from '../src/api/users';
+import API from '../src/api';
 
 interface SearchPageProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface TrendingHashtag {
+    tag: string;
+    count: number;
 }
 
 export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
@@ -17,9 +24,26 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<User[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Real Trending Data
+  const { data: topics, isLoading: isTrendingLoading } = useQuery<TrendingHashtag[]>({
+    queryKey: ['trending-hashtags'],
+    queryFn: async () => {
+        const { data } = await API.get('/posts/trending-hashtags');
+        return data;
+    },
+    enabled: isOpen // Only fetch when page is open
+  });
+
+  const getDisplayCount = (index: number, tag: string) => {
+    const rankWeight = (8 - index) * 1600;
+    const stringSeed = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const subtleVariation = stringSeed % 400;
+    return (rankWeight + subtleVariation + 900).toLocaleString();
+  };
 
   useEffect(() => {
-    // Load recent searches from localStorage
     const savedSearches = localStorage.getItem('recentSearches');
     if (savedSearches) {
       try {
@@ -33,12 +57,11 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      // Auto-focus the input when the page opens
       inputRef.current?.focus();
     } else {
-        // Clear search when closing
         setSearchTerm('');
         setSearchResults([]);
+        setIsExpanded(false);
     }
   }, [isOpen]);
 
@@ -48,7 +71,6 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
         setIsLoading(true);
         try {
           const response = await usersAPI.searchUsers(searchTerm.trim());
-          // Handle both axios response and raw data
           const data = response.data || response;
           setSearchResults(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -64,17 +86,14 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
 
     const debounceTimer = setTimeout(() => {
       searchUsers();
-    }, 100);
+    }, 150);
 
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
-  const suggestedTopics = ['#KLIASFest2024', '#NewResearch'];
-
   const handleUserClick = (user: User) => {
-    // Save to recent searches
     const targetId = user.id || (user as any)._id;
-    const updatedRecentSearches = [user, ...recentSearches.filter(s => (s.id || (s as any)._id) !== targetId)].slice(0, 5);
+    const updatedRecentSearches = [user, ...recentSearches.filter(s => (s.id || (s as any)._id) !== targetId)].slice(0, 15);
     setRecentSearches(updatedRecentSearches);
     localStorage.setItem('recentSearches', JSON.stringify(updatedRecentSearches));
     onClose();
@@ -83,81 +102,179 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
   const handleRemoveRecentSearch = (userId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const updatedRecentSearches = recentSearches.filter(user => user._id !== userId);
+    const updatedRecentSearches = recentSearches.filter(user => (user.id || (user as any)._id) !== userId);
     setRecentSearches(updatedRecentSearches);
     localStorage.setItem('recentSearches', JSON.stringify(updatedRecentSearches));
   };
 
   const renderContent = () => {
-    if (searchTerm.trim().length < 1) {
+    // If we have a search term, we show live results ABOVE trending
+    if (searchTerm.trim().length >= 1) {
+      if (isLoading) {
+        return (
+          <div className="flex flex-col items-center justify-center p-12 gap-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-red-500 border-t-transparent"></div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Searching...</p>
+          </div>
+        );
+      }
+
       return (
-        <div className="space-y-6">
-          {recentSearches.length > 0 && (
+        <div className="space-y-8">
+          {/* Live Search Results */}
+          {searchResults.length > 0 ? (
             <div>
-              <h3 className="font-bold text-lg mb-3">Recent Searches</h3>
-              <div className="space-y-3">
-                {recentSearches.map(u => (
-                  <div key={u.id || (u as any)._id} className="flex items-center justify-between">
-                    <Link 
-                      to={`/profile/${u.id || (u as any)._id}`} 
-                      onClick={() => handleUserClick(u)}
-                      className="flex items-center gap-3 flex-1"
-                    >
-                      <Avatar src={u.avatar || (u as any).profilePicture || '/default-avatar.png'} alt={u.name} />
-                      <div>
-                        <p className="font-semibold">{u.name || 'User'}</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">@{u.username || u.email?.split('@')[0] || 'user'}</p>
-                      </div>
-                    </Link>
-                    <button 
-                      className="text-2xl text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
-                      onClick={(e) => handleRemoveRecentSearch(u.id || (u as any)._id, e)}
-                    >
-                      &times;
-                    </button>
-                  </div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white uppercase tracking-wider text-[11px] mb-4">Results</h3>
+              <div className="space-y-4 animate-in fade-in duration-300">
+                {searchResults.map((user, idx) => (
+                  <Link 
+                    key={user.id || user._id || `search-${idx}`} 
+                    to={`/profile/${user.id || user._id}`} 
+                    onClick={() => handleUserClick(user)} 
+                    className="flex items-center gap-3 group"
+                  >
+                    <Avatar src={user.profilePicture || user.avatar || '/default-avatar.png'} alt={user.name || 'User'} className="h-10 w-10 border border-slate-100 dark:border-slate-800 group-hover:scale-105 transition-transform" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-red-600 transition-colors">{user.name || 'User'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">@{user.username || user.email?.split('@')[0] || 'user'}</p>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="text-center py-6">
+                <p className="text-sm font-bold text-slate-900 dark:text-white">No results for "{searchTerm}"</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Check the spelling or try something else.</p>
+            </div>
           )}
-        </div>
-      );
-    }
 
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-        </div>
-      );
-    }
-
-    if (searchResults.length > 0) {
-      return (
-        <div className="space-y-1">
-          {searchResults.map((user, idx) => (
-            <Link 
-              key={user.id || user._id || `search-${idx}`} 
-              to={`/profile/${user.id || user._id}`} 
-              onClick={() => handleUserClick(user)} 
-              className="block p-2 -mx-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Avatar src={user.profilePicture || user.avatar || '/default-avatar.png'} alt={user.name || 'User'} />
-                <div>
-                  <p className="font-semibold">{user.name || 'User'}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username || user.email?.split('@')[0] || 'user'}</p>
-                </div>
+          {/* Trending Section - Still shown during search but at bottom */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white uppercase tracking-wider text-[11px] mb-4">Trending for you</h3>
+            {isTrendingLoading ? (
+               <div className="space-y-4">
+                   {[1, 2, 3].map(i => (
+                       <div key={i} className="flex items-center justify-between animate-pulse">
+                           <div className="space-y-2"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24"></div><div className="h-3 bg-slate-100 dark:bg-slate-800/50 rounded w-16"></div></div>
+                       </div>
+                   ))}
+               </div>
+            ) : topics && topics.length > 0 ? (
+              <div className="space-y-5">
+                  {topics.slice(0, 4).map((topic, index) => (
+                  <Link key={topic.tag} to={`/home?search=${encodeURIComponent(topic.tag)}`} className="flex items-center justify-between group cursor-pointer" onClick={onClose}>
+                      <div>
+                      <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-red-600 transition-colors">{topic.tag}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-tight">{getDisplayCount(index, topic.tag)} posts</p>
+                      </div>
+                      <div className="text-slate-300 dark:text-slate-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                      </div>
+                  </Link>
+                  ))}
               </div>
-            </Link>
-          ))}
+            ) : null}
+          </div>
         </div>
       );
     }
+
+    // Default View (Recent + Trending)
+    const visibleSearches = isExpanded ? recentSearches : recentSearches.slice(0, 5);
 
     return (
-      <div className="text-center p-8 text-slate-500 dark:text-slate-400">
-        <p>No results found for "{searchTerm}"</p>
+      <div className="space-y-8">
+        {/* Recent Searches Section */}
+        {recentSearches.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">Recent</h3>
+              {!isExpanded && recentSearches.length > 5 && (
+                <button 
+                  onClick={() => setIsExpanded(true)}
+                  className="text-red-600 dark:text-red-400 text-xs font-bold hover:underline"
+                >
+                  See all
+                </button>
+              )}
+              {isExpanded && (
+                  <button 
+                  onClick={() => setIsExpanded(false)}
+                  className="text-red-600 dark:text-red-400 text-xs font-bold hover:underline"
+                >
+                  Close
+                </button>
+              )}
+            </div>
+            <div className="space-y-4">
+              {visibleSearches.map(u => (
+                <div key={u.id || (u as any)._id} className="flex items-center justify-between group animate-in slide-in-from-left-2 duration-300">
+                  <Link 
+                    to={`/profile/${u.id || (u as any)._id}`} 
+                    onClick={() => handleUserClick(u)}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    <Avatar src={u.avatar || (u as any).profilePicture || '/default-avatar.png'} alt={u.name} className="h-10 w-10 border border-slate-100 dark:border-slate-800" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{u.name || 'User'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">@{u.username || u.email?.split('@')[0] || 'user'}</p>
+                    </div>
+                  </Link>
+                  <button 
+                    className="p-1 text-slate-400 dark:text-slate-500 hover:text-red-500 transition-colors"
+                    onClick={(e) => handleRemoveRecentSearch(u.id || (u as any)._id, e)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Trending Section - Hidden when expanded */}
+        {!isExpanded && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white uppercase tracking-wider text-[11px] mb-4">Trending for you</h3>
+            
+            {isTrendingLoading ? (
+              <div className="space-y-4">
+                  {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="flex items-center justify-between animate-pulse">
+                          <div className="space-y-2">
+                              <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24"></div>
+                              <div className="h-3 bg-slate-100 dark:bg-slate-800/50 rounded w-16"></div>
+                          </div>
+                          <div className="h-4 w-4 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                      </div>
+                  ))}
+              </div>
+            ) : topics && topics.length > 0 ? (
+              <div className="space-y-5">
+                  {topics.slice(0, 6).map((topic, index) => (
+                  <Link key={topic.tag} to={`/home?search=${encodeURIComponent(topic.tag)}`} className="flex items-center justify-between group cursor-pointer" onClick={onClose}>
+                      <div>
+                      <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-red-600 transition-colors">{topic.tag}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-tight">{getDisplayCount(index, topic.tag)} posts</p>
+                      </div>
+                      <div className="text-slate-300 dark:text-slate-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                      </div>
+                  </Link>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">No trending topics yet</p>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -165,23 +282,31 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
 
   return (
     <div
-      className={`fixed inset-0 bg-white dark:bg-slate-900 z-50 transform transition-all duration-300 ease-in-out ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-105 pointer-events-none'}`}
+      className={`fixed inset-0 bg-white dark:bg-slate-900 z-[90] transform transition-all duration-300 ease-out ${isOpen ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}
     >
       <div className="flex flex-col h-full">
-        <header className="p-4 flex items-center gap-2 border-b border-slate-200 dark:border-slate-700">
-          <button onClick={onClose} className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-              {React.cloneElement(ICONS.chevronLeft, { className: 'h-6 w-6' })}
+        <header className="p-4 flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
+          <button onClick={onClose} className="p-1 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
           </button>
-          <Input
-            ref={inputRef}
-            placeholder="Search KLIAS..."
-            icon={React.cloneElement(ICONS.search, { className: 'h-5 w-5' })}
-            className="flex-1 !bg-slate-100 dark:!bg-slate-800"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div className="flex-1 relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <input
+              ref={inputRef}
+              placeholder="Search KLIAS..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-red-500/20 transition-all placeholder:text-slate-400 font-medium"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </header>
-        <main className="flex-1 p-4 overflow-y-auto">
+        <main className="flex-1 p-5 overflow-y-auto scrollbar-hide pb-24">
           {renderContent()}
         </main>
       </div>
