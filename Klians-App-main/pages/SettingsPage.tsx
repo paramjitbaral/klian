@@ -498,21 +498,21 @@ export const SettingsPage: React.FC = () => {
     return (
         <>
             {/* MOBILE VIEW */}
-            <div className="md:hidden min-h-screen bg-slate-50/50 dark:bg-slate-900/50 pt-4 pb-20">
+            <div className="md:hidden min-h-screen bg-slate-50/50 dark:bg-slate-900/50 pb-20">
                 {mobileView === 'menu' ? (
                     // Mobile Menu View
                     <div className="max-w-lg mx-auto">
-                        <div className="flex items-center gap-4 mb-6 px-4">
+                        <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 mb-6">
                             <button
                                 onClick={handleBack}
-                                className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Settings</h1>
-                        </div>
+                            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Settings</h1>
+                        </header>
 
                         <div className="space-y-6 px-4">
                             {/* General Settings Group */}
@@ -563,17 +563,17 @@ export const SettingsPage: React.FC = () => {
                 ) : (
                     // Mobile Detail View
                     <div className="max-w-lg mx-auto">
-                        <div className="flex items-center gap-4 mb-8 px-4">
+                        <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 mb-8">
                             <button
                                 onClick={handleMobileBackToMenu}
-                                className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
-                            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{selectedMobileCategory?.label}</h1>
-                        </div>
+                            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">{selectedMobileCategory?.label}</h1>
+                        </header>
                         <div className="px-0">
                             {renderContent(mobileView)}
                         </div>

@@ -245,17 +245,30 @@ export const EventsPage: React.FC = () => {
     if (!user) return;
     
     const formData = new FormData(e.currentTarget);
+    const datePart = formData.get('dateOnly') as string;
+    
+    const hour = formData.get('hour') as string;
+    const minute = formData.get('minute') as string;
+    const period = formData.get('period') as string;
+    
+    let hourNum = parseInt(hour);
+    if (period === 'PM' && hourNum < 12) hourNum += 12;
+    if (period === 'AM' && hourNum === 12) hourNum = 0;
+    
+    const formattedHour = hourNum < 10 ? `0${hourNum}` : hourNum;
+    const timePart = `${formattedHour}:${minute}`;
+    
     const eventData = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
-      location: formData.get('location') as string,
-      date: new Date(formData.get('date') as string).toISOString()
+      location: formData.get('location') as string || '',
+      date: new Date(`${datePart}T${timePart}`).toISOString()
     };
     
     try {
       setIsModalOpen(false); // Close modal immediately
       setIsCreating(true); // Show skeleton
-      const response = await eventsAPI.createEvent(eventData);
+      await eventsAPI.createEvent(eventData);
       // The socket will handle adding the new event to the list
     } catch (error) {
       console.error('Error creating event:', error);
@@ -265,31 +278,30 @@ export const EventsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col overflow-y-auto sm:overflow-hidden lg:h-screen">
-      {/* Header Section */}
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-4 sm:py-5 z-10">
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 sm:py-4 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <button 
               onClick={handleBack} 
-              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events Dashboard</h1>
-              <p className="hidden sm:block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Coordinate and discover upcoming university events</p>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events</h1>
+              <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Coordinate and discover upcoming university events</p>
             </div>
           </div>
           
           {(user?.role === Role.TEACHER || user?.role === Role.ADMIN) && (
-            <Button onClick={() => setIsModalOpen(true)} className="rounded-xl shadow-lg shadow-red-100 dark:shadow-none whitespace-nowrap !px-5 sm:!px-6 !py-1.5 text-xs sm:text-sm font-bold tracking-wide flex-shrink-0">
+            <Button onClick={() => setIsModalOpen(true)} className="rounded-lg shadow-lg shadow-red-100 dark:shadow-none whitespace-nowrap !px-5 sm:!px-6 !py-1.5 text-xs sm:text-sm font-bold tracking-wide flex-shrink-0">
               Create
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
       <div className="flex-1 overflow-y-auto sm:overflow-hidden scrollbar-hide">
         <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-0 lg:divide-x divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-800 lg:bg-transparent lg:dark:bg-transparent">
@@ -398,14 +410,64 @@ export const EventsPage: React.FC = () => {
           </div>
         </div>
       </div>
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Event">
-        <form onSubmit={handleCreateEvent} className="space-y-4">
-          <Input name="title" label="Event Title" placeholder="e.g., Tech Summit" required />
-          <Input name="description" label="Description" placeholder="What's the event about?" required />
-          <Input name="location" label="Location" placeholder="e.g., Grand Hall" required />
-          <Input name="date" label="Date and Time" type="datetime-local" required />
-          <div className="flex justify-end pt-4">
-            <Button type="submit">Create</Button>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Event" size="sm">
+        <form onSubmit={handleCreateEvent} className="space-y-3 md:space-y-4">
+          <Input name="title" label="Event Title *" placeholder="e.g., Summer Summit" required />
+          <Input name="description" label="Description *" placeholder="What's happening?" required />
+          <Input name="location" label="Location" placeholder="e.g., Campus Plaza (Optional)" />
+          <div className="grid grid-cols-2 gap-3">
+            <Input 
+              name="dateOnly" 
+              label="Event Date *" 
+              type="date" 
+              required 
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker();
+                } catch (err) {
+                  console.warn('showPicker failed', err);
+                }
+              }}
+              onKeyDown={(e) => e.preventDefault()}
+              className="cursor-pointer"
+              style={{ colorScheme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }}
+              icon={
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              }
+            />
+            <div className="w-full">
+              <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-300 mb-0.5">Event Time</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                <select 
+                  name="hour"
+                  className="w-full px-1 py-2 md:py-3 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors appearance-none text-center cursor-pointer"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+                    <option key={h} value={h < 10 ? `0${h}` : h}>{h}</option>
+                  ))}
+                </select>
+                <select 
+                  name="minute"
+                  className="w-full px-1 py-2 md:py-3 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors appearance-none text-center cursor-pointer"
+                >
+                  {['00', '15', '30', '45'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                <select 
+                  name="period"
+                  className="w-full px-1 py-2 md:py-3 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors appearance-none text-center cursor-pointer"
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2 md:pt-4">
+            <Button type="submit" className="rounded-lg !px-8">Create</Button>
           </div>
         </form>
       </Modal>

@@ -228,7 +228,24 @@ export const ProfilePage: React.FC = () => {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto pt-6 px-4 pb-20 relative">
+        <div className="w-full max-w-5xl mx-auto md:pt-6 px-4 pb-20 relative">
+            <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex md:hidden items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                    <button 
+                        onClick={handleBack} 
+                        className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">{profileUser.username}</h1>
+                </div>
+                <Link to="/settings" className="p-2 -mr-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    {React.cloneElement(ICONS.settings, { className: "h-6 w-6" })}
+                </Link>
+            </header>
+            <div className="md:hidden h-12"></div>
 
             {imageToCrop && (
                 <ImageCropperModal 

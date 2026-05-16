@@ -143,14 +143,39 @@ export const AnnouncementsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+        <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between sm:hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <button 
+              onClick={() => window.history.state?.idx > 0 ? window.history.back() : window.location.href = '/home'} 
+              className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Announcements</h1>
+          </div>
+          {isTeacherOrAdmin && (
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex-shrink-0"
+              aria-label="New Announcement"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
+        </header>
+
+        {/* Desktop Header */}
+        <div className="hidden sm:flex flex-row items-center justify-between mb-8 gap-4 pt-4">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => window.history.state?.idx > 0 ? window.history.back() : window.location.href = '/home'} 
-              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -165,6 +190,9 @@ export const AnnouncementsPage: React.FC = () => {
             </button>
           )}
         </div>
+
+        {/* Mobile Spacer to push content below fixed header */}
+        <div className="h-14 sm:hidden"></div>
 
         {/* Create Modal */}
         {isTeacherOrAdmin && (

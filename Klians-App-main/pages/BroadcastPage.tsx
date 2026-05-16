@@ -28,11 +28,6 @@ const TeachersIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
 );
-const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-    </svg>
-);
 
 // --- HELPER COMPONENTS ---
 const AudienceButton: React.FC<{
@@ -290,17 +285,32 @@ export const BroadcastPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex justify-center">
             <div className="w-[98%] max-w-[1600px] mx-auto pb-8">
-                <div className="flex items-center gap-2 px-4 md:px-8 pt-6 mb-6">
-                    <button onClick={handleBack} className="md:hidden p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <ChevronLeftIcon className="h-6 w-6" />
+                <header className="flex md:hidden items-center gap-3 px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 mb-6">
+                    <button 
+                        onClick={handleBack} 
+                        className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
                     </button>
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-white md:hidden">Create Broadcast</h2>
+                    <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Create Broadcast</h1>
+                </header>
+                <div className="hidden md:flex items-center gap-4 px-4 md:px-8 pt-6 mb-6">
+                    <button 
+                        onClick={handleBack} 
+                        className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Create Broadcast</h1>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 px-5 md:px-8">
                     {/* --- CREATE BROADCAST --- */}
                     <div className="lg:col-span-2">
-                        <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-white px-1 hidden md:block">Create Broadcast</h2>
                         <Card className="p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 min-h-auto lg:h-[540px] flex flex-col bg-white dark:bg-slate-900 transition-all">
                             <div className="space-y-2 md:space-y-3">
                                 <div>

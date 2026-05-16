@@ -8,9 +8,12 @@ const createEvent = async (req, res) => {
     const { title, description, date, location } = req.body;
     const currentUserId = req.user.id || req.user._id;
 
+    // Format ISO date to MySQL datetime format (YYYY-MM-DD HH:mm:ss)
+    const formattedDate = new Date(date).toISOString().slice(0, 19).replace('T', ' ');
+
     const result = await query(
       'INSERT INTO events (title, description, date, location, created_by) VALUES (?, ?, ?, ?, ?)',
-      [title, description, date, location, currentUserId]
+      [title, description, formattedDate, location || null, currentUserId]
     );
 
     const eventId = result.insertId;

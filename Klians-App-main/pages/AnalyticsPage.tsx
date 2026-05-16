@@ -111,14 +111,34 @@ export const AnalyticsPage: React.FC = () => {
   const hasMessagingData = messagingActivity && messagingActivity.length > 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <button onClick={handleBack} className="md:hidden p-2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600">
-            {ICONS.chevronLeft}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center md:hidden">
+        <button 
+          onClick={handleBack} 
+          className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
         </button>
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Analytics Dashboard</h1>
-      </div>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Analytics</h1>
+      </header>
+
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="hidden md:flex items-center gap-4">
+          <button 
+            onClick={handleBack} 
+            className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+          </button>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Analytics Dashboard</h1>
+        </div>
+        
+        {/* Mobile Spacer */}
+        <div className="h-12 md:hidden"></div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <AnalyticsCard 

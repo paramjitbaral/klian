@@ -190,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                             setAnnouncementsVisible(!isAnnouncementsVisible);
                         }}
                     >
-                        {React.cloneElement(ICONS.announcement, { className: "h-[24px] w-[24px]" })}
+                        {React.cloneElement(ICONS.bell, { className: "h-[24px] w-[24px]" })}
                         {(broadcastUnreadCount > 0 || unreadCount > 0) && (
                             <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
                         )}
@@ -224,11 +224,16 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                     </Link>
                 </div>
 
-                {/* Right: Messages */}
-                <div className="flex justify-end">
-                    <Link to="/messages" className="p-2 -mr-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150">
+                {/* Right: Actions */}
+                <div className="flex justify-end items-center gap-1">
+                    <Link to="/messages" className="p-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150">
                         {React.cloneElement(ICONS.messages, { className: "h-[24px] w-[24px]" })}
                     </Link>
+                    {(user.role === Role.TEACHER || user.role === Role.ADMIN) && (
+                        <Link to="/profile" className="ml-1 active:scale-90 transition-all duration-150">
+                            <Avatar src={user.avatar} alt={user.name} size="xs" />
+                        </Link>
+                    )}
                 </div>
             </div>
 

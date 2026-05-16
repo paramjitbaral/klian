@@ -87,17 +87,17 @@ export const MessagesPage: React.FC = () => {
     <div className="flex h-screen bg-white dark:bg-slate-900">
       {/* CONVERSATIONS LIST */}
       <aside className={`flex flex-col w-full md:w-[320px] lg:w-[360px] border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${conversationId ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center gap-4">
+          <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
             <button 
               onClick={() => navigate('/home')} 
-              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Messages</h1>
-          </div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Messages</h1>
+          </header>
 
           <div className="p-4 border-b border-slate-200 dark:border-slate-700">
             <div className="relative">

@@ -78,8 +78,13 @@ const NotificationsPage: React.FC = () => {
   const filteredNotifs = filter === 'all' ? notifications : notifications.filter(n => !n.isRead);
 
   return (
-    <div className="min-h-full bg-slate-50 dark:bg-[#0b0e14] py-8 md:py-12 px-4 md:px-8">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="min-h-full bg-slate-50 dark:bg-[#0b0e14] pb-20">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center lg:hidden">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Notifications</h1>
+      </header>
+      <div className="lg:hidden h-12"></div>
+      
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-4 md:p-8">
         
         {/* Left Column: Stats & Filters */}
         <div className="lg:col-span-3 space-y-6 hidden lg:block">

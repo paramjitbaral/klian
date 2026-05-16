@@ -118,10 +118,12 @@ export const Layout: React.FC = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {showHeader && (
-          <Header 
-            isAnnouncementsOpen={isAnnouncementsOpen} 
-            setAnnouncementsOpen={setIsAnnouncementsOpen} 
-          />
+          <div className={location.pathname.startsWith('/settings') ? 'hidden md:block' : ''}>
+            <Header 
+              isAnnouncementsOpen={isAnnouncementsOpen} 
+              setAnnouncementsOpen={setIsAnnouncementsOpen} 
+            />
+          </div>
         )}
 
         {/* Pull-to-refresh Indicator - Positioned elegantly below header */}
@@ -147,7 +149,7 @@ export const Layout: React.FC = () => {
           className="flex-1 overflow-y-auto scrollbar-hide transition-transform duration-150 ease-out"
           style={{ transform: pullY > 0 ? `translateY(${pullY}px)` : 'none' }}
         >
-          <div className={`${isChatPage ? 'h-full' : `${showHeader ? 'pt-16 md:pt-0' : ''} ${showBottomNav ? 'pb-24 md:pb-0' : ''} `}`}>
+          <div className={`${isChatPage ? 'h-full' : `${showHeader ? (location.pathname.startsWith('/settings') ? 'md:pt-0' : 'pt-16 md:pt-0') : ''} ${showBottomNav ? 'pb-24 md:pb-0' : ''} `}`}>
             <Outlet />
           </div>
         </main>
