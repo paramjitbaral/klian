@@ -190,19 +190,7 @@ const GroupMembersModal: React.FC<{
     isAdmin: boolean;
     onAddMemberClick: () => void;
 }> = ({ isOpen, onClose, members, allUsers, currentUser, isAdmin, onAddMemberClick }) => {
-    const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
-
-    const handleFollowToggle = (userId: string) => {
-        setFollowedUsers(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(userId)) {
-                newSet.delete(userId);
-            } else {
-                newSet.add(userId);
-            }
-            return newSet;
-        });
-    };
+    const navigate = useNavigate();
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Group Members">
@@ -214,7 +202,7 @@ const GroupMembersModal: React.FC<{
                     </Button>
                 </div>
             )}
-            <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-hide">
+            <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-hide px-1 py-1">
                 {(members || []).map(m => {
                     const memberObj = (m as any).user || m;
                     const memberId = String(memberObj._id || memberObj.id || memberObj.uid || memberObj);
@@ -223,8 +211,6 @@ const GroupMembersModal: React.FC<{
                         String((u as any)._id) === memberId ||
                         String((u as any).uid) === memberId
                     ) || memberObj;
-
-                    const isFollowing = followedUsers.has(memberId);
 
                     // Comprehensive avatar check
                     const avatar = fullMember.profilePicture || fullMember.avatar || (fullMember as any).avatarUrl || (fullMember as any).profilePic ||
@@ -248,11 +234,14 @@ const GroupMembersModal: React.FC<{
                             </div>
                             {memberId !== currentUser.id && (
                                 <Button
-                                    variant={isFollowing ? 'ghost' : 'secondary'}
-                                    className="!px-3 !py-1 !text-sm"
-                                    onClick={() => handleFollowToggle(memberId)}
+                                    variant="secondary"
+                                    className="!px-3 !py-1 !text-xs !font-bold"
+                                    onClick={() => {
+                                        onClose();
+                                        navigate(`/profile/${memberId}`);
+                                    }}
                                 >
-                                    {isFollowing ? 'Following' : 'Follow'}
+                                    View Profile
                                 </Button>
                             )}
                         </div>
