@@ -60,6 +60,13 @@ type PostComment = {
     isLiked?: boolean;
 };
 
+const getSafeCount = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    if (Array.isArray(val)) return val.length;
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+};
+
 const normalizeProfilePost = (post: any): Post => {
     const rawUrl = post.fileUrl || post.video || post.image || post.image_url || post.mediaUrl || '';
     const mediaType = getMediaType(rawUrl);
@@ -88,8 +95,12 @@ const normalizeProfilePost = (post: any): Post => {
         },
         content: post.content || '',
         timestamp,
-        likes: Number(post.likes ?? post.likesCount ?? 0),
-        comments: Number(post.comments ?? post.commentsCount ?? 0),
+        likes: post.likesCount !== undefined 
+            ? getSafeCount(post.likesCount) 
+            : getSafeCount(post.likes),
+        comments: post.commentsCount !== undefined 
+            ? getSafeCount(post.commentsCount) 
+            : getSafeCount(post.comments),
         image: mediaType === 'image' ? rawUrl : undefined,
         video: mediaType === 'video' ? rawUrl : undefined,
         fileUrl: mediaType === 'document' ? rawUrl : undefined,
@@ -404,6 +415,8 @@ export const ProfilePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [postsLoading, setPostsLoading] = useState(false);
     const [userPosts, setUserPosts] = useState<Post[]>([]);
+    const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+    const [savedLoading, setSavedLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [bannerUploading, setBannerUploading] = useState(false);
     
@@ -566,6 +579,46 @@ export const ProfilePage: React.FC = () => {
         };
     }, [socket, userToDisplay]);
 
+    useEffect(() => {
+        const fetchSavedPosts = async () => {
+            if (!loggedInUser || activeTab !== 'saved') return;
+            setSavedLoading(true);
+            try {
+                const savedKey = `saved_posts_${loggedInUser.id || (loggedInUser as any)._id}`;
+                const saved = localStorage.getItem(savedKey);
+                const parsedIds = saved ? JSON.parse(saved) : [];
+                if (parsedIds.length === 0) {
+                    setSavedPosts([]);
+                    setSavedLoading(false);
+                    return;
+                }
+                
+                // Fetch each post by ID in parallel
+                const promises = parsedIds.map(async (id: string) => {
+                    try {
+                        const response = await postsAPI.getPost(id);
+                        if (response.data) {
+                            return normalizeProfilePost(response.data);
+                        }
+                    } catch (err) {
+                        console.error(`Failed to fetch saved post ${id}:`, err);
+                    }
+                    return null;
+                });
+                
+                const results = await Promise.all(promises);
+                const validPosts = results.filter((p): p is Post => p !== null);
+                setSavedPosts(validPosts);
+            } catch (error) {
+                console.error('Error loading saved posts:', error);
+            } finally {
+                setSavedLoading(false);
+            }
+        };
+
+        fetchSavedPosts();
+    }, [activeTab, loggedInUser]);
+
     if (loading) return <div className="p-8 text-center animate-pulse">Loading Profile...</div>;
     if (!profileUser) return <div className="p-8 text-center">User not found</div>;
 
@@ -619,7 +672,89 @@ export const ProfilePage: React.FC = () => {
 
 
             case 'saved':
-                return <Card className="p-12 text-center text-slate-500">No saved posts</Card>;
+                if (savedLoading) {
+                    return (
+                        <div className="flex justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 dark:border-white"></div>
+                        </div>
+                    );
+                }
+                if (savedPosts.length === 0) {
+                    return (
+                        <Card className="p-12 text-center text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-300 dark:text-slate-600">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                            </svg>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">No saved posts</h3>
+                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Posts you save will appear here in your private collection.</p>
+                            </div>
+                        </Card>
+                    );
+                }
+                return (
+                    <div className="grid grid-cols-3 gap-1 sm:gap-4">
+                        {savedPosts.map(post => {
+                            const isDoc = post.fileUrl || (post.image && isDocumentFile(post.image));
+                            return (
+                                <div key={post.id} onClick={() => setSelectedPost(post)} className="aspect-square relative group cursor-pointer overflow-hidden rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200/20">
+                                    {post.image && !isDocumentFile(post.image) ? (
+                                        <img src={getImageUrl(post.image)} alt="post" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                    ) : post.video ? (
+                                        <div className="w-full h-full relative">
+                                            <video src={getImageUrl(post.video)} className="w-full h-full object-cover" />
+                                            <div className="absolute top-2 right-2 bg-black/60 p-1 rounded-md">
+                                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.841z"/></svg>
+                                            </div>
+                                        </div>
+                                    ) : isDoc ? (
+                                        <div className="w-full h-full p-3 sm:p-4 flex flex-col justify-between bg-gradient-to-br from-emerald-50/50 to-emerald-100/30 dark:from-emerald-950/20 dark:to-emerald-900/10">
+                                            <p className="text-[9px] sm:text-xs text-slate-700 dark:text-slate-300 line-clamp-2 font-medium leading-relaxed mb-0.5">
+                                                {post.content}
+                                            </p>
+                                            <div className="flex-1 flex flex-col items-center justify-center gap-1 py-1">
+                                                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-emerald-100/60 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                                                    {React.cloneElement(ICONS.document as React.ReactElement, { className: "h-8 w-8 sm:h-9 sm:w-9" } as any)}
+                                                </div>
+                                                <span className="text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-white/60 dark:bg-slate-800/40 px-1.5 py-0.5 rounded-full border border-slate-200/40">
+                                                    {(post.fileUrl || post.image)?.split('.').pop()?.toUpperCase() || 'PDF'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[9px] sm:text-xs text-slate-400 gap-2 border-t border-slate-100/40 dark:border-slate-800/40 pt-1">
+                                                <span className="font-bold truncate max-w-[75%]">@{post.author?.username}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" className="w-3.5 h-3.5 text-slate-400 shrink-0">
+                                                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="w-full h-full p-3 sm:p-4 flex flex-col justify-between bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800/80">
+                                            <p className="text-[9px] sm:text-xs text-slate-700 dark:text-slate-300 line-clamp-4 font-medium leading-relaxed">
+                                                {post.content}
+                                            </p>
+                                            <div className="flex items-center justify-between text-[9px] sm:text-xs text-slate-400 gap-2">
+                                                <span className="font-bold truncate max-w-[75%]">@{post.author?.username}</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" className="w-3.5 h-3.5 text-slate-400 shrink-0">
+                                                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6 text-white text-xs sm:text-sm font-bold">
+                                        <span className="flex items-center gap-1.5">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3c1.745 0 3.23.834 4.312 2.113C13.083 3.834 14.568 3 16.312 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" /></svg>
+                                            {getSafeCount(post.likes)}
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                            {getSafeCount(post.comments)}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
 
             default: return null;
         }
@@ -732,13 +867,13 @@ export const ProfilePage: React.FC = () => {
                             <div className="flex flex-wrap gap-2 sm:gap-4 mt-2">
                                 {userToDisplay.linkedin && (
                                     <a href={userToDisplay.linkedin.startsWith('http') ? userToDisplay.linkedin : `https://${userToDisplay.linkedin}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-50 dark:bg-slate-800/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
-                                        {React.cloneElement(ICONS.linkedin as React.ReactElement, { className: "h-3 w-3 sm:h-3.5 sm:w-3.5" })}
+                                        {React.cloneElement(ICONS.linkedin as React.ReactElement, { className: "h-3 w-3 sm:h-3.5 sm:w-3.5" } as any)}
                                         <span>LinkedIn</span>
                                     </a>
                                 )}
                                 {userToDisplay.github && (
                                     <a href={userToDisplay.github.startsWith('http') ? userToDisplay.github : `https://${userToDisplay.github}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-slate-50 dark:bg-slate-800/50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-100 dark:border-slate-700/50">
-                                        {React.cloneElement(ICONS.github as React.ReactElement, { className: "h-3 w-3 sm:h-3.5 sm:w-3.5" })}
+                                        {React.cloneElement(ICONS.github as React.ReactElement, { className: "h-3 w-3 sm:h-3.5 sm:w-3.5" } as any)}
                                         <span>GitHub</span>
                                     </a>
                                 )}
@@ -756,10 +891,10 @@ export const ProfilePage: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex gap-8 border-b border-slate-200 dark:border-slate-700 mb-8 px-4">
-                {(['posts', 'documents', 'saved'] as ProfileTab[]).map(tab => (
+                {(isOwnProfile ? ['posts', 'documents', 'saved'] : ['posts', 'documents']).map(tab => (
                     <button
                         key={tab}
-                        onClick={() => setActiveTab(tab)}
+                        onClick={() => setActiveTab(tab as ProfileTab)}
                         className={`pb-4 text-xs font-black tracking-widest uppercase transition-all border-b-2 ${
                             activeTab === tab 
                                 ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' 
@@ -774,7 +909,7 @@ export const ProfilePage: React.FC = () => {
 
             <div className="px-1">{renderContent()}</div>
 
-            {selectedPost && <PostModal post={selectedPost} author={userToDisplay} onClose={() => setSelectedPost(null)} />}
+            {selectedPost && <PostModal post={selectedPost} author={selectedPost.author || userToDisplay} onClose={() => setSelectedPost(null)} />}
         </div>
     );
 };

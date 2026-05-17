@@ -112,6 +112,42 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
     const [showLikesModal, setShowLikesModal] = useState(false);
     const [likes, setLikes] = useState<User[]>([]);
+    const [isSaved, setIsSaved] = useState(() => {
+        if (!post.id || !user) return false;
+        try {
+            const saved = localStorage.getItem(`saved_posts_${user.id}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed.includes(String(post.id));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return false;
+    });
+
+    const handleSaveToggle = () => {
+        if (!post.id || !user) return;
+        setIsSaved(prev => {
+            const next = !prev;
+            try {
+                const savedKey = `saved_posts_${user.id}`;
+                const saved = localStorage.getItem(savedKey);
+                let parsed = saved ? JSON.parse(saved) : [];
+                if (next) {
+                    if (!parsed.includes(String(post.id))) {
+                        parsed.push(String(post.id));
+                    }
+                } else {
+                    parsed = parsed.filter((id: string) => id !== String(post.id));
+                }
+                localStorage.setItem(savedKey, JSON.stringify(parsed));
+            } catch (e) {
+                console.error(e);
+            }
+            return next;
+        });
+    };
 
     // Keep state in sync with props when they change (e.g. on refresh or refetch)
     useEffect(() => {
@@ -270,60 +306,78 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                         <p className="text-xs text-gray-500 dark:text-gray-400">@{post.author.username} · {timeDisplay}</p>
                     </div>
                 </div>
-                {/* More Options Button */}
-                <div className="relative">
+                {/* Save and More Options Actions */}
+                <div className="flex items-center gap-1">
+                    {/* Save Button */}
                     <button
-                        onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                        className="p-2 -mr-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        onClick={handleSaveToggle}
+                        className={`p-2 rounded-full transition-colors ${
+                            isSaved 
+                                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20' 
+                                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                        title={isSaved ? "Saved" : "Save Post"}
                     >
-                        {ICONS.moreHorizontal}
+                        {isSaved ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                        )}
                     </button>
 
-                    {/* Options Dropdown Menu */}
-                    {showOptionsMenu && (
-                        <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-10 min-w-[160px] overflow-hidden">
-                            {/* OWNER OPTIONS */}
-                            {isOwnPost && (
-                                <>
-                                    <button
-                                        onClick={() => {
-                                            setIsEditing(true);
-                                            setShowOptionsMenu(false);
-                                        }}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2.5 transition-colors"
-                                    >
-                                        <div className="text-slate-400">{React.cloneElement(ICONS.attachment, { className: "h-4 w-4 rotate-[-45deg]" })}</div>
-                                        Edit Post
-                                    </button>
-                                    <button
-                                        onClick={confirmDeletePost}
-                                        disabled={isDeleting}
-                                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 flex items-center gap-2.5 transition-colors border-t border-slate-100 dark:border-slate-700/50"
-                                    >
-                                        <div className="text-red-400">{ICONS.trash}</div>
-                                        {isDeleting ? 'Deleting...' : 'Delete Post'}
-                                    </button>
-                                </>
-                            )}
+                    {/* More Options Button (Only for Owners or Privileged users) */}
+                    {canDelete && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                                className="p-2 -mr-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            >
+                                {ICONS.moreHorizontal}
+                            </button>
 
-                            {/* PRIVILEGED OPTIONS (for posts they don't own) */}
-                            {isPrivileged && !isOwnPost && (
-                                <button
-                                    onClick={confirmDeletePost}
-                                    disabled={isDeleting}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 flex items-center gap-2.5 transition-colors"
-                                >
-                                    <div className="text-red-400">{ICONS.trash}</div>
-                                    {isDeleting ? 'Deleting...' : 'Remove Post (Admin)'}
-                                </button>
-                            )}
+                            {/* Options Dropdown Menu */}
+                            {showOptionsMenu && (
+                                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-10 min-w-[160px] overflow-hidden">
+                                    {/* OWNER OPTIONS */}
+                                    {isOwnPost && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    setIsEditing(true);
+                                                    setShowOptionsMenu(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2.5 transition-colors"
+                                            >
+                                                <div className="text-slate-400">{React.cloneElement(ICONS.attachment, { className: "h-4 w-4 rotate-[-45deg]" })}</div>
+                                                Edit Post
+                                            </button>
+                                            <button
+                                                onClick={confirmDeletePost}
+                                                disabled={isDeleting}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 flex items-center gap-2.5 transition-colors border-t border-slate-100 dark:border-slate-700/50"
+                                            >
+                                                <div className="text-red-400">{ICONS.trash}</div>
+                                                {isDeleting ? 'Deleting...' : 'Delete Post'}
+                                            </button>
+                                        </>
+                                    )}
 
-                            {/* NON-OWNER OPTIONS */}
-                            {!isOwnPost && (
-                                <button className={`w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2.5 transition-colors ${isPrivileged ? 'border-t border-slate-100 dark:border-slate-700/50' : ''}`}>
-                                    <div className="text-slate-400">{ICONS.close ? React.cloneElement(ICONS.close, { className: "h-4 w-4" }) : null}</div>
-                                    Report Post
-                                </button>
+                                    {/* PRIVILEGED OPTIONS (for posts they don't own) */}
+                                    {isPrivileged && !isOwnPost && (
+                                        <button
+                                            onClick={confirmDeletePost}
+                                            disabled={isDeleting}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 flex items-center gap-2.5 transition-colors"
+                                        >
+                                            <div className="text-red-400">{ICONS.trash}</div>
+                                            {isDeleting ? 'Deleting...' : 'Remove Post (Admin)'}
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}
@@ -483,7 +537,7 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                 onClose={() => setIsShareModalOpen(false)}
                 postId={post.id}
                 onShare={async (recipientId, message) => {
-                    const postId = post.id || post._id;
+                    const postId = post.id || (post as any)._id;
                     if (!postId || !recipientId) {
                         throw new Error('Invalid share parameters');
                     }
