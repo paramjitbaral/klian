@@ -22,6 +22,11 @@ export const groupsAPI = {
     return API.put(`/groups/${groupId}`, groupData);
   },
   
+  // Delete a group message
+  deleteMessage: (groupId: string, msgId: string) => {
+    return API.delete(`/groups/${groupId}/messages/${msgId}`);
+  },
+
   // Delete a group
   deleteGroup: (groupId: string) => {
     return API.delete(`/groups/${groupId}`);

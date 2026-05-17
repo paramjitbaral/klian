@@ -3,7 +3,7 @@ const { query } = require('../config/db');
 // Helper to get full group info
 const getPopulatedGroup = async (groupId, userId) => {
   const rows = await query(
-    `SELECT g.id, g.name, g.description, g.created_at AS createdAt,
+    `SELECT g.id, g.name, g.description, g.avatar, g.created_at AS createdAt,
             u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture,
             gm.notification_setting AS notificationSetting, gm.last_read_id AS lastReadId
        FROM \`groups\` g
@@ -144,7 +144,7 @@ const getGroupById = async (req, res) => {
 // @access  Private/Admin
 const updateGroup = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, avatar } = req.body;
     const currentUserId = req.user.id || req.user._id;
     
     const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [req.params.id, currentUserId]);
@@ -152,10 +152,30 @@ const updateGroup = async (req, res) => {
       return res.status(403).json({ message: 'User not authorized to update this group' });
     }
     
-    await query(
-      'UPDATE `groups` SET name = ?, description = ? WHERE id = ?',
-      [name, description, req.params.id]
-    );
+    // Build update query dynamically based on provided fields
+    let updateFields = [];
+    let queryParams = [];
+    
+    if (name !== undefined) {
+      updateFields.push('name = ?');
+      queryParams.push(name);
+    }
+    if (description !== undefined) {
+      updateFields.push('description = ?');
+      queryParams.push(description);
+    }
+    if (avatar !== undefined) {
+      updateFields.push('avatar = ?');
+      queryParams.push(avatar);
+    }
+
+    if (updateFields.length > 0) {
+      queryParams.push(req.params.id);
+      await query(
+        `UPDATE \`groups\` SET ${updateFields.join(', ')} WHERE id = ?`,
+        queryParams
+      );
+    }
     
     const updated = await getPopulatedGroup(req.params.id, currentUserId);
 
@@ -489,6 +509,42 @@ const updateMemberRole = async (req, res) => {
   }
 };
 
+// @desc    Delete a message in a group
+// @route   DELETE /api/groups/:id/messages/:msgId
+// @access  Private
+const deleteMessage = async (req, res) => {
+  try {
+    const { id: groupId, msgId } = req.params;
+    const currentUserId = req.user.id || req.user._id;
+
+    // Verify ownership
+    const msg = await query('SELECT sender_id FROM group_messages WHERE id = ? AND group_id = ? LIMIT 1', [msgId, groupId]);
+    if (!msg.length) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    if (String(msg[0].sender_id) !== String(currentUserId)) {
+      return res.status(403).json({ message: 'Not authorized to delete this message' });
+    }
+
+    await query('DELETE FROM group_messages WHERE id = ?', [msgId]);
+
+    // Emit socket event to notify other group members to remove it
+    const io = req.app.get('io');
+    if (io) {
+      const members = await query('SELECT user_id FROM group_members WHERE group_id = ?', [groupId]);
+      members.forEach(m => {
+        io.to(`user:${m.user_id}`).emit('group_message_deleted', { groupId, msgId });
+      });
+    }
+
+    res.json({ message: 'Message deleted' });
+  } catch (error) {
+    console.error('Error deleting group message:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createGroup,
   getGroups,
@@ -501,5 +557,6 @@ module.exports = {
   removeMember,
   updateMemberRole,
   updateNotificationSetting,
-  markAsRead
+  markAsRead,
+  deleteMessage
 };

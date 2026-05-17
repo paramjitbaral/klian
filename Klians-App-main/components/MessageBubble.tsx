@@ -115,10 +115,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
           {isOwnMessage && isHovered && (
             <button
               onClick={onDelete}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 transition-all duration-200 border border-red-200 dark:border-red-800 shadow-sm"
+              className="flex items-center justify-center w-7 h-7 rounded-full bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 transition-all duration-200 border border-red-200 dark:border-red-800 shadow-sm"
               title="Delete message"
             >
-              <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M9 3v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5V3H9zm0 5h2v8H9V8zm4 0h2v8h-2V8z" />
               </svg>
             </button>
@@ -127,7 +127,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
           <div
             className={`transition-all duration-200 ${
               message.type === 'text' 
-                ? (onlyEmoji ? 'bg-transparent' : 'px-4 py-2 rounded-2xl shadow-sm') 
+                ? (onlyEmoji ? 'bg-transparent' : 'px-3.5 py-2 rounded-2xl shadow-sm') 
                 : 'rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700'
             } ${
               isOwnMessage
@@ -261,7 +261,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
             ) : (
               <div className={onlyEmoji ? '' : 'p-0'}>
                 <p
-                  className={`${onlyEmoji ? 'text-5xl' : 'text-[14px] leading-relaxed'} break-words`}
+                  className={`${onlyEmoji ? 'text-5xl' : 'text-[13px] leading-relaxed'} break-words`}
                   dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(message.content || message.text || '') }}
                 />
               </div>

@@ -12,7 +12,8 @@ const {
   removeMember,
   updateMemberRole,
   updateNotificationSetting,
-  markAsRead
+  markAsRead,
+  deleteMessage
 } = require('../controllers/groupController');
 const { protect, facultyOnly } = require('../middleware/auth');
 
@@ -33,6 +34,7 @@ router.delete('/:id/members/:userId', protect, removeMember);
 router.put('/:id/members/role', protect, updateMemberRole);
 router.put('/:id/notification-setting', protect, updateNotificationSetting);
 router.put('/:id/read', protect, markAsRead);
+router.delete('/:id/messages/:msgId', protect, deleteMessage);
 
 module.exports = router;
 

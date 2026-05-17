@@ -47,6 +47,7 @@ interface MessagesContextType {
   groupUnreadCount: number;
   groupAddedNotifsCount: number;
   refreshGroupCounts: () => Promise<void>;
+  clearGroupUnreadCount: (amount: number) => void;
 }
 
 const MessagesContext = createContext<MessagesContextType>({
@@ -59,7 +60,8 @@ const MessagesContext = createContext<MessagesContextType>({
   unreadCount: 0,
   groupUnreadCount: 0,
   groupAddedNotifsCount: 0,
-  refreshGroupCounts: async () => {}
+  refreshGroupCounts: async () => {},
+  clearGroupUnreadCount: () => {}
 });
 
 export const useMessages = () => useContext(MessagesContext);
@@ -73,6 +75,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [unreadCount, setUnreadCount] = useState(0);
   const [groupUnreadCount, setGroupUnreadCount] = useState(0);
   const [groupAddedNotifsCount, setGroupAddedNotifsCount] = useState(0);
+  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
 
@@ -105,7 +108,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     loadConversations();
   }, [user]);
 
-  const refreshGroupCounts = async () => {
+  const refreshGroupCounts = React.useCallback(async () => {
 
     if (!user) return;
     try {
@@ -122,13 +125,27 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (error) {
       console.error('Error refreshing group counts:', error);
     }
-  };
+  }, [user]);
+
+  // Debounced version for socket events to avoid race conditions
+  const debouncedRefreshGroupCounts = React.useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+    }
+    refreshTimerRef.current = setTimeout(() => {
+      refreshGroupCounts();
+    }, 500);
+  }, [user, refreshGroupCounts]);
 
   useEffect(() => {
     if (user) {
       refreshGroupCounts();
     }
-  }, [user]);
+  }, [user, refreshGroupCounts]);
+
+  const clearGroupUnreadCount = React.useCallback((amount: number) => {
+    setGroupUnreadCount(prev => Math.max(0, prev - amount));
+  }, []);
 
   // Load messages for current conversation
   useEffect(() => {
@@ -252,9 +269,9 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     });
 
-    // Group related socket events
+    // Group related socket events — use debounced for background events
     const handleGroupUpdate = () => {
-        refreshGroupCounts();
+        debouncedRefreshGroupCounts();
     };
 
     const handleNewNotification = (notif: any) => {
@@ -272,11 +289,12 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     socket.on('update_notification', (data: any) => {
         if (data.type === 'GROUP_ADDED' && data.isRead) {
             setGroupAddedNotifsCount(prev => Math.max(0, prev - 1));
-        refreshGroupCounts();
+        debouncedRefreshGroupCounts();
         }
     });
 
-    socket.on('group_marked_read', () => {
+    socket.on('group_marked_read', (data: any) => {
+      // Optimistically reduce count for this specific group before re-fetching
       refreshGroupCounts();
     });
 
@@ -391,7 +409,8 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         unreadCount,
         groupUnreadCount,
         groupAddedNotifsCount,
-        refreshGroupCounts
+        refreshGroupCounts,
+        clearGroupUnreadCount
       }}
     >
       {children}

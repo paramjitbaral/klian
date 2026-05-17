@@ -10,10 +10,59 @@ import { Modal } from '../components/ui/Modal';
 import { User, Group, GroupMessage } from '../types';
 import { ChatInput } from '../components/ChatInput';
 import { ToggleSwitch } from '../components/ui/ToggleSwitch';
+import { ImageCropperModal } from '../components/ImageCropperModal';
 import { usersAPI } from '../src/api/users';
 import { groupsAPI } from '../src/api/groups';
 import { useSocket } from '../contexts/SocketContext';
 import { useMessages } from '../contexts/MessagesContext';
+
+// Group-specific avatar that shows a group icon instead of just initials
+const GroupAvatarIcon: React.FC<{ src?: string; name: string; size?: 'sm' | 'md' | 'lg' | 'xl' }> = ({ src, name, size = 'md' }) => {
+    const [imgError, setImgError] = React.useState(false);
+    const sizeClasses = { sm: 'h-8 w-8', md: 'h-10 w-10', lg: 'h-12 w-12', xl: 'h-20 w-20' };
+    const iconSizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-6 w-6', xl: 'h-10 w-10' };
+    const textSizes = { sm: 'text-[8px]', md: 'text-[9px]', lg: 'text-[10px]', xl: 'text-[12px]' };
+
+    let imageSrc = src && src.trim() ? src : null;
+    if (imageSrc && !imageSrc.startsWith('data:') && !imageSrc.startsWith('http')) {
+        imageSrc = `http://localhost:5000${imageSrc}`;
+    }
+
+    if (imageSrc && !imgError) {
+        return (
+            <img
+                src={imageSrc}
+                alt={name}
+                className={`rounded-full object-cover flex-shrink-0 ${sizeClasses[size]}`}
+                onError={() => setImgError(true)}
+            />
+        );
+    }
+
+    // Generate a consistent color from group name
+    const colors = [
+        'from-rose-500 to-pink-600',
+        'from-violet-500 to-purple-600',
+        'from-blue-500 to-indigo-600',
+        'from-emerald-500 to-teal-600',
+        'from-amber-500 to-orange-600',
+        'from-cyan-500 to-blue-600',
+        'from-fuchsia-500 to-pink-600',
+        'from-lime-500 to-green-600',
+    ];
+    const colorIndex = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
+
+    return (
+        <div className={`rounded-xl bg-gradient-to-br ${colors[colorIndex]} flex flex-col items-center justify-center flex-shrink-0 shadow-sm ${sizeClasses[size]}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className={`${iconSizes[size]} text-white/90`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span className={`${textSizes[size]} font-bold text-white/80 -mt-0.5 leading-none`}>
+                {name.charAt(0).toUpperCase()}
+            </span>
+        </div>
+    );
+};
 
 const AddGroupMembersModal: React.FC<{
     isOpen: boolean;
@@ -212,8 +261,55 @@ const GroupSettingsModal: React.FC<{
     const [groupName, setGroupName] = useState(group.name);
     const [groupDescription, setGroupDescription] = useState(group.description || '');
     const [notificationSetting, setNotificationSetting] = useState<NotificationSetting>('all');
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const groupAdmins = (group.members || []).filter((m: any) => m.role === 'admin').map((m: any) => m.user?.id || m.id);
     const isAdmin = groupAdmins.includes(currentUser.id) || groupAdmins.includes(String(currentUser.id)) || group.admins?.includes(currentUser.id);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setImageToCrop(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        setImageToCrop(null);
+        if (!isAdmin) return;
+
+        try {
+            setUploadingAvatar(true);
+            const formData = new FormData();
+            formData.append('file', croppedBlob, 'group-avatar.jpg');
+
+            const token = localStorage.getItem('token');
+            const uploadRes = await fetch('http://localhost:5000/api/messages/upload', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            if (!uploadRes.ok) throw new Error('Upload failed');
+            const { url } = await uploadRes.json();
+
+            const groupId = group.id || (group as any)._id;
+            const res = await groupsAPI.updateGroup(String(groupId), { avatar: url } as any);
+            onUpdateGroup(res.data);
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Failed to update group image');
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
 
     const handleSaveChanges = async () => {
         const groupId = group.id || (group as any)._id;
@@ -285,22 +381,57 @@ const GroupSettingsModal: React.FC<{
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Group Settings">
-            <div className="-mt-1.5 md:-mt-3 flex items-center justify-center gap-2 border-b border-slate-100 dark:border-slate-800 mb-6 pb-2">
+            <div className="-mt-1.5 md:-mt-3 flex items-center justify-center gap-2 border-b border-slate-100 dark:border-slate-800 mb-2 pb-2">
                 <button onClick={() => setActiveTab('General')} className={tabButtonClasses('General')}>General</button>
                 <button onClick={() => setActiveTab('Members')} className={tabButtonClasses('Members')}>Members</button>
                 <button onClick={() => setActiveTab('Danger Zone')} className={tabButtonClasses('Danger Zone')}>Danger Zone</button>
             </div>
 
             <div className="max-h-96 overflow-y-auto px-4 pr-2 scrollbar-hide">
+                {imageToCrop && (
+                    <ImageCropperModal
+                        image={imageToCrop}
+                        circular={true}
+                        onCropComplete={handleCropComplete}
+                        onCancel={() => setImageToCrop(null)}
+                    />
+                )}
+
                 {activeTab === 'General' && (
-                    <div className="space-y-4">
-                        <Input label="Group Name" value={groupName} onChange={e => setGroupName(e.target.value)} disabled={!isAdmin} className="!bg-slate-50 dark:!bg-slate-800/50 !border-slate-100 dark:!border-slate-700 !rounded-lg focus:!ring-1 focus:!ring-slate-200 dark:focus:!ring-slate-700 !transition-all !text-xs" />
-                        <div className="pt-1">
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Description</label>
-                            <textarea value={groupDescription} onChange={e => setGroupDescription(e.target.value)} rows={3} className="w-full p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-200 dark:focus:ring-slate-700 transition-all resize-none disabled:opacity-70 scrollbar-hide text-xs text-slate-600 dark:text-slate-300" disabled={!isAdmin} placeholder="Add a group description..." />
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-4 py-1">
+                            <div className="flex flex-col items-center flex-shrink-0">
+                                <div className="relative group/avatar">
+                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} disabled={!isAdmin || uploadingAvatar} />
+                                    <div className={`transition-all ${uploadingAvatar ? 'animate-pulse opacity-70' : ''}`}>
+                                        <GroupAvatarIcon src={group.avatar} name={group.name} size="xl" />
+                                    </div>
+
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={uploadingAvatar}
+                                            className="absolute bottom-0 right-0 bg-white dark:bg-slate-700 rounded-full p-1.5 shadow-lg border border-slate-100 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                                        >
+                                            <svg className="w-4 h-4 text-slate-700 dark:text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex-1 space-y-4">
+                                <Input label="Group Name" value={groupName} onChange={e => setGroupName(e.target.value)} disabled={!isAdmin} className="!bg-slate-50 dark:!bg-slate-800/50 !border-slate-100 dark:!border-slate-700 !rounded-lg focus:!ring-1 focus:!ring-slate-200 dark:focus:!ring-slate-700 !transition-all !text-xs" />
+                            </div>
                         </div>
 
-                        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Description</label>
+                            <textarea value={groupDescription} onChange={e => setGroupDescription(e.target.value)} rows={2} className="w-full p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-200 dark:focus:ring-slate-700 transition-all resize-none disabled:opacity-70 scrollbar-hide text-xs text-slate-600 dark:text-slate-300" disabled={!isAdmin} placeholder="Add a group description..." />
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                             <h3 className="text-md font-semibold mb-2">Notifications</h3>
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Choose how you get notified for messages in this group.</p>
                             <div className="space-y-4">
@@ -387,7 +518,7 @@ const GroupSettingsModal: React.FC<{
                 )}
                 {activeTab === 'Danger Zone' && (
                     <div className="space-y-1">
-                        <button 
+                        <button
                             onClick={handleLeaveGroup}
                             className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
                         >
@@ -399,7 +530,7 @@ const GroupSettingsModal: React.FC<{
                         </button>
 
                         {isAdmin && (
-                            <button 
+                            <button
                                 onClick={handleDeleteGroup}
                                 className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-all group border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
                             >
@@ -505,7 +636,7 @@ const ChatWindow: React.FC<{
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
-                    <Avatar src={group.avatar} alt={group.name} />
+                    <GroupAvatarIcon src={group.avatar} name={group.name} />
                     <div className="flex-1 min-w-0">
                         <h2 className="text-[17px] font-semibold text-slate-900 dark:text-white truncate">{group.name}</h2>
                         <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -528,22 +659,34 @@ const ChatWindow: React.FC<{
                         const senderAvatar = msg.sender?.avatar || (msg.sender as any)?.profilePicture || (msg.sender as any)?.avatar || '';
 
                         return (
-                            <div key={msg.id || index} className={`flex items-end gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <div key={msg.id || index} className={`flex items-end gap-2 group ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
                                 {!isOwnMessage && (
                                     <Avatar src={senderAvatar} alt={msg.sender?.name || 'User'} size="sm" className="mb-5" />
                                 )}
                                 <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[75%] sm:max-w-[70%]`}>
-                                    <div className={`px-4 py-2.5 rounded-2xl shadow-sm text-sm ${
-                                        isOwnMessage 
-                                            ? 'bg-blue-600 text-white rounded-br-none' 
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-none'
-                                    }`}>
-                                        {!isOwnMessage && (
-                                            <p className="font-bold text-[10px] uppercase tracking-wider mb-1 text-blue-500 dark:text-blue-400">
-                                                {msg.sender?.name || 'Someone'}
-                                            </p>
+                                    <div className="flex items-end gap-2 flex-row">
+                                        {isOwnMessage && (
+                                            <button
+                                                onClick={() => onSetMessageToDelete({ groupId: String((group as any)._id || group.id), msgId: String(msg.id) })}
+                                                className="opacity-0 group-hover:opacity-100 flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 transition-all duration-200 border border-red-200 dark:border-red-800 shadow-sm"
+                                                title="Delete message"
+                                            >
+                                                <svg className="w-3.5 h-3.5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M9 3v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5V3H9zm0 5h2v8H9V8zm4 0h2v8h-2V8z" />
+                                                </svg>
+                                            </button>
                                         )}
-                                        <p className="leading-relaxed break-words">{messageText}</p>
+                                        <div className={`px-3.5 py-2 rounded-2xl shadow-sm text-[13px] ${isOwnMessage
+                                                ? 'bg-blue-600 text-white rounded-br-none'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-none'
+                                            }`}>
+                                            {!isOwnMessage && (
+                                                <p className="font-bold text-[10px] uppercase tracking-wider mb-1 text-blue-500 dark:text-blue-400">
+                                                    {msg.sender?.name || 'Someone'}
+                                                </p>
+                                            )}
+                                            <p className="leading-relaxed break-words">{messageText}</p>
+                                        </div>
                                     </div>
                                     <span className="text-[10px] mt-1 font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">
                                         {messageTime ? new Date(messageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -769,7 +912,7 @@ export const GroupsPage: React.FC = () => {
         fetchData();
     }, []);
 
-    const { refreshGroupCounts } = useMessages();
+    const { refreshGroupCounts, clearGroupUnreadCount } = useMessages();
 
     // Mark invitations as read globally when visiting groups page
     useEffect(() => {
@@ -790,25 +933,36 @@ export const GroupsPage: React.FC = () => {
         if (selectedGroupId && groups.length > 0) {
             const group = groups.find(g => String((g as any)._id || g.id) === String(selectedGroupId));
             if (group) {
-                // Optimistically clear local count if it's > 0
-                if ((group as any).unreadCount > 0) {
+                const unreadAmount = (group as any).unreadCount || 0;
+
+                if (unreadAmount > 0) {
+                    // Optimistically clear GLOBAL unread badge instantly
+                    clearGroupUnreadCount(unreadAmount);
+
+                    // Optimistically clear LOCAL count immediately
                     setGroups(prev => prev.map(g => {
                         if (String(g.id || (g as any)._id) === String(selectedGroupId)) {
                             return { ...g, unreadCount: 0 };
                         }
                         return g;
                     }));
-                }
 
-                // Call API and refresh global counts
-                groupsAPI.markAsRead(String(selectedGroupId)).then(() => {
-                    refreshGroupCounts();
-                }).catch(err => {
-                    console.error('Failed to mark group as read:', err);
-                });
+                    // Call API to mark as read in DB
+                    const markRead = async () => {
+                        try {
+                            await groupsAPI.markAsRead(String(selectedGroupId));
+                            // the socket event 'group_marked_read' will trigger a silent refresh
+                        } catch (err) {
+                            console.error('Failed to mark group as read:', err);
+                            // Fallback refresh on error
+                            refreshGroupCounts();
+                        }
+                    };
+                    markRead();
+                }
             }
         }
-    }, [selectedGroupId, groups.length, refreshGroupCounts]);
+    }, [selectedGroupId, groups.length, clearGroupUnreadCount, refreshGroupCounts]);
 
 
     if (!user) return null;
@@ -858,11 +1012,12 @@ export const GroupsPage: React.FC = () => {
         if (!socket) return;
 
         const onNewMessage = (msg: any) => {
+            const isCurrentlyActive = String(selectedGroupId) === String(msg.groupId);
+
             setGroups(prevGroups => prevGroups.map(g => {
                 const gId = g.id || (g as any)._id;
                 if (String(gId) !== String(msg.groupId)) return g;
 
-                const isCurrentlyActive = String(selectedGroupId) === String(msg.groupId);
                 let newUnreadCount = (g as any).unreadCount || 0;
 
                 if (!isCurrentlyActive) {
@@ -877,11 +1032,7 @@ export const GroupsPage: React.FC = () => {
                         newUnreadCount++;
                     }
                 } else {
-                    groupsAPI.markAsRead(String(gId)).then(() => {
-                        refreshGroupCounts();
-                    }).catch(err => {
-                        console.error('Failed to mark active group as read:', err);
-                    });
+                    // Active group: keep unread at 0, markAsRead handled below
                     newUnreadCount = 0;
                 }
 
@@ -902,6 +1053,18 @@ export const GroupsPage: React.FC = () => {
                     unreadCount: newUnreadCount
                 };
             }));
+
+            // If this group is currently active, mark as read AFTER state update
+            if (isCurrentlyActive) {
+                (async () => {
+                    try {
+                        await groupsAPI.markAsRead(String(msg.groupId));
+                        await refreshGroupCounts();
+                    } catch (err) {
+                        console.error('Failed to mark active group as read:', err);
+                    }
+                })();
+            }
         };
 
         const onGroupUpdated = (updatedGroup: Group) => {
@@ -933,16 +1096,29 @@ export const GroupsPage: React.FC = () => {
             }
         };
 
+        const onMessageDeleted = ({ groupId, msgId }: { groupId: string, msgId: string }) => {
+            setGroups(prevGroups => prevGroups.map(g => {
+                const gId = String(g.id || (g as any)._id);
+                if (gId !== String(groupId)) return g;
+                return {
+                    ...g,
+                    messages: (g.messages || []).filter(msg => String(msg.id) !== String(msgId))
+                };
+            }));
+        };
+
         socket.on('new_group_message', onNewMessage);
         socket.on('group_updated', onGroupUpdated);
         socket.on('group_added_to', onGroupAddedTo);
         socket.on('group_removed_from', onGroupRemovedFrom);
+        socket.on('group_message_deleted', onMessageDeleted);
 
-        return () => { 
+        return () => {
             socket.off('new_group_message', onNewMessage);
             socket.off('group_updated', onGroupUpdated);
             socket.off('group_added_to', onGroupAddedTo);
             socket.off('group_removed_from', onGroupRemovedFrom);
+            socket.off('group_message_deleted', onMessageDeleted);
         };
     }, [socket, selectedGroupId, user, navigate]);
 
@@ -958,18 +1134,25 @@ export const GroupsPage: React.FC = () => {
         return () => { delete (window as any).handleGroupLeave; };
     }, [selectedGroupId, navigate]);
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (!messageToDelete) return;
 
         const { groupId, msgId } = messageToDelete;
-        const groupToUpdate = groups.find(g => g.id === groupId);
 
-        if (groupToUpdate) {
-            const updatedGroup = {
-                ...groupToUpdate,
-                messages: groupToUpdate.messages.filter(msg => msg.id !== msgId),
-            };
-            handleUpdateGroup(updatedGroup);
+        try {
+            await groupsAPI.deleteMessage(groupId, msgId);
+
+            // Optimistically update the UI
+            setGroups(prevGroups => prevGroups.map(g => {
+                const gId = String(g.id || (g as any)._id);
+                if (gId !== String(groupId)) return g;
+                return {
+                    ...g,
+                    messages: (g.messages || []).filter(msg => String(msg.id) !== String(msgId))
+                };
+            }));
+        } catch (error) {
+            console.error('Error deleting message:', error);
         }
 
         setMessageToDelete(null);
@@ -1039,7 +1222,7 @@ export const GroupsPage: React.FC = () => {
                                                 onClick={() => openGroup(group)}
                                                 className={`w-full text-left flex items-center p-4 space-x-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-l-4 ${isSelected ? 'border-red-500 bg-slate-50 dark:bg-slate-900/50' : 'border-transparent'}`}
                                             >
-                                                <Avatar src={group.avatar} alt={group.name} />
+                                                <GroupAvatarIcon src={group.avatar} name={group.name} />
                                                 <div className="flex-1 overflow-hidden">
                                                     <div className="flex justify-between items-center">
                                                         <div className="flex items-center">
