@@ -14,6 +14,23 @@ import { messagesAPI } from '../src/api/messages';
 import { groupsAPI } from '../src/api/groups';
 import { useSocket } from '../contexts/SocketContext';
 
+const formatDividerDate = (dateString: string) => {
+  const d = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  
+  if (msgDate.getTime() === today.getTime()) {
+    return 'Today';
+  } else if (msgDate.getTime() === yesterday.getTime()) {
+    return 'Yesterday';
+  } else {
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+};
+
 export const MessagesPage: React.FC = () => {
   const { conversationId } = useParams();
   const { user } = useAuth();
@@ -34,6 +51,8 @@ export const MessagesPage: React.FC = () => {
   const [searchEmail, setSearchEmail] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isSearchingMessages, setIsSearchingMessages] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,6 +62,8 @@ export const MessagesPage: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
+    setIsSearchingMessages(false);
+    setMessageSearchQuery('');
     if (conversationId) {
       if (conversationId !== currentConversation) {
         setCurrentConversation(conversationId);
@@ -76,7 +97,36 @@ export const MessagesPage: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text') => {
+  const scrollToMessage = (msgId: string) => {
+    const element = document.getElementById(`message-${msgId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Flash highlight animation
+      element.classList.add(
+        'bg-blue-100/40', 
+        'dark:bg-blue-900/40', 
+        'ring-2', 
+        'ring-blue-500/50', 
+        'rounded-xl', 
+        'p-2', 
+        'transition-all', 
+        'duration-300'
+      );
+      setTimeout(() => {
+        element.classList.remove(
+          'bg-blue-100/40', 
+          'dark:bg-blue-900/40', 
+          'ring-2', 
+          'ring-blue-500/50', 
+          'rounded-xl', 
+          'p-2'
+        );
+      }, 2000);
+    }
+  };
+
+  const handleSendMessage = async (content: string, type: 'text' | 'image' | 'file' | 'post' = 'text') => {
     if (!currentConversation || !content.trim()) return;
     await sendMessage(currentConversation, content, type);
   };
@@ -182,23 +232,23 @@ export const MessagesPage: React.FC = () => {
                     onClick={() => {
                       navigate(`/messages/${otherUser._id}`);
                     }}
-                    className={`flex w-full items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors ${
-                      currentConversation === otherUser._id ? 'bg-slate-50 dark:bg-slate-700/50' : ''
+                    className={`w-full text-left flex items-center p-4 space-x-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-l-4 ${
+                      String(currentConversation) === String(otherUser._id) ? 'border-red-500 bg-slate-50 dark:bg-slate-900/50' : 'border-transparent'
                     }`}
                   >
                     <div className="relative flex-shrink-0">
-                      <Avatar src={otherUser.profilePicture} alt={otherUser.name} size="xl" />
+                      <Avatar src={otherUser.profilePicture} alt={otherUser.name} size="md" />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline gap-2">
+                      <div className="flex justify-between items-baseline">
                         <p className="font-semibold text-sm truncate text-slate-900 dark:text-white">{otherUser.name}</p>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">{renderTime(conv.lastMessage?.createdAt)}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0 ml-2">{renderTime(conv.lastMessage?.createdAt)}</span>
                       </div>
-                      <div className="flex justify-between items-center mt-1 gap-2">
-                        <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{conv.lastMessage?.content || 'No messages yet'}</p>
+                      <div className="flex justify-between items-center mt-0.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{conv.lastMessage?.content || 'No messages yet'}</p>
                         {conv.unread && (
-                          <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-xs rounded-full min-w-[20px] text-center font-semibold flex-shrink-0">
+                          <span className="ml-auto bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm animate-pulse-subtle flex-shrink-0">
                             1
                           </span>
                         )}
@@ -227,50 +277,163 @@ export const MessagesPage: React.FC = () => {
 
             return (
               <>
-                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-[72px]">
-                  <div className="flex items-center gap-3">
+                <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 h-[65px] flex-shrink-0">
+                  <div className="flex items-center gap-4 min-w-0 flex-shrink-0">
                     <button 
                       onClick={() => navigate('/messages')} 
-                      className="md:hidden p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      className="md:hidden p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
                     </button>
                     <Avatar src={displayUser.profilePicture} alt={displayUser.name} size="md" />
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white truncate">{displayUser.name}</h3>
-                      <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400">
+                      <h3 className="text-[17px] font-semibold text-slate-900 dark:text-white truncate">{displayUser.name}</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                         {conv ? 'Active recently' : 'Starting new chat...'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                {[(hasConversations ? ICONS.search : ICONS.messagesOff), ICONS.moreHorizontal].map((icon, idx) => (
-                  <button
-                    key={idx}
-                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                    type="button"
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
+                  {/* Header controls: Shows search input extending leftward on click */}
+                  <div className="flex items-center space-x-2 flex-1 justify-end ml-4 min-w-0">
+                    {isSearchingMessages ? (
+                      <div className="flex items-center gap-3 w-full max-w-[200px] sm:max-w-[280px] md:max-w-[340px] animate-in slide-in-from-right duration-300">
+                        <div className="relative flex-1">
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 flex items-center justify-center">
+                            {ICONS.search}
+                          </span>
+                          <input
+                            type="text"
+                            value={messageSearchQuery}
+                            onChange={(e) => setMessageSearchQuery(e.target.value)}
+                            placeholder="Search chat..."
+                            className="w-full bg-transparent text-slate-900 dark:text-white pl-7 pr-6 py-1 text-xs border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:outline-none transition-colors rounded-none"
+                            autoFocus
+                          />
+                          {messageSearchQuery && (
+                            <button
+                              onClick={() => setMessageSearchQuery('')}
+                              className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-[10px] font-bold p-1"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setIsSearchingMessages(false);
+                            setMessageSearchQuery('');
+                          }}
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-1 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors flex-shrink-0"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-1">
+                        {[(hasConversations ? ICONS.search : ICONS.messagesOff), ICONS.moreHorizontal].map((icon, idx) => (
+                          <button
+                            key={idx}
+                            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                            type="button"
+                            onClick={idx === 0 && hasConversations ? () => {
+                              setIsSearchingMessages(true);
+                              setMessageSearchQuery('');
+                            } : undefined}
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </header>
 
-            <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 bg-white dark:bg-slate-900 flex flex-col">
-              <div className="space-y-2">
-                {messages.map((message) => (
-                  <MessageBubble
-                    key={message._id}
-                    message={message}
-                    isOwnMessage={String(message.sender._id) === String(user?.id || (user as any)?._id)}
-                  />
-                ))}
-              </div>
-              <div ref={messagesEndRef} />
-            </div>
+                <div className="relative flex-1 flex flex-col overflow-hidden">
+                  {messageSearchQuery.trim().length > 0 && (
+                    <div className="absolute top-2 right-4 z-30 w-72 max-h-[320px] overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-2 space-y-1 scrollbar-hide animate-in fade-in zoom-in-95 duration-200">
+                      <div className="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700/50 mb-1 flex justify-between">
+                        <span>Search Results</span>
+                        <span>
+                          {
+                            messages.filter(msg => 
+                              msg.type === 'text' && 
+                              msg.content && 
+                              msg.content.toLowerCase().includes(messageSearchQuery.toLowerCase())
+                            ).length
+                          } found
+                        </span>
+                      </div>
+                      {(() => {
+                        const filtered = messages.filter(msg => 
+                          msg.type === 'text' && 
+                          msg.content && 
+                          msg.content.toLowerCase().includes(messageSearchQuery.toLowerCase())
+                        );
+                        
+                        if (filtered.length === 0) {
+                          return (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4 italic">
+                              No matching messages.
+                            </p>
+                          );
+                        }
+
+                        return filtered.map((msg) => (
+                          <button
+                            key={msg._id}
+                            onClick={() => scrollToMessage(msg._id)}
+                            className="w-full text-left p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors flex flex-col gap-0.5 border border-transparent hover:border-slate-100 dark:hover:border-slate-600/30"
+                          >
+                            <div className="flex justify-between items-center w-full">
+                              <span className="font-bold text-[10px] text-blue-500 uppercase tracking-wider truncate max-w-[150px]">
+                                {msg.sender.name}
+                              </span>
+                              <span className="text-[9px] text-slate-400 flex-shrink-0">
+                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 truncate leading-tight">
+                              {msg.content}
+                            </p>
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  )}
+
+                  <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 bg-white dark:bg-slate-900 flex flex-col">
+                    <div className="space-y-2">
+                      {messages.map((message, index) => {
+                        const showDivider = index === 0 || (() => {
+                          const prevMsg = messages[index - 1];
+                          const prevDate = new Date(prevMsg.createdAt).toDateString();
+                          const currDate = new Date(message.createdAt).toDateString();
+                          return prevDate !== currDate;
+                        })();
+
+                        return (
+                          <React.Fragment key={message._id}>
+                            {showDivider && (
+                              <div className="flex justify-center my-4 animate-in fade-in duration-300 select-none">
+                                <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 rounded-full tracking-wider shadow-sm uppercase border border-slate-200/50 dark:border-slate-700/50">
+                                  {formatDividerDate(message.createdAt)}
+                                </span>
+                              </div>
+                            )}
+                            <MessageBubble
+                              message={message}
+                              isOwnMessage={String(message.sender._id) === String(user?.id || (user as any)?._id)}
+                            />
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                    <div ref={messagesEndRef} />
+                  </div>
+                </div>
 
               <ChatInput onSendMessage={handleSendMessage} />
             </>

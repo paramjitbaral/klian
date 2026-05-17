@@ -9,10 +9,15 @@ export enum Role {
 
 export interface User {
   id: string;
+  _id?: string;
+  uid?: string;
   name: string;
   username: string;
   email: string;
   avatar: string;
+  avatarUrl?: string;
+  profilePicture?: string;
+  profilePic?: string;
   coverPhoto: string;
   bio: string;
   studentId?: string;
@@ -24,6 +29,11 @@ export interface User {
   lastSeen?: string;
   followers?: number;
   following?: number;
+}
+
+export interface GroupMember extends Omit<Partial<User>, 'role'> {
+  user?: Partial<User>;
+  role?: Role | 'admin' | 'member' | string;
 }
 
 export interface Post {
@@ -63,17 +73,23 @@ export interface GroupMessage {
   sender: User;
   text: string;
   timestamp: string;
+  type?: 'text' | 'image' | 'file' | 'video';
+  content?: string;
+  createdAt?: string;
 }
 
 export interface Group {
   id: string;
+  _id?: string;
   name: string;
   avatar: string;
-  members: User[];
+  members: GroupMember[];
   admins: string[];
   messages: GroupMessage[];
   description?: string;
   createdAt?: string;
+  notificationSetting?: 'all' | 'mentions' | 'off';
+  unreadCount?: number;
 }
 
 export interface Event {

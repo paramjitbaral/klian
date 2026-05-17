@@ -353,7 +353,7 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="h-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden px-6 relative">
+      <div className="h-[calc(100vh-4rem)] max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden px-6 relative items-start">
         {/* Center Feed - Scrollable without scrollbar */}
         <div 
             ref={scrollContainerRef}
@@ -401,8 +401,8 @@ export const HomePage: React.FC = () => {
         </div>
 
         {/* Right Sidebar - Fixed position */}
-        <aside className="hidden lg:block lg:col-span-4 h-full py-8">
-          <div className="sticky top-8 space-y-6">
+        <aside className="hidden lg:block lg:col-span-4 h-full py-8 lg:sticky lg:top-8 lg:self-start">
+          <div className="space-y-6">
             <SuggestedUsers />
             <TrendingTopics />
           </div>

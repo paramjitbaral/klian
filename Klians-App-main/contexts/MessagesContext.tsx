@@ -40,7 +40,7 @@ interface MessagesContextType {
   conversations: Conversation[];
   currentConversation: string | null;
   messages: Message[];
-  sendMessage: (recipientId: string, content: string, type?: 'text' | 'post', postId?: string) => Promise<void>;
+  sendMessage: (recipientId: string, content: string, type?: 'text' | 'image' | 'file' | 'post', postId?: string) => Promise<void>;
   sharePost: (recipientId: string, postId: string, message?: string) => Promise<void>;
   setCurrentConversation: (userId: string | null) => void;
   unreadCount: number;
@@ -310,7 +310,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [socket, user, currentConversation]);
 
-  const sendMessage = async (recipientId: string, content: string, type: 'text' | 'post' = 'text', postId?: string) => {
+  const sendMessage = async (recipientId: string, content: string, type: 'text' | 'image' | 'file' | 'post' = 'text', postId?: string) => {
     if (!socket || !user) {
       console.log('Cannot send message: missing socket or user', { socket: !!socket, user: !!user });
       return;

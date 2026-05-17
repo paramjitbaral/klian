@@ -7,7 +7,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { User, Group, GroupMessage } from '../types';
+import { User, Group, GroupMessage, GroupMember } from '../types';
 import { ChatInput } from '../components/ChatInput';
 import { ToggleSwitch } from '../components/ui/ToggleSwitch';
 import { ImageCropperModal } from '../components/ImageCropperModal';
@@ -15,6 +15,23 @@ import { usersAPI } from '../src/api/users';
 import { groupsAPI } from '../src/api/groups';
 import { useSocket } from '../contexts/SocketContext';
 import { useMessages } from '../contexts/MessagesContext';
+
+const formatDividerDate = (dateString: string) => {
+  const d = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  
+  if (msgDate.getTime() === today.getTime()) {
+    return 'Today';
+  } else if (msgDate.getTime() === yesterday.getTime()) {
+    return 'Yesterday';
+  } else {
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+};
 
 // Group-specific avatar that shows a group icon instead of just initials
 const GroupAvatarIcon: React.FC<{ src?: string; name: string; size?: 'sm' | 'md' | 'lg' | 'xl' }> = ({ src, name, size = 'md' }) => {
@@ -167,7 +184,7 @@ const AddGroupMembersModal: React.FC<{
 const GroupMembersModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
-    members: User[];
+    members: GroupMember[];
     allUsers: User[];
     currentUser: User;
     isAdmin: boolean;
@@ -572,7 +589,7 @@ const ChatWindow: React.FC<{
         return (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-12 text-center animate-in fade-in duration-500">
                 <div className="mb-8 text-slate-300 dark:text-slate-600">
-                    {React.cloneElement(ICONS.groups as React.ReactElement, { className: 'w-24 h-24' })}
+                    {React.cloneElement(ICONS.groups as React.ReactElement<{ className?: string }>, { className: 'w-24 h-24' })}
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Select a group</h2>
                 <p className="text-base max-w-[300px] mx-auto">Choose a group from the list or create a new one to start chatting with your team.</p>
@@ -580,13 +597,13 @@ const ChatWindow: React.FC<{
         );
     }
 
-    const handleSendMessage = (messageText: string) => {
+    const handleSendMessage = (messageText: string, type: 'text' | 'image' | 'file' = 'text') => {
         if (!socket) return;
         const gId = group.id || (group as any)._id;
         socket.emit('send_group_message', {
             groupId: String(gId),
             content: messageText,
-            type: 'text'
+            type
         });
     };
 
@@ -654,45 +671,42 @@ const ChatWindow: React.FC<{
                     {(group.messages || []).map((msg, index) => {
                         const senderId = String(msg.sender?.id || (msg.sender as any)?._id || '');
                         const isOwnMessage = senderId === String(user.id);
-                        const messageText = msg.text || (msg as any).content || '';
-                        const messageTime = msg.timestamp || (msg as any).createdAt;
-                        const senderAvatar = msg.sender?.avatar || (msg.sender as any)?.profilePicture || (msg.sender as any)?.avatar || '';
+                        
+                        const mappedMessage = {
+                            _id: msg.id || (msg as any)._id || String(index),
+                            type: msg.type || 'text',
+                            content: msg.content || msg.text || '',
+                            createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+                            sender: msg.sender ? {
+                                name: msg.sender.name,
+                                profilePicture: msg.sender.avatar || (msg.sender as any).profilePicture || ''
+                            } : undefined
+                        };
+
+                        const showDivider = index === 0 || (() => {
+                          const prevMsg = (group.messages || [])[index - 1];
+                          const prevDateStr = prevMsg ? (prevMsg.createdAt || prevMsg.timestamp) : null;
+                          const currDateStr = msg.createdAt || msg.timestamp;
+                          if (!prevDateStr || !currDateStr) return false;
+                          return new Date(prevDateStr).toDateString() !== new Date(currDateStr).toDateString();
+                        })();
 
                         return (
-                            <div key={msg.id || index} className={`flex items-end gap-2 group ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
-                                {!isOwnMessage && (
-                                    <Avatar src={senderAvatar} alt={msg.sender?.name || 'User'} size="sm" className="mb-5" />
-                                )}
-                                <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[75%] sm:max-w-[70%]`}>
-                                    <div className="flex items-end gap-2 flex-row">
-                                        {isOwnMessage && (
-                                            <button
-                                                onClick={() => onSetMessageToDelete({ groupId: String((group as any)._id || group.id), msgId: String(msg.id) })}
-                                                className="opacity-0 group-hover:opacity-100 flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 transition-all duration-200 border border-red-200 dark:border-red-800 shadow-sm"
-                                                title="Delete message"
-                                            >
-                                                <svg className="w-3.5 h-3.5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M9 3v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5V3H9zm0 5h2v8H9V8zm4 0h2v8h-2V8z" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                        <div className={`px-3.5 py-2 rounded-2xl shadow-sm text-[13px] ${isOwnMessage
-                                                ? 'bg-blue-600 text-white rounded-br-none'
-                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-none'
-                                            }`}>
-                                            {!isOwnMessage && (
-                                                <p className="font-bold text-[10px] uppercase tracking-wider mb-1 text-blue-500 dark:text-blue-400">
-                                                    {msg.sender?.name || 'Someone'}
-                                                </p>
-                                            )}
-                                            <p className="leading-relaxed break-words">{messageText}</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] mt-1 font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">
-                                        {messageTime ? new Date(messageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                    </span>
-                                </div>
-                            </div>
+                          <React.Fragment key={mappedMessage._id}>
+                            {showDivider && (
+                              <div className="flex justify-center my-4 animate-in fade-in duration-300 select-none">
+                                <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 rounded-full tracking-wider shadow-sm uppercase border border-slate-200/50 dark:border-slate-700/50">
+                                  {formatDividerDate(mappedMessage.createdAt)}
+                                </span>
+                              </div>
+                            )}
+                            <MessageBubble
+                                message={mappedMessage as any}
+                                isOwnMessage={isOwnMessage}
+                                showSenderInfo={!isOwnMessage}
+                                onDelete={() => onSetMessageToDelete({ groupId: String((group as any)._id || group.id), msgId: String(msg.id) })}
+                            />
+                          </React.Fragment>
                         );
                     })}
                     <div ref={messagesEndRef} />
@@ -968,7 +982,8 @@ export const GroupsPage: React.FC = () => {
     if (!user) return null;
 
     const handleBack = () => {
-        navigate(-1);
+        setSelectedGroupId(null);
+        navigate('/messages');
     };
 
     const userGroups = Array.isArray(groups) ? groups : [];
@@ -1173,7 +1188,7 @@ export const GroupsPage: React.FC = () => {
                     <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
                         <div className="flex items-center gap-4 min-w-0">
                             <button
-                                onClick={() => navigate(-1)}
+                                onClick={handleBack}
                                 className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1194,7 +1209,7 @@ export const GroupsPage: React.FC = () => {
                         {userGroups.length === 0 ? (
                             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500 min-h-[400px]">
                                 <div className="mb-6 text-slate-300 dark:text-slate-600">
-                                    {React.cloneElement(ICONS.groups as React.ReactElement, { className: "w-20 h-20 md:w-14 md:h-14 mx-auto" })}
+                                    {React.cloneElement(ICONS.groups as React.ReactElement<{ className?: string }>, { className: "w-20 h-20 md:w-14 md:h-14 mx-auto" })}
                                 </div>
                                 <h3 className="text-xl md:text-lg font-bold text-slate-900 dark:text-white mb-2">No groups yet</h3>
                                 <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400 max-w-[240px] md:max-w-[180px] mx-auto leading-relaxed">

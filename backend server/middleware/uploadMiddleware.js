@@ -15,7 +15,11 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        const originalNameWithoutExt = path.parse(file.originalname).name;
+        // Clean original name (remove non-alphanumeric characters except dashes/underscores)
+        const cleanOriginalName = originalNameWithoutExt.replace(/[^a-zA-Z0-9-_]/g, '');
+        const finalName = cleanOriginalName || 'file';
+        cb(null, finalName + '-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
 
