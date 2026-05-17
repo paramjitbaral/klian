@@ -423,10 +423,12 @@ export const MessagesPage: React.FC = () => {
                                 </span>
                               </div>
                             )}
-                            <MessageBubble
-                              message={message}
-                              isOwnMessage={String(message.sender._id) === String(user?.id || (user as any)?._id)}
-                            />
+                            <div id={`message-${message._id}`} className="transition-all duration-300">
+                              <MessageBubble
+                                message={message}
+                                isOwnMessage={String(message.sender._id) === String(user?.id || (user as any)?._id)}
+                              />
+                            </div>
                           </React.Fragment>
                         );
                       })}

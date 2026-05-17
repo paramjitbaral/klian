@@ -578,6 +578,42 @@ const ChatWindow: React.FC<{
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isSearchingMessages, setIsSearchingMessages] = useState(false);
+    const [messageSearchQuery, setMessageSearchQuery] = useState('');
+
+    useEffect(() => {
+        setIsSearchingMessages(false);
+        setMessageSearchQuery('');
+    }, [group?.id, (group as any)?._id]);
+
+    const scrollToMessage = (msgId: string) => {
+        const element = document.getElementById(`message-${msgId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Flash highlight animation
+            element.classList.add(
+                'bg-blue-100/40', 
+                'dark:bg-blue-900/40', 
+                'ring-2', 
+                'ring-blue-500/50', 
+                'rounded-xl', 
+                'p-2', 
+                'transition-all', 
+                'duration-300'
+            );
+            setTimeout(() => {
+                element.classList.remove(
+                    'bg-blue-100/40', 
+                    'dark:bg-blue-900/40', 
+                    'ring-2', 
+                    'ring-blue-500/50', 
+                    'rounded-xl', 
+                    'p-2'
+                );
+            }, 2000);
+        }
+    };
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -644,72 +680,189 @@ const ChatWindow: React.FC<{
     return (
         <>
             <div className="flex-1 flex flex-col bg-white dark:bg-slate-800">
-                <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
-                    <button
-                        onClick={() => navigate('/groups')}
-                        className="md:hidden p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <GroupAvatarIcon src={group.avatar} name={group.name} />
-                    <div className="flex-1 min-w-0">
-                        <h2 className="text-[17px] font-semibold text-slate-900 dark:text-white truncate">{group.name}</h2>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                            <span className="cursor-pointer hover:underline" onClick={() => setIsMembersModalOpen(true)}>
-                                {(group.members || []).length} members
-                            </span>
+                <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 h-[65px] flex-shrink-0">
+                    <div className="flex items-center gap-4 min-w-0 flex-shrink-0">
+                        <button
+                            onClick={() => navigate('/groups')}
+                            className="md:hidden p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <GroupAvatarIcon src={group.avatar} name={group.name} />
+                        <div className="min-w-0">
+                            <h2 className="text-[17px] font-semibold text-slate-900 dark:text-white truncate">{group.name}</h2>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                <span className="cursor-pointer hover:underline" onClick={() => setIsMembersModalOpen(true)}>
+                                    {(group.members || []).length} members
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <button onClick={() => setIsMembersModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400" title="View Members">{ICONS.users}</button>
-                        <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400" title="Group Settings">{ICONS.settings}</button>
+
+                    {/* Header controls: Shows search input extending leftward on click */}
+                    <div className="flex items-center space-x-2 flex-1 justify-end ml-4 min-w-0">
+                        {isSearchingMessages ? (
+                            <div className="flex items-center gap-3 w-full max-w-[200px] sm:max-w-[280px] md:max-w-[340px] animate-in slide-in-from-right duration-300">
+                                <div className="relative flex-1">
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 flex items-center justify-center">
+                                        {ICONS.search}
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={messageSearchQuery}
+                                        onChange={(e) => setMessageSearchQuery(e.target.value)}
+                                        placeholder="Search group..."
+                                        className="w-full bg-transparent text-slate-900 dark:text-white pl-7 pr-6 py-1 text-xs border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:outline-none transition-colors rounded-none"
+                                        autoFocus
+                                    />
+                                    {messageSearchQuery && (
+                                        <button
+                                            onClick={() => setMessageSearchQuery('')}
+                                            className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-[10px] font-bold p-1"
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setIsSearchingMessages(false);
+                                        setMessageSearchQuery('');
+                                    }}
+                                    className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-1 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors flex-shrink-0"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-1">
+                                <button onClick={() => setIsMembersModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="View Members">{ICONS.users}</button>
+                                {(group.messages || []).length > 0 && (
+                                    <button 
+                                        onClick={() => {
+                                            setIsSearchingMessages(true);
+                                            setMessageSearchQuery('');
+                                        }} 
+                                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" 
+                                        title="Search group messages"
+                                    >
+                                        {ICONS.search}
+                                    </button>
+                                )}
+                                <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Group Settings">{ICONS.settings}</button>
+                            </div>
+                        )}
                     </div>
                 </header>
-                <div className="flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto bg-white dark:bg-slate-900 scrollbar-hide">
-                    {(group.messages || []).map((msg, index) => {
-                        const senderId = String(msg.sender?.id || (msg.sender as any)?._id || '');
-                        const isOwnMessage = senderId === String(user.id);
-                        
-                        const mappedMessage = {
-                            _id: msg.id || (msg as any)._id || String(index),
-                            type: msg.type || 'text',
-                            content: msg.content || msg.text || '',
-                            createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
-                            sender: msg.sender ? {
-                                name: msg.sender.name,
-                                profilePicture: msg.sender.avatar || (msg.sender as any).profilePicture || ''
-                            } : undefined
-                        };
 
-                        const showDivider = index === 0 || (() => {
-                          const prevMsg = (group.messages || [])[index - 1];
-                          const prevDateStr = prevMsg ? (prevMsg.createdAt || prevMsg.timestamp) : null;
-                          const currDateStr = msg.createdAt || msg.timestamp;
-                          if (!prevDateStr || !currDateStr) return false;
-                          return new Date(prevDateStr).toDateString() !== new Date(currDateStr).toDateString();
-                        })();
-
-                        return (
-                          <React.Fragment key={mappedMessage._id}>
-                            {showDivider && (
-                              <div className="flex justify-center my-4 animate-in fade-in duration-300 select-none">
-                                <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 rounded-full tracking-wider shadow-sm uppercase border border-slate-200/50 dark:border-slate-700/50">
-                                  {formatDividerDate(mappedMessage.createdAt)}
+                <div className="relative flex-1 flex flex-col overflow-hidden">
+                    {messageSearchQuery.trim().length > 0 && (
+                        <div className="absolute top-2 right-4 z-30 w-72 max-h-[320px] overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-2 space-y-1 scrollbar-hide animate-in fade-in zoom-in-95 duration-200">
+                            <div className="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700/50 mb-1 flex justify-between select-none">
+                                <span>Search Results</span>
+                                <span>
+                                    {
+                                        (group.messages || []).filter(msg => 
+                                            (msg.type || 'text') === 'text' && 
+                                            (msg.content || msg.text) && 
+                                            (msg.content || msg.text || '').toLowerCase().includes(messageSearchQuery.toLowerCase())
+                                        ).length
+                                    } found
                                 </span>
-                              </div>
-                            )}
-                            <MessageBubble
-                                message={mappedMessage as any}
-                                isOwnMessage={isOwnMessage}
-                                showSenderInfo={!isOwnMessage}
-                                onDelete={() => onSetMessageToDelete({ groupId: String((group as any)._id || group.id), msgId: String(msg.id) })}
-                            />
-                          </React.Fragment>
-                        );
-                    })}
-                    <div ref={messagesEndRef} />
+                            </div>
+                            {(() => {
+                                const filtered = (group.messages || []).filter(msg => 
+                                    (msg.type || 'text') === 'text' && 
+                                    (msg.content || msg.text) && 
+                                    (msg.content || msg.text || '').toLowerCase().includes(messageSearchQuery.toLowerCase())
+                                );
+
+                                if (filtered.length === 0) {
+                                    return (
+                                        <div className="p-4 text-center text-xs text-slate-400 dark:text-slate-500">
+                                            No results found for "{messageSearchQuery}"
+                                        </div>
+                                    );
+                                }
+
+                                return filtered.map((msg, idx) => {
+                                    const msgId = msg.id || (msg as any)._id || String(idx);
+                                    const senderName = msg.sender?.name || 'Unknown';
+                                    const msgContent = msg.content || msg.text || '';
+                                    const timestamp = msg.createdAt || msg.timestamp || new Date().toISOString();
+
+                                    return (
+                                        <button
+                                            key={msgId}
+                                            onClick={() => scrollToMessage(msgId)}
+                                            className="w-full text-left p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors flex flex-col gap-0.5 border border-transparent hover:border-slate-100 dark:hover:border-slate-600/30"
+                                        >
+                                            <div className="flex justify-between items-center w-full">
+                                                <span className="font-bold text-[10px] text-blue-500 uppercase tracking-wider truncate max-w-[150px]">
+                                                    {senderName}
+                                                </span>
+                                                <span className="text-[9px] text-slate-400 flex-shrink-0">
+                                                    {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-700 dark:text-slate-300 truncate leading-tight">
+                                                {msgContent}
+                                            </p>
+                                        </button>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    )}
+
+                    <div className="flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto bg-white dark:bg-slate-900 scrollbar-hide">
+                        {(group.messages || []).map((msg, index) => {
+                            const senderId = String(msg.sender?.id || (msg.sender as any)?._id || '');
+                            const isOwnMessage = senderId === String(user.id);
+                            
+                            const mappedMessage = {
+                                _id: msg.id || (msg as any)._id || String(index),
+                                type: msg.type || 'text',
+                                content: msg.content || msg.text || '',
+                                createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
+                                sender: msg.sender ? {
+                                    name: msg.sender.name,
+                                    profilePicture: msg.sender.avatar || (msg.sender as any).profilePicture || ''
+                                } : undefined
+                            };
+
+                            const showDivider = index === 0 || (() => {
+                              const prevMsg = (group.messages || [])[index - 1];
+                              const prevDateStr = prevMsg ? (prevMsg.createdAt || prevMsg.timestamp) : null;
+                              const currDateStr = msg.createdAt || msg.timestamp;
+                              if (!prevDateStr || !currDateStr) return false;
+                              return new Date(prevDateStr).toDateString() !== new Date(currDateStr).toDateString();
+                            })();
+
+                            return (
+                              <React.Fragment key={mappedMessage._id}>
+                                {showDivider && (
+                                  <div className="flex justify-center my-4 animate-in fade-in duration-300 select-none">
+                                    <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 rounded-full tracking-wider shadow-sm uppercase border border-slate-200/50 dark:border-slate-700/50">
+                                      {formatDividerDate(mappedMessage.createdAt)}
+                                    </span>
+                                  </div>
+                                )}
+                                <div id={`message-${mappedMessage._id}`} className="transition-all duration-300">
+                                    <MessageBubble
+                                        message={mappedMessage as any}
+                                        isOwnMessage={isOwnMessage}
+                                        showSenderInfo={!isOwnMessage}
+                                        onDelete={() => onSetMessageToDelete({ groupId: String((group as any)._id || group.id), msgId: String(msg.id) })}
+                                    />
+                                </div>
+                              </React.Fragment>
+                            );
+                        })}
+                        <div ref={messagesEndRef} />
+                    </div>
                 </div>
                 <ChatInput onSendMessage={handleSendMessage} />
             </div>

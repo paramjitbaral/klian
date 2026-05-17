@@ -137,8 +137,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
               }`}
           >
             {showSenderInfo && !isOwnMessage && message.sender && (
-              <div className={message.type !== 'text' ? 'px-3.5 pt-2.5 pb-1.5' : 'mb-1'}>
-                <p className="font-bold text-[10px] uppercase tracking-wider text-red-500 dark:text-red-400">{message.sender.name}</p>
+              <div className={message.type !== 'text' ? 'px-3.5 pt-2.5 pb-1.5' : 'mb-0.5'}>
+                <p className="font-bold text-[10px] uppercase tracking-wider text-red-500 dark:text-red-400 leading-none">{message.sender.name}</p>
               </div>
             )}
 
