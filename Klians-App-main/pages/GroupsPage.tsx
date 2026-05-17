@@ -707,7 +707,7 @@ const ChatWindow: React.FC<{
                             <div className="flex items-center gap-3 w-full max-w-[200px] sm:max-w-[280px] md:max-w-[340px] animate-in slide-in-from-right duration-300">
                                 <div className="relative flex-1">
                                     <span className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 flex items-center justify-center">
-                                        {ICONS.search}
+                                        {React.cloneElement(ICONS.search as React.ReactElement<{ className?: string }>, { className: 'w-[14px] h-[14px]' })}
                                     </span>
                                     <input
                                         type="text"
@@ -738,7 +738,12 @@ const ChatWindow: React.FC<{
                             </div>
                         ) : (
                             <div className="flex items-center space-x-1">
-                                <button onClick={() => setIsMembersModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="View Members">{ICONS.users}</button>
+                                <button onClick={() => setIsMembersModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="View Members">
+                                    {React.cloneElement(ICONS.users as React.ReactElement<{ className?: string }>, { className: 'w-[20px] h-[20px]' })}
+                                </button>
+                                <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Group Settings">
+                                    {React.cloneElement(ICONS.settings as React.ReactElement<{ className?: string }>, { className: 'w-[20px] h-[20px]' })}
+                                </button>
                                 {(group.messages || []).length > 0 && (
                                     <button 
                                         onClick={() => {
@@ -748,10 +753,9 @@ const ChatWindow: React.FC<{
                                         className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" 
                                         title="Search group messages"
                                     >
-                                        {ICONS.search}
+                                        {React.cloneElement(ICONS.search as React.ReactElement<{ className?: string }>, { className: 'w-[20px] h-[20px]' })}
                                     </button>
                                 )}
-                                <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" title="Group Settings">{ICONS.settings}</button>
                             </div>
                         )}
                     </div>
