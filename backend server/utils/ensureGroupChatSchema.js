@@ -30,6 +30,12 @@ async function ensureGroupChatSchema() {
       if (error.code !== 'ER_DUP_COLUMN_NAME') throw error;
     }
 
+    try {
+      await query('ALTER TABLE `groups` ADD COLUMN only_admins_can_message TINYINT NOT NULL DEFAULT 0');
+    } catch (error) {
+      if (error.code !== 'ER_DUP_COLUMN_NAME') throw error;
+    }
+
     console.log('Group chat schema verified.');
   } catch (error) {
     console.error('Failed to verify group chat schema:', error);

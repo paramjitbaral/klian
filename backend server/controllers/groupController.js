@@ -3,7 +3,7 @@ const { query } = require('../config/db');
 // Helper to get full group info
 const getPopulatedGroup = async (groupId, userId) => {
   const rows = await query(
-    `SELECT g.id, g.name, g.description, g.avatar, g.created_at AS createdAt,
+    `SELECT g.id, g.name, g.description, g.avatar, g.only_admins_can_message AS onlyAdminsCanMessage, g.created_at AS createdAt,
             u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture,
             gm.notification_setting AS notificationSetting, gm.last_read_id AS lastReadId
        FROM \`groups\` g
@@ -144,7 +144,7 @@ const getGroupById = async (req, res) => {
 // @access  Private/Admin
 const updateGroup = async (req, res) => {
   try {
-    const { name, description, avatar } = req.body;
+    const { name, description, avatar, onlyAdminsCanMessage } = req.body;
     const currentUserId = req.user.id || req.user._id;
     
     const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [req.params.id, currentUserId]);
@@ -167,6 +167,10 @@ const updateGroup = async (req, res) => {
     if (avatar !== undefined) {
       updateFields.push('avatar = ?');
       queryParams.push(avatar);
+    }
+    if (onlyAdminsCanMessage !== undefined) {
+      updateFields.push('only_admins_can_message = ?');
+      queryParams.push(onlyAdminsCanMessage ? 1 : 0);
     }
 
     if (updateFields.length > 0) {

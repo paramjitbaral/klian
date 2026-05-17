@@ -333,19 +333,25 @@ export const MessagesPage: React.FC = () => {
                       </div>
                     ) : (
                       <div className="flex items-center space-x-1">
-                        {[(hasConversations ? ICONS.search : ICONS.messagesOff), ICONS.moreHorizontal].map((icon, idx) => (
+                        {hasConversations ? (
                           <button
-                            key={idx}
                             className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
                             type="button"
-                            onClick={idx === 0 && hasConversations ? () => {
+                            onClick={() => {
                               setIsSearchingMessages(true);
                               setMessageSearchQuery('');
-                            } : undefined}
+                            }}
                           >
-                            {icon}
+                            {React.cloneElement(ICONS.search as React.ReactElement<{ className?: string }>, { className: 'w-[20px] h-[20px]' })}
                           </button>
-                        ))}
+                        ) : (
+                          <button
+                            className="p-2 rounded-full text-slate-500 dark:text-slate-400 transition-colors cursor-default"
+                            type="button"
+                          >
+                            {React.cloneElement(ICONS.messagesOff as React.ReactElement<{ className?: string }>, { className: 'w-[20px] h-[20px]' })}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

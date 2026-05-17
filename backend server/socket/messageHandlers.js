@@ -98,7 +98,17 @@ const setupMessageHandlers = (io, socket, redis) => {
         socket.emit('message-error', { error: 'Sender not found for group message' });
         return;
       }
-      
+
+      // Verify if only admins can message
+      const groupRows = await query('SELECT only_admins_can_message FROM `groups` WHERE id = ? LIMIT 1', [groupId]);
+      if (groupRows.length && groupRows[0].only_admins_can_message === 1) {
+        const memberRows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, senderId]);
+        if (!memberRows.length || memberRows[0].role !== 'admin') {
+          socket.emit('message-error', { error: 'Only admins can message in this group' });
+          return;
+        }
+      }
+
       // Save message to DB
       const result = await query(
         'INSERT INTO group_messages (group_id, sender_id, content, type) VALUES (?, ?, ?, ?)',

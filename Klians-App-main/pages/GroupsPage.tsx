@@ -280,6 +280,9 @@ const GroupSettingsModal: React.FC<{
     const [notificationSetting, setNotificationSetting] = useState<NotificationSetting>('all');
     const [imageToCrop, setImageToCrop] = useState<string | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [onlyAdminsCanMessage, setOnlyAdminsCanMessage] = useState(
+        group.onlyAdminsCanMessage === true || group.onlyAdminsCanMessage === 1
+    );
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const groupAdmins = (group.members || []).filter((m: any) => m.role === 'admin').map((m: any) => m.user?.id || m.id);
@@ -331,13 +334,27 @@ const GroupSettingsModal: React.FC<{
     const handleSaveChanges = async () => {
         const groupId = group.id || (group as any)._id;
         try {
-            const res = await groupsAPI.updateNotificationSetting(String(groupId), notificationSetting);
-            // Since updateNotificationSetting only returns the setting, we still need to merge
-            // but for name/description updates we use the full response.
-            onUpdateGroup({ ...group, name: groupName, description: groupDescription, notificationSetting });
+            await groupsAPI.updateNotificationSetting(String(groupId), notificationSetting);
+            let updatedGroupData = { ...group, notificationSetting };
+            if (isAdmin) {
+                const res = await groupsAPI.updateGroup(String(groupId), {
+                    name: groupName,
+                    description: groupDescription,
+                    onlyAdminsCanMessage
+                });
+                updatedGroupData = { ...res.data, notificationSetting };
+            } else {
+                updatedGroupData = {
+                    ...group,
+                    name: groupName,
+                    description: groupDescription,
+                    notificationSetting
+                };
+            }
+            onUpdateGroup(updatedGroupData);
             onClose();
         } catch (error) {
-            console.error('Failed to update notification setting:', error);
+            console.error('Failed to save group settings:', error);
             alert('Failed to save settings. Please try again.');
         }
     };
@@ -484,6 +501,23 @@ const GroupSettingsModal: React.FC<{
                                 </div>
                             </div>
                         </div>
+                        
+                        {isAdmin && (
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <h3 className="text-md font-semibold mb-2">Permissions</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Set message permissions for members of this group.</p>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-medium text-slate-800 dark:text-slate-200">Only admins can message</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Restricts sending messages to group administrators.</p>
+                                    </div>
+                                    <ToggleSwitch
+                                        checked={onlyAdminsCanMessage}
+                                        onChange={() => setOnlyAdminsCanMessage(!onlyAdminsCanMessage)}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         {isAdmin && <div className="flex justify-end pt-4"><Button onClick={handleSaveChanges}>Save Changes</Button></div>}
                     </div>
@@ -632,7 +666,6 @@ const ChatWindow: React.FC<{
             </div>
         );
     }
-
     const handleSendMessage = (messageText: string, type: 'text' | 'image' | 'file' = 'text') => {
         if (!socket) return;
         const gId = group.id || (group as any)._id;
@@ -666,6 +699,7 @@ const ChatWindow: React.FC<{
         const mId = String((m as any).user?._id || (m as any).user?.id || m.id || (m as any)._id);
         return mId === String(user.id) && m.role === 'admin';
     });
+    const isOnlyAdminsCanMessageEnabled = group.onlyAdminsCanMessage === true || group.onlyAdminsCanMessage === 1;
 
     const handleUpdateGroupLocal = async (updatedData: any) => {
         const gId = group.id || (group as any)._id;
@@ -868,7 +902,16 @@ const ChatWindow: React.FC<{
                         <div ref={messagesEndRef} />
                     </div>
                 </div>
-                <ChatInput onSendMessage={handleSendMessage} />
+                {isOnlyAdminsCanMessageEnabled && !isAdmin ? (
+                    <div className="flex items-center justify-center gap-2 py-4 px-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-semibold select-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400 dark:text-slate-500">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                        Only administrators can send messages in this group
+                    </div>
+                ) : (
+                    <ChatInput onSendMessage={handleSendMessage} />
+                )}
             </div>
             <GroupMembersModal
                 isOpen={isMembersModalOpen}

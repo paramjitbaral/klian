@@ -90,6 +90,7 @@ export interface Group {
   createdAt?: string;
   notificationSetting?: 'all' | 'mentions' | 'off';
   unreadCount?: number;
+  onlyAdminsCanMessage?: boolean | number;
 }
 
 export interface Event {
