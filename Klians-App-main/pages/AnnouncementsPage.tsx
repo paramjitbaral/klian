@@ -196,74 +196,69 @@ export const AnnouncementsPage: React.FC = () => {
 
         {/* Create Modal */}
         {isTeacherOrAdmin && (
-          <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
-            <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg w-full max-w-md mx-auto">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">
-                Create Announcement
-              </h2>
-              <form onSubmit={handleCreateAnnouncement} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Announcement title"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Content
-                  </label>
-                  <textarea
-                    placeholder="Announcement content"
-                    value={formData.content}
-                    onChange={(e) =>
-                      setFormData({ ...formData, content: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={4}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Target Audience
-                  </label>
-                  <select
-                    value={formData.target}
-                    onChange={(e) =>
-                      setFormData({ ...formData, target: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="All">All</option>
-                    <option value="Student">Students</option>
-                    <option value="Teacher">Teachers</option>
-                  </select>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Creating...' : 'Create'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsCreateModalOpen(false)}
-                    className="flex-1 px-4 py-2 bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-slate-100 rounded-lg font-medium transition hover:bg-slate-400 dark:hover:bg-slate-500"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
+          <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Announcement">
+            <form onSubmit={handleCreateAnnouncement} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="Announcement title"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Content
+                </label>
+                <textarea
+                  placeholder="Announcement content"
+                  value={formData.content}
+                  onChange={(e) =>
+                    setFormData({ ...formData, content: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={4}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Target Audience
+                </label>
+                <select
+                  value={formData.target}
+                  onChange={(e) =>
+                    setFormData({ ...formData, target: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="All">All</option>
+                  <option value="Student">Students</option>
+                  <option value="Teacher">Teachers</option>
+                </select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="flex-1 px-4 py-2 bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-slate-100 rounded-lg font-medium transition hover:bg-slate-400 dark:hover:bg-slate-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </Modal>
         )}
 

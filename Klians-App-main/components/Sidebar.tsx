@@ -19,7 +19,7 @@ export const Sidebar: React.FC = () => {
     groupAddedNotifsCount
   } = useMessages();
   const location = useLocation();
-  const isCollapsedPage = location.pathname.startsWith('/messages') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/settings');
+  const isCollapsedPage = location.pathname.startsWith('/messages') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/settings') || location.pathname.startsWith('/mailbox');
 
   const totalUnreadCount = dmUnreadCount + groupUnreadCount + groupAddedNotifsCount;
   const hasChats = conversations.length > 0;

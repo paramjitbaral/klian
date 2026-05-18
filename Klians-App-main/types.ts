@@ -100,8 +100,9 @@ export interface Event {
   description: string;
   location: string;
   date: string;
-  creator: User;
-  attendees: string[]; // User IDs
+  creator?: User;
+  createdBy?: User;
+  attendees: (string | User | null)[]; // User IDs or populated Users
   isReminderSet?: boolean;
 }
 

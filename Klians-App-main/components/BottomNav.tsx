@@ -45,11 +45,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onSearchClick, onLinkClick
         {isTeacherOrAdmin ? (
           <NavItem to="/broadcast" icon={ICONS.broadcast} activeIcon={ICONS.broadcast} label="Broadcast" onClick={onLinkClick} />
         ) : (
-          <NavItem 
-            to="/profile" 
-            icon={<Avatar src={user.avatar} alt={user.name} size="xs" className="opacity-80 transition-all duration-200 hover:opacity-100" />} 
-            activeIcon={<Avatar src={user.avatar} alt={user.name} size="xs" className="ring-[2px] ring-brand-gradient-from ring-offset-2 dark:ring-offset-slate-800 transition-all duration-200" />} 
-            label="Profile" 
+          <NavItem
+            to="/profile"
+            icon={<Avatar src={user.avatar} alt={user.name} size="xs" className="opacity-80 transition-all duration-200 hover:opacity-100" />}
+            activeIcon={<Avatar src={user.avatar} alt={user.name} size="xs" className="ring-[2px] ring-brand-gradient-from ring-offset-2 dark:ring-offset-slate-800 transition-all duration-200" />}
+            label="Profile"
             onClick={onLinkClick}
           />
         )}

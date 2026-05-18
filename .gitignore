@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 *.env
+client_secret_*.json
 
 # Dependencies
 node_modules/

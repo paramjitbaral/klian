@@ -30,13 +30,17 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: 'Inter', 'SF Pro Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background-color: var(--slate-50);
   color: var(--slate-900);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 @keyframes shake-red {

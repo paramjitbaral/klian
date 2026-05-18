@@ -23,9 +23,11 @@ const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-
 export const EventCard: React.FC<EventCardProps> = ({ event, isReminderSet, onToggleReminder, onDelete, onEdit }) => {
   const { user } = useAuth();
   const [isAttending, setIsAttending] = useState(
-    user && event.attendees ? event.attendees.some(attendee => 
-      (typeof attendee === 'string' ? attendee === user.id : attendee._id === user.id)
-    ) : false
+    user && event.attendees ? event.attendees.some(attendee => {
+      if (!attendee) return false;
+      if (typeof attendee === 'string') return attendee === user.id;
+      return (attendee._id || attendee.id) === user.id;
+    }) : false
   );
   const [isLoadingAttend, setIsLoadingAttend] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -33,8 +35,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isReminderSet, onTo
   const [showMenu, setShowMenu] = useState(false);
   const [isLoadingReminder, setIsLoadingReminder] = useState(false);
   
-  const eventAttendees = event.attendees || [];
-  const creatorId = event.creator?._id || event.creator || event.createdBy?._id || event.createdBy;
+  const eventAttendees = (event.attendees || []).filter((attendee): attendee is string | User => attendee !== null && attendee !== undefined);
+  const creatorId = event.creator?._id || event.creator?.id || event.createdBy?._id || event.createdBy?.id;
   const currentUserId = user?.id || user?._id;
   
   const isCreator = !!(
@@ -46,9 +48,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isReminderSet, onTo
   useEffect(() => {
     if (!user) return;
     setIsAttending(
-      event.attendees ? event.attendees.some(attendee => 
-        (typeof attendee === 'string' ? attendee === user.id : attendee._id === user.id)
-      ) : false
+      event.attendees ? event.attendees.some(attendee => {
+        if (!attendee) return false;
+        if (typeof attendee === 'string') return attendee === user.id;
+        return (attendee._id || attendee.id) === user.id;
+      }) : false
     );
   }, [event.attendees, user]);
   

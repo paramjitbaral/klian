@@ -282,8 +282,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
                                     <div
                                         ref={textareaRef}
                                         contentEditable
-                                        className="w-full bg-transparent dark:text-slate-100 focus:outline-none min-h-[120px] text-[15px] leading-relaxed cursor-text empty:before:content-[attr(placeholder)] empty:before:text-slate-400 dark:empty:before:text-slate-500 empty:before:pointer-events-none"
-                                        placeholder={`Write a caption...`}
+                                        className="w-full bg-transparent dark:text-slate-100 focus:outline-none min-h-[120px] text-[15px] leading-relaxed cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 dark:empty:before:text-slate-500 empty:before:pointer-events-none"
+                                        data-placeholder={`Write a caption...`}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && e.ctrlKey) handlePost();
                                         }}

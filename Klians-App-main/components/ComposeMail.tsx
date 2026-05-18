@@ -79,6 +79,11 @@ const RecipientInput: React.FC<{
                     onKeyDown={handleKeyDown}
                     onFocus={onFocus}
                     onBlur={() => {
+                        const val = inputValue.trim();
+                        if (val && !recipients.includes(val)) {
+                            setRecipients([...recipients, val]);
+                            setInputValue('');
+                        }
                         // Small delay to allow clicking Quick Select buttons
                         setTimeout(() => onBlur?.(), 200);
                     }}
@@ -240,7 +245,7 @@ export const ComposeMail: React.FC<ComposeMailProps> = ({ windowState, onWindowS
                                 </div>
                                 
                                 {/* Minimalist Quick Select - ONLY visible on focus */}
-                                {(user?.role === 'Teacher' || user?.role === 'Admin' || user?.role === 'faculty') && isToFocused && (
+                                {(user?.role === 'Teacher' || user?.role === 'Admin') && isToFocused && (
                                     <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-1 duration-200 pr-2 self-center">
                                         <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
                                         <button
