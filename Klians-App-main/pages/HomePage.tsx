@@ -348,7 +348,7 @@ export const HomePage: React.FC = () => {
     );
   }
 
-  const canPost = user.role === Role.TEACHER || user.role === Role.DEAN || user.role === Role.ADMIN || user.role?.toLowerCase() === 'dean';
+  const canPost = true;
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   return (

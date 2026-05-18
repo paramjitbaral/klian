@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setDropdownVisible] = useState(false);
     const [isNotificationsVisible, setNotificationsVisible] = useState(false);
-    
+
     // Use props if available, otherwise fallback to local state (for desktop)
     const [isAnnouncementsVisibleLocal, setAnnouncementsVisibleLocal] = useState(false);
     const isAnnouncementsVisible = isAnnouncementsOpen ?? isAnnouncementsVisibleLocal;
@@ -39,13 +39,13 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const [unreadCount, setUnreadCount] = useState(0);
     const [broadcastUnreadCount, setBroadcastUnreadCount] = useState(0);
     const { socket } = useSocket();
-    const { 
-        unreadCount: dmUnreadCount, 
-        groupUnreadCount, 
+    const {
+        unreadCount: dmUnreadCount,
+        groupUnreadCount,
         groupAddedNotifsCount,
-        refreshGroupCounts 
+        refreshGroupCounts
     } = useMessages();
-    
+
     const totalMessageCount = dmUnreadCount + groupUnreadCount + groupAddedNotifsCount;
     const shouldBellRing = unreadCount > 0 || broadcastUnreadCount > 0;
 
@@ -81,9 +81,9 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
 
         const handleDeleteNotification = (data: { type?: string; groupId?: number | string; id?: number | string }) => {
             setNotifications(prev => {
-                const toRemove = prev.find(n => 
-                    data.id ? String(n.id) === String(data.id) : 
-                    (data.type && data.groupId && n.type === data.type && String(n.groupId) === String(data.groupId))
+                const toRemove = prev.find(n =>
+                    data.id ? String(n.id) === String(data.id) :
+                        (data.type && data.groupId && n.type === data.type && String(n.groupId) === String(data.groupId))
                 );
                 if (toRemove) {
                     if (!toRemove.isRead) setUnreadCount(c => Math.max(0, c - 1));
@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
         const handleNewAnnouncement = (data: any) => {
             const target = (data?.target || 'All').toLowerCase();
             const role = user?.role?.toLowerCase() || '';
-            let isVisible = role === 'admin' || 
+            let isVisible = role === 'admin' ||
                 (role === 'teacher' && ['all', 'all users', 'teacher', 'teachers'].includes(target)) ||
                 (['all', 'all users', 'student', 'students'].includes(target));
 
@@ -117,7 +117,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
         socket.on('delete_notification', handleDeleteNotification);
         socket.on('update_notification', handleUpdateNotification);
         socket.on('announcement-created', handleNewAnnouncement);
-        
+
         // Group synchronization
         socket.on('new_group_message', () => refreshGroupCounts());
         socket.on('group_added_to', () => refreshGroupCounts());
@@ -190,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
                 setNotificationsVisible(false);
             }
-            if (announcementsRef.current && !announcementsRef.current.contains(event.target as Node) && 
+            if (announcementsRef.current && !announcementsRef.current.contains(event.target as Node) &&
                 mobileAnnouncementsRef.current && !mobileAnnouncementsRef.current.contains(event.target as Node)) {
                 setAnnouncementsVisible(false);
             }

@@ -14,10 +14,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ user, onComposeC
     const videoInputRef = React.useRef<HTMLInputElement>(null);
     const docInputRef = React.useRef<HTMLInputElement>(null);
 
-    const canPost = user.role === Role.TEACHER || user.role === Role.DEAN || user.role === Role.ADMIN || user.role?.toLowerCase() === 'dean';
-    if (!canPost) {
-        return null;
-    }
+    const canPost = true;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'document') => {
         const file = e.target.files?.[0];

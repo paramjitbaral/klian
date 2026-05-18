@@ -520,8 +520,13 @@ export const ProfilePage: React.FC = () => {
     }, [userId, loggedInUser]);
 
     const userToDisplay = profileUser;
-    const isOwnProfile = userToDisplay?._id === (loggedInUser as any)?._id || userToDisplay?._id === (loggedInUser as any)?.id || userToDisplay?.id === (loggedInUser as any)?.id;
+    const isOwnProfile = !userId || userToDisplay?._id === (loggedInUser as any)?._id || userToDisplay?._id === (loggedInUser as any)?.id || userToDisplay?.id === (loggedInUser as any)?.id;
     
+    useEffect(() => {
+        if (!isOwnProfile && activeTab === 'saved') {
+            setActiveTab('posts');
+        }
+    }, [isOwnProfile, activeTab]);
     useEffect(() => {
         const fetchUserPosts = async () => {
             if (!userToDisplay?.id && !userToDisplay?._id) return;

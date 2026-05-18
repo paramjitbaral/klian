@@ -126,6 +126,25 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
         return false;
     });
 
+    const menuRef = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!showOptionsMenu) return;
+
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setShowOptionsMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [showOptionsMenu]);
+
     const handleSaveToggle = () => {
         if (!post.id || !user) return;
         setIsSaved(prev => {
@@ -331,7 +350,7 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
 
                     {/* More Options Button (Only for Owners or Privileged users) */}
                     {canDelete && (
-                        <div className="relative">
+                        <div ref={menuRef} className="relative">
                             <button
                                 onClick={() => setShowOptionsMenu(!showOptionsMenu)}
                                 className="p-2 -mr-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
