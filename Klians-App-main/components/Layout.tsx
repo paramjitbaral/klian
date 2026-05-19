@@ -72,21 +72,32 @@ export const Layout: React.FC = () => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
 
-    // Pull-to-refresh init
+    // Pull-to-refresh init (checking whichever container is actually scrolling on the page)
     startYRef.current = e.targetTouches[0].clientY;
-    isAtTopRef.current = mainRef.current ? mainRef.current.scrollTop === 0 : true;
+    
+    let scrollTop = 0;
+    const homeScroll = document.querySelector('.lg\\:col-span-8.overflow-y-auto');
+    if (homeScroll) {
+      scrollTop = homeScroll.scrollTop;
+    } else if (mainRef.current) {
+      scrollTop = mainRef.current.scrollTop;
+    }
+    isAtTopRef.current = scrollTop === 0;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
 
     // Pull-to-refresh logic
-    if (isAtTopRef.current && !isRefreshing && window.innerWidth < 768) {
+    if (isAtTopRef.current && !isRefreshing && window.innerWidth < 768 && touchStart) {
       const currentY = e.targetTouches[0].clientY;
       const diff = currentY - startYRef.current;
-      if (diff > 0) {
-        // Apply tighter elastic resistance
-        setPullY(Math.min(diff * 0.3, 70));
+      const diffX = Math.abs(e.targetTouches[0].clientX - touchStart);
+      
+      // Only pull down if vertical drag exceeds horizontal drag to prevent swipe conflicts
+      if (diff > 0 && diff > diffX * 1.5) {
+        // Elastic resistance for a deliberate "hard drag"
+        setPullY(Math.min(diff * 0.25, 95));
       }
     }
   };
@@ -94,8 +105,8 @@ export const Layout: React.FC = () => {
   const handleTouchEnd = () => {
     if (!touchStart || window.innerWidth >= 768) return;
 
-    // Pull-to-refresh check
-    if (pullY > 55 && !isRefreshing) {
+    // Pull-to-refresh check (firm 80px threshold to prevent accidental activations)
+    if (pullY >= 80 && !isRefreshing) {
       triggerRefresh();
     } else {
       setPullY(0);
@@ -167,8 +178,8 @@ export const Layout: React.FC = () => {
               height: pullY
             }}
           >
-            <div className={`p-2 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 transition-all duration-200 ${pullY > 50 ? 'scale-110 opacity-100' : 'scale-90 opacity-60'}`}>
-              <svg className={`w-5 h-5 text-blue-500 ${isRefreshing ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <div className={`p-2 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-100 dark:border-slate-700 transition-all duration-200 ${pullY >= 80 ? 'scale-115 ring-2 ring-blue-500 bg-blue-50 dark:bg-slate-700 opacity-100' : 'scale-95 opacity-80'}`}>
+              <svg className={`w-5 h-5 text-blue-500 transition-all ${pullY >= 80 ? 'rotate-180 scale-110' : ''} ${isRefreshing ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </div>

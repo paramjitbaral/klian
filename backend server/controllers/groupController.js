@@ -204,13 +204,32 @@ const updateGroup = async (req, res) => {
 const deleteGroup = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
+    const groupId = req.params.id;
     
-    const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [req.params.id, currentUserId]);
+    const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
     if (!rows.length || rows[0].role !== 'admin') {
       return res.status(403).json({ message: 'User not authorized to delete this group' });
     }
+
+    // 1. Fetch all members before deleting to clean up UI/notifications live
+    const members = await query('SELECT user_id FROM group_members WHERE group_id = ?', [groupId]);
+    const memberIds = members.map(m => m.user_id);
     
-    await query('DELETE FROM `groups` WHERE id = ?', [req.params.id]);
+    // 2. Delete the group (cascades deletes group_members and group_messages in SQL)
+    await query('DELETE FROM `groups` WHERE id = ?', [groupId]);
+
+    // 3. Delete all group add notifications associated with this group
+    await query('DELETE FROM notifications WHERE type = "GROUP_ADDED" AND group_id = ?', [groupId]);
+
+    // 4. Emit live socket events to clear UI notifications instantly for everyone
+    const io = req.app.get('io');
+    if (io) {
+      memberIds.forEach(uid => {
+        io.to(`user:${uid}`).emit('delete_notification', { type: 'GROUP_ADDED', groupId: groupId });
+        io.to(`user:${uid}`).emit('group_deleted', groupId);
+      });
+    }
+    
     res.json({ message: 'Group removed' });
   } catch (error) {
     console.error(error);
@@ -336,21 +355,26 @@ const addMembers = async (req, res) => {
 
       await query('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [groupId, uid, 'member']);
       
-      // Notify the user
+      // Notify the user with currentUserId as actor_id
       const notifResult = await query(
-        'INSERT INTO notifications (user_id, type, content, group_id, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())',
-        [uid, 'GROUP_ADDED', `You were added to group: ${groupName}`, groupId]
+        'INSERT INTO notifications (user_id, actor_id, type, content, group_id, created_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())',
+        [uid, currentUserId, 'GROUP_ADDED', `added you to the group "${groupName}"`, groupId]
       );
+
+      // Fetch actor info to emit complete notification object
+      const actorRows = await query('SELECT id, name, profile_picture AS avatar FROM users WHERE id = ?', [currentUserId]);
+      const actor = actorRows.length ? { id: actorRows[0].id, name: actorRows[0].name, avatar: actorRows[0].avatar } : null;
 
       // Emit real-time notification
       if (io) {
         io.to(`user:${uid}`).emit('new_notification', {
           id: notifResult.insertId,
           type: 'GROUP_ADDED',
-          content: `You were added to group: ${groupName}`,
+          content: `added you to the group "${groupName}"`,
           isRead: false,
           createdAt: new Date(),
-          groupId: groupId
+          groupId: groupId,
+          actor: actor
         });
       }
     }));

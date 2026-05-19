@@ -378,11 +378,11 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="h-[calc(100vh-4rem)] max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden px-6 relative items-start">
+      <div className="lg:h-[calc(100vh-4rem)] max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:overflow-hidden px-6 relative items-start">
         {/* Center Feed - Scrollable without scrollbar */}
         <div 
             ref={scrollContainerRef}
-            className="lg:col-span-8 h-full overflow-y-auto scrollbar-hide py-4 md:py-8"
+            className="lg:col-span-8 h-full lg:overflow-y-auto scrollbar-hide py-4 md:py-8"
         >
           {canPost && (
             <CreatePostCard

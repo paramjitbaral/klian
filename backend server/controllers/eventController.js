@@ -306,7 +306,14 @@ const toggleEventReminder = async (req, res) => {
     try {
       if (shouldEnable) {
         if (!existing.length) {
-          await query('INSERT INTO event_reminders (event_id, user_id) VALUES (?, ?)', [eventId, currentUserId]);
+          const eventDate = new Date(eventRows[0].date);
+          const now = new Date();
+          if (eventDate <= now) {
+            // Event has already passed, insert reminder already marked as sent/processed
+            await query('INSERT INTO event_reminders (event_id, user_id, sent_at) VALUES (?, ?, UTC_TIMESTAMP())', [eventId, currentUserId]);
+          } else {
+            await query('INSERT INTO event_reminders (event_id, user_id) VALUES (?, ?)', [eventId, currentUserId]);
+          }
         }
       } else if (existing.length) {
         await query('DELETE FROM event_reminders WHERE event_id = ? AND user_id = ?', [eventId, currentUserId]);

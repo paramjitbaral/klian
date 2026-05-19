@@ -160,6 +160,11 @@ async function bootstrap() {
     await initPool();
     await ensureGroupChatSchema();
 
+    // Clean up any orphan group add notifications (self-healing db routine)
+    const { query } = require('./config/db');
+    await query("DELETE FROM notifications WHERE type = 'GROUP_ADDED' AND group_id NOT IN (SELECT id FROM `groups`)");
+    console.log('Orphan group add notifications cleaned up.');
+
     if (process.env.USE_REDIS === 'true') {
       redis = getRedis();
     } else {
