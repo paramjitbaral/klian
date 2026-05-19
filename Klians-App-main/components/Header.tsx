@@ -219,164 +219,167 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
     const SearchIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 
     return (
-        <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md fixed md:sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800">
-            {/* Mobile Header */}
-            <div className="md:hidden px-4 h-14 grid grid-cols-3 items-center">
-                {/* Left: Combined Activity (Mobile) */}
-                <div className="relative justify-self-start">
-                    <button
-                        ref={mobileAnnouncementsRef}
-                        className={`p-2 -ml-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative ${isAnnouncementsVisible ? 'bg-slate-100 dark:bg-slate-700/60' : ''}`}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setAnnouncementsVisible(!isAnnouncementsVisible);
-                        }}
-                    >
-                        {React.cloneElement(ICONS.bell, { className: "h-[24px] w-[24px]" })}
-                        {(unreadCount > 0 || broadcastUnreadCount > 0) && (
-                            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
-                        )}
-                    </button>
-                </div>
-
-                {isAnnouncementsVisible && (
-                    <div className="md:hidden fixed inset-x-0 top-14 bottom-16 bg-black/20 z-50 animate-in fade-in" onClick={() => setAnnouncementsVisible(false)}>
-                        <div className="absolute top-0 left-0 w-full h-full overflow-y-auto bg-slate-50 dark:bg-slate-900 shadow-xl border-t border-slate-200 dark:border-slate-700 pb-20" onClick={e => e.stopPropagation()}>
-                            <NotificationsDropdown
-                                notifications={notifications}
-                                onClose={() => setAnnouncementsVisible(false)}
-                                onMarkAllRead={handleMarkAllRead}
-                                onDelete={handleDeleteNotification}
-                                className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
-                            />
-                            <div className="h-2 bg-slate-100 dark:bg-slate-900 w-full border-y border-slate-200 dark:border-slate-700" />
-                            <AnnouncementsDropdown
-                                isOpen={isAnnouncementsVisible}
-                                onClose={() => setAnnouncementsVisible(false)}
-                                className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* Center: Logo */}
-                <div className="flex justify-center">
-                    <Link to="/home" className="text-xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
-                        KLIAS
-                    </Link>
-                </div>
-
-                {/* Right: Actions */}
-                <div className="flex justify-end items-center gap-1">
-                    <Link to="/messages" className="p-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative">
-                        {React.cloneElement(ICONS.messages, { className: "h-[24px] w-[24px]" })}
-                        {totalMessageCount > 0 && (
-                            <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 animate-in zoom-in duration-300">
-                                {totalMessageCount > 9 ? '9+' : totalMessageCount}
-                            </span>
-                        )}
-                    </Link>
-                    {(user.role === Role.TEACHER || user.role === Role.ADMIN) && (
-                        <Link to="/profile" className="ml-1 active:scale-90 transition-all duration-150">
-                            <Avatar src={user.avatar} alt={user.name} size="xs" />
-                        </Link>
-                    )}
-                </div>
-            </div>
-
-            {/* Desktop Header */}
-            <div className="max-w-7xl mx-auto px-4 hidden md:flex items-center justify-between gap-6 h-16">
-                {/* Left: Brand */}
-                <div className="flex-shrink-0">
-                    <Link to="/home" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to">
-                        KLIAS
-                    </Link>
-                </div>
-
-                {/* Center: Search */}
-                <div className="flex-1 max-w-xl relative" ref={searchRef}>
-                    <Input
-                        placeholder="Search KLIAS..."
-                        icon={SearchIcon}
-                        className="bg-slate-100 dark:bg-slate-700 !rounded-full"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        onFocus={() => setDropdownVisible(true)}
-                    />
-                    {isDropdownVisible && (
-                        <SearchResultsDropdown
-                            searchTerm={searchTerm}
-                            onClose={() => {
-                                setDropdownVisible(false);
-                                setSearchTerm('');
-                            }}
-                        />
-                    )}
-                </div>
-
-                {/* Right: Actions */}
-                <div className="flex items-center space-x-6">
-                    <div ref={announcementsRef} className="relative">
+        <>
+            <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md fixed md:sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800">
+                {/* Mobile Header */}
+                <div className="md:hidden px-4 h-14 grid grid-cols-3 items-center">
+                    {/* Left: Combined Activity (Mobile) */}
+                    <div className="relative justify-self-start">
                         <button
-                            onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
-                            className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${broadcastUnreadCount > 0 ? 'bell-ring' : ''}`}
+                            ref={mobileAnnouncementsRef}
+                            className={`p-2 -ml-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative ${isAnnouncementsVisible ? 'bg-slate-100 dark:bg-slate-700/60' : ''}`}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setAnnouncementsVisible(!isAnnouncementsVisible);
+                            }}
                         >
-                            {ICONS.announcement}
-                            {broadcastUnreadCount > 0 && (
-                                <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
-                                    {broadcastUnreadCount > 9 ? '9+' : broadcastUnreadCount}
-                                </span>
+                            {React.cloneElement(ICONS.bell, { className: "h-[24px] w-[24px]" })}
+                            {(unreadCount > 0 || broadcastUnreadCount > 0) && (
+                                <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800"></span>
                             )}
                         </button>
-                        {isAnnouncementsVisible && (
-                            <AnnouncementsDropdown
-                                isOpen={isAnnouncementsVisible}
+                    </div>
+
+                    {/* Center: Logo */}
+                    <div className="flex justify-center">
+                        <Link to="/home" className="text-xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
+                            KLIAS
+                        </Link>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex justify-end items-center gap-1">
+                        <Link to="/messages" className="p-2 rounded-full text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 active:scale-90 transition-all duration-150 relative">
+                            {React.cloneElement(ICONS.messages, { className: "h-[24px] w-[24px]" })}
+                            {totalMessageCount > 0 && (
+                                <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 animate-in zoom-in duration-300">
+                                    {totalMessageCount > 9 ? '9+' : totalMessageCount}
+                                </span>
+                            )}
+                        </Link>
+                        {(user.role === Role.TEACHER || user.role === Role.ADMIN) && (
+                            <Link to="/profile" className="ml-1 active:scale-90 transition-all duration-150">
+                                <Avatar src={user.avatar} alt={user.name} size="xs" />
+                            </Link>
+                        )}
+                    </div>
+                </div>
+
+                {/* Desktop Header */}
+                <div className="max-w-7xl mx-auto px-4 hidden md:flex items-center justify-between gap-6 h-16">
+                    {/* Left: Brand */}
+                    <div className="flex-shrink-0">
+                        <Link to="/home" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to">
+                            KLIAS
+                        </Link>
+                    </div>
+
+                    {/* Center: Search */}
+                    <div className="flex-1 max-w-xl relative" ref={searchRef}>
+                        <Input
+                            placeholder="Search KLIAS..."
+                            icon={SearchIcon}
+                            className="bg-slate-100 dark:bg-slate-700 !rounded-full"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onFocus={() => setDropdownVisible(true)}
+                        />
+                        {isDropdownVisible && (
+                            <SearchResultsDropdown
+                                searchTerm={searchTerm}
                                 onClose={() => {
-                                    setAnnouncementsVisible(false);
-                                    setBroadcastUnreadCount(0);
+                                    setDropdownVisible(false);
+                                    setSearchTerm('');
                                 }}
                             />
                         )}
                     </div>
 
-                    <div ref={notificationsRef} className="relative">
-                        <button
-                            onClick={() => {
-                                setNotificationsVisible(!isNotificationsVisible);
-                            }}
-                            className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${shouldBellRing ? 'bell-ring' : ''}`}
-                        >
-                            {ICONS.bell}
-                            {unreadCount > 0 && (
-                                <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
-                                    {unreadCount > 9 ? '9+' : unreadCount}
-                                </span>
+                    {/* Right: Actions */}
+                    <div className="flex items-center space-x-6">
+                        <div ref={announcementsRef} className="relative">
+                            <button
+                                onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
+                                className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${broadcastUnreadCount > 0 ? 'bell-ring' : ''}`}
+                            >
+                                {ICONS.announcement}
+                                {broadcastUnreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
+                                        {broadcastUnreadCount > 9 ? '9+' : broadcastUnreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            {isAnnouncementsVisible && (
+                                <AnnouncementsDropdown
+                                    isOpen={isAnnouncementsVisible}
+                                    onClose={() => {
+                                        setAnnouncementsVisible(false);
+                                        setBroadcastUnreadCount(0);
+                                    }}
+                                />
                             )}
-                        </button>
-                        {isNotificationsVisible && (
-                            <NotificationsDropdown
-                                notifications={notifications}
-                                onClose={() => setNotificationsVisible(false)}
-                                onMarkAllRead={handleMarkAllRead}
-                                onDelete={handleDeleteNotification}
-                            />
-                        )}
-                    </div>
-
-                    <button onClick={toggleTheme} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
-                        {theme === Theme.LIGHT ? ICONS.moon : ICONS.sun}
-                    </button>
-
-                    <Link to="/profile" className="flex items-center space-x-3">
-                        <Avatar src={user.avatar} alt={user.name} size="md" />
-                        <div>
-                            <p className="font-semibold text-slate-800 dark:text-slate-100">{user.name}</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
                         </div>
-                    </Link>
+
+                        <div ref={notificationsRef} className="relative">
+                            <button
+                                onClick={() => {
+                                    setNotificationsVisible(!isNotificationsVisible);
+                                }}
+                                className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${shouldBellRing ? 'bell-ring' : ''}`}
+                            >
+                                {ICONS.bell}
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 h-4 min-w-[16px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 animate-in zoom-in duration-300">
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            {isNotificationsVisible && (
+                                <NotificationsDropdown
+                                    notifications={notifications}
+                                    onClose={() => setNotificationsVisible(false)}
+                                    onMarkAllRead={handleMarkAllRead}
+                                    onDelete={handleDeleteNotification}
+                                />
+                            )}
+                        </div>
+
+                        <button onClick={toggleTheme} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                            {theme === Theme.LIGHT ? ICONS.moon : ICONS.sun}
+                        </button>
+
+                        <Link to="/profile" className="flex items-center space-x-3">
+                            <Avatar src={user.avatar} alt={user.name} size="md" />
+                            <div>
+                                <p className="font-semibold text-slate-800 dark:text-slate-100">{user.name}</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
-            </div>
-        </header>
+            </header>
+
+            {/* Mobile Drawer */}
+            {isAnnouncementsVisible && (
+                <div className="md:hidden fixed inset-x-0 top-14 bottom-16 bg-black/20 z-[90] animate-in fade-in" onClick={() => setAnnouncementsVisible(false)}>
+                    <div className="absolute top-0 left-0 w-full h-full overflow-y-auto bg-slate-50 dark:bg-slate-900 shadow-xl border-t border-slate-200 dark:border-slate-700 pb-20" onClick={e => e.stopPropagation()}>
+                        <NotificationsDropdown
+                            notifications={notifications}
+                            onClose={() => setAnnouncementsVisible(false)}
+                            onMarkAllRead={handleMarkAllRead}
+                            onDelete={handleDeleteNotification}
+                            className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
+                        />
+                        <div className="h-2 bg-slate-100 dark:bg-slate-900 w-full border-y border-slate-200 dark:border-slate-700" />
+                        <AnnouncementsDropdown
+                            isOpen={isAnnouncementsVisible}
+                            onClose={() => setAnnouncementsVisible(false)}
+                            className="w-full flex flex-col shadow-none border-none rounded-none bg-white dark:bg-slate-800"
+                        />
+                    </div>
+                </div>
+            )}
+        </>
     );
 };

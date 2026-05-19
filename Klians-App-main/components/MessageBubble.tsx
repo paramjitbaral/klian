@@ -155,7 +155,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
                 </div>
               </div>
             ) : message.type === 'video' ? (
-              <div className="relative bg-black rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-w-sm">
+              <div className="relative bg-black rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-w-[250px] xs:max-w-[280px] sm:max-w-sm">
                 <video
                   src={getFullUrl(message.content || message.text)}
                   controls
@@ -166,7 +166,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
                 </div>
               </div>
             ) : message.type === 'file' ? (
-              <div className="p-4 flex items-center gap-4 min-w-[280px] bg-white dark:bg-slate-900 border-l-4 border-blue-500 shadow-sm">
+              <div className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 w-[240px] sm:w-[280px] max-w-full bg-white dark:bg-slate-900 border-l-4 border-blue-500 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500 shadow-inner">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -190,7 +190,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
                 </div>
               </div>
             ) : isPostMessage && post ? (
-              <div className="flex flex-col w-full max-w-sm bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden group">
+              <div className="flex flex-col w-full max-w-[250px] xs:max-w-[280px] sm:max-w-sm bg-white dark:bg-slate-900 shadow-md border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden group">
                 <div className="p-3 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <Avatar src={getFullUrl(postAuthor?.profilePicture)} alt={postAuthor?.name || 'User'} size="xs" />

@@ -112,9 +112,17 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
     if (searchTerm.trim().length >= 1) {
       if (isLoading) {
         return (
-          <div className="flex flex-col items-center justify-center p-12 gap-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-red-500 border-t-transparent"></div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Searching...</p>
+          <div className="space-y-4 animate-pulse">
+            <h3 className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16 mb-4" />
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
+                  <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-1/3" />
+                </div>
+              </div>
+            ))}
           </div>
         );
       }

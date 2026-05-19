@@ -1074,8 +1074,20 @@ export const MailboxPage: React.FC = () => {
 
                                 <main className="flex-1 overflow-y-auto" onScroll={handleScroll}>
                                     {loading && filteredEmails.length === 0 ? (
-                                        <div className="text-center p-8 text-slate-500 dark:text-slate-400">
-                                            <p>Loading emails...</p>
+                                        <div className="divide-y divide-slate-100 dark:divide-slate-800/50 animate-pulse">
+                                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                                <div key={i} className="p-4 flex items-start space-x-4">
+                                                    <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
+                                                            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-12" />
+                                                        </div>
+                                                        <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+                                                        <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-3/4" />
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     ) : filteredEmails.length > 0 ? (
                                         <ul className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1094,10 +1106,17 @@ export const MailboxPage: React.FC = () => {
                                                 />
                                             ))}
                                             {loadingMore && (
-                                                <li className="p-6 text-center text-slate-400 dark:text-slate-500 flex items-center justify-center gap-2 border-t border-slate-100 dark:border-slate-800/50">
-                                                    <span className="animate-spin rounded-full h-4.5 w-4.5 border-2 border-red-500 border-t-transparent"></span>
-                                                    <span className="text-xs font-semibold">Loading more emails...</span>
-                                                </li>
+                                                <div className="p-4 flex items-start space-x-4 animate-pulse border-t border-slate-100 dark:border-slate-800/50">
+                                                    <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
+                                                            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-12" />
+                                                        </div>
+                                                        <div className="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+                                                        <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-3/4" />
+                                                    </div>
+                                                </div>
                                             )}
                                         </ul>
                                     ) : (

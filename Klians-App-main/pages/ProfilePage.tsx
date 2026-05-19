@@ -626,7 +626,52 @@ export const ProfilePage: React.FC = () => {
         fetchSavedPosts();
     }, [activeTab, loggedInUser]);
 
-    if (loading) return <div className="p-8 text-center animate-pulse">Loading Profile...</div>;
+    if (loading) {
+        return (
+            <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 animate-pulse">
+                {/* Banner Skeleton */}
+                <div className="h-48 md:h-64 bg-slate-200 dark:bg-slate-700 rounded-2xl w-full" />
+                
+                {/* Profile Details Header Skeleton */}
+                <div className="relative -mt-16 px-6 pb-6 flex flex-col sm:flex-row items-center sm:items-end justify-between border-b border-slate-200 dark:border-slate-800 gap-4">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-left">
+                        {/* Avatar circle */}
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white dark:border-slate-800 bg-slate-200 dark:bg-slate-700 shadow-md" />
+                        <div className="space-y-2">
+                            <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-40" />
+                            <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-24" />
+                        </div>
+                    </div>
+                    {/* Action button */}
+                    <div className="h-10 w-28 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+                </div>
+
+                {/* Tabs Skeleton */}
+                <div className="flex border-b border-slate-200 dark:border-slate-800 gap-6 py-2">
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" />
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" />
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" />
+                </div>
+
+                {/* Posts/Content Grid Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full" />
+                                <div className="space-y-1.5 flex-1">
+                                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3" />
+                                    <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-1/4" />
+                                </div>
+                            </div>
+                            <div className="h-20 bg-slate-100 dark:bg-slate-800/50 rounded-xl w-full" />
+                            <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded-xl w-24" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
     if (!profileUser) return <div className="p-8 text-center">User not found</div>;
 
     const renderContent = () => {

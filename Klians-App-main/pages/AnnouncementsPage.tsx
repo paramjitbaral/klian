@@ -272,8 +272,28 @@ export const AnnouncementsPage: React.FC = () => {
         {/* Announcements List */}
         <div className="space-y-3 sm:space-y-4">
           {loading ? (
-            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-              Loading announcements...
+            <div className="space-y-4 animate-pulse">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
+                      <div className="h-3 bg-slate-100 dark:bg-slate-800/50 rounded w-1/5" />
+                    </div>
+                  </div>
+                  <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-100 dark:bg-slate-800/40 rounded w-full" />
+                    <div className="h-4 bg-slate-100 dark:bg-slate-800/40 rounded w-full" />
+                    <div className="h-4 bg-slate-100 dark:bg-slate-800/40 rounded w-2/3" />
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16" />
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-12" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : announcements.length === 0 ? (
             <div className="text-center py-8 text-slate-500 dark:text-slate-400">

@@ -685,8 +685,9 @@ const ChatWindow: React.FC<{
     group: Group | undefined,
     allUsers: User[],
     onUpdateGroup: (updatedGroup: Group) => void,
-    onSetMessageToDelete: (details: { groupId: string; msgId: string }) => void
-}> = ({ group, allUsers, onUpdateGroup, onSetMessageToDelete }) => {
+    onSetMessageToDelete: (details: { groupId: string; msgId: string }) => void,
+    onCloseChat: () => void
+}> = ({ group, allUsers, onUpdateGroup, onSetMessageToDelete, onCloseChat }) => {
     const { user } = useAuth();
     const { socket } = useSocket();
     const navigate = useNavigate();
@@ -799,11 +800,11 @@ const ChatWindow: React.FC<{
                 <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 h-[65px] flex-shrink-0">
                     <div className="flex items-center gap-4 min-w-0 flex-shrink-0">
                         <button
-                            onClick={() => navigate('/groups')}
-                            className="md:hidden p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            onClick={onCloseChat}
+                            className="md:hidden p-1.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                             </svg>
                         </button>
                         <GroupAvatarIcon src={group.avatar} name={group.name} />
@@ -1457,8 +1458,63 @@ export const GroupsPage: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-white dark:bg-slate-900 h-full">
-                <div className="h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+            <div className="h-full flex text-sm bg-white dark:bg-slate-900 animate-pulse">
+                {/* Sidebar Skeleton */}
+                <aside className="w-full md:w-[320px] lg:w-[360px] flex flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-md w-24" />
+                        <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+                    </header>
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                        <div className="h-9 bg-slate-100 dark:bg-slate-700/50 rounded-xl w-full" />
+                    </div>
+                    <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="flex items-center space-x-3">
+                                <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-xl flex-shrink-0" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex justify-between">
+                                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3" />
+                                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-8" />
+                                    </div>
+                                    <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-3/4" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </aside>
+                {/* Chat Area Skeleton (Hidden on Mobile) */}
+                <div className="hidden md:flex flex-1 flex-col bg-white dark:bg-slate-800">
+                    <header className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between h-[65px]">
+                        <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+                            <div className="space-y-2">
+                                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28" />
+                                <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-16" />
+                            </div>
+                        </div>
+                        <div className="flex space-x-2">
+                            <div className="h-8 w-8 bg-slate-100 dark:bg-slate-700/50 rounded-full" />
+                            <div className="h-8 w-8 bg-slate-100 dark:bg-slate-700/50 rounded-full" />
+                        </div>
+                    </header>
+                    <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+                        <div className="flex items-end space-x-3 max-w-[60%]">
+                            <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                            <div className="h-12 bg-slate-100 dark:bg-slate-700/40 rounded-2xl rounded-bl-none w-full" />
+                        </div>
+                        <div className="flex items-end space-x-3 max-w-[50%] ml-auto justify-end">
+                            <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-2xl rounded-br-none w-full" />
+                        </div>
+                        <div className="flex items-end space-x-3 max-w-[70%]">
+                            <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                            <div className="h-16 bg-slate-100 dark:bg-slate-700/40 rounded-2xl rounded-bl-none w-full" />
+                        </div>
+                    </div>
+                    <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                        <div className="h-10 bg-slate-100 dark:bg-slate-800 rounded-xl w-full" />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -1566,6 +1622,10 @@ export const GroupsPage: React.FC = () => {
                         allUsers={allUsers}
                         onUpdateGroup={handleUpdateGroup}
                         onSetMessageToDelete={setMessageToDelete}
+                        onCloseChat={() => {
+                            setSelectedGroupId(null);
+                            navigate('/groups');
+                        }}
                     />
                 </div>
             </div>
