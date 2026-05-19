@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { SearchPage } from '../pages/SearchPage';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSocket } from '../contexts/SocketContext';
 
 export const Layout: React.FC = () => {
   const location = useLocation();
@@ -13,6 +14,35 @@ export const Layout: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAnnouncementsOpen, setIsAnnouncementsOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
+  
+  const { socket } = useSocket();
+  const [activeToast, setActiveToast] = useState<{ id: string; title: string; content: string } | null>(null);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (notif: any) => {
+      setActiveToast({
+        id: notif.id ? String(notif.id) : String(Date.now()),
+        title: notif.type === 'EVENT_REMINDER' ? '📅 Event Reminder' : '🔔 New Notification',
+        content: notif.content || 'You have a new update.'
+      });
+    };
+
+    socket.on('new_notification', handleNewNotification);
+    return () => {
+      socket.off('new_notification', handleNewNotification);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (activeToast) {
+      const timer = setTimeout(() => {
+        setActiveToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeToast]);
   
   // Swipe Logic State
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -167,6 +197,27 @@ export const Layout: React.FC = () => {
         )}
         <SearchPage isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       </div>
+
+      {/* Global Real-Time Toast Notification Banner */}
+      {activeToast && (
+        <div 
+          onClick={() => setActiveToast(null)}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] w-[90%] max-w-[400px] bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.22)] border border-slate-800 dark:border-slate-100 backdrop-blur-md flex items-start gap-3 cursor-pointer transition-all duration-300 transform animate-in slide-in-from-top-6 duration-300"
+        >
+          <div className="p-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-xl flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+              <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 1.623.233 3.193.666 4.677A2.495 2.495 0 0 1 17.137 18H6.863a2.495 2.495 0 0 1-2.279-3.573 17.065 17.065 0 0 0 .666-4.677V9ZM10.5 21a2.25 2.25 0 0 0 4.5 0h-4.5Z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-sm tracking-tight">{activeToast.title}</h4>
+            <p className="text-xs text-slate-300 dark:text-slate-600 font-medium mt-0.5 leading-relaxed">{activeToast.content}</p>
+          </div>
+          <button className="text-slate-500 hover:text-slate-350 dark:hover:text-slate-700 text-xs font-bold self-start mt-0.5">
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 };

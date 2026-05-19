@@ -245,16 +245,17 @@ export const EventsPage: React.FC = () => {
     });
   };
 
-  const toggleReminder = (eventId: string) => {
+  const toggleReminder = (eventId: string, enabled?: boolean) => {
     setReminders(prev => {
       const normalizedEventId = String(eventId);
-        const newReminders = new Set(prev);
-      if (newReminders.has(normalizedEventId)) {
-        newReminders.delete(normalizedEventId);
-        } else {
-        newReminders.add(normalizedEventId);
-        }
-        return newReminders;
+      const next = new Set(prev);
+      const shouldSet = typeof enabled === 'boolean' ? enabled : !next.has(normalizedEventId);
+      if (shouldSet) {
+        next.add(normalizedEventId);
+      } else {
+        next.delete(normalizedEventId);
+      }
+      return next;
     });
   };
 
@@ -311,7 +312,7 @@ export const EventsPage: React.FC = () => {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       location: formData.get('location') as string || '',
-      date: `${datePart} ${timePart}:00`
+      date: new Date(`${datePart}T${timePart}:00`).toISOString()
     };
     
     try {
@@ -344,7 +345,7 @@ export const EventsPage: React.FC = () => {
               </svg>
             </button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events</h1>
+              <h1 className="text-2xl sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">Events</h1>
               <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">Coordinate and discover upcoming university events</p>
             </div>
           </div>
@@ -511,7 +512,7 @@ export const EventsPage: React.FC = () => {
                   name="minute"
                   className="w-full px-1 py-2 md:py-3 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors appearance-none text-center cursor-pointer"
                 >
-                  {['00', '15', '30', '45'].map(m => (
+                  {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
                     <option key={m} value={m}>{m}</option>
                   ))}
                 </select>

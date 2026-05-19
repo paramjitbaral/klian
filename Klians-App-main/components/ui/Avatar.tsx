@@ -39,16 +39,16 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', online = 
   };
 
   return (
-    <div className={`relative inline-block ${className}`}>
+    <div className={`relative inline-block flex-shrink-0 rounded-full ${sizeClasses[size]} ${className}`}>
       {imageSrc && !imageError ? (
         <img
           src={imageSrc}
           alt={alt}
-          className={`rounded-full object-cover ${sizeClasses[size]}`}
+          className="rounded-full object-cover w-full h-full"
           onError={() => setImageError(true)}
         />
       ) : (
-        <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-semibold text-white ${sizeClasses[size]}`}>
+        <div className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-semibold text-white w-full h-full">
           {getInitials(alt)}
         </div>
       )}

@@ -327,7 +327,7 @@ const addMembers = async (req, res) => {
       
       // Notify the user
       const notifResult = await query(
-        'INSERT INTO notifications (user_id, type, content, group_id) VALUES (?, ?, ?, ?)',
+        'INSERT INTO notifications (user_id, type, content, group_id, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())',
         [uid, 'GROUP_ADDED', `You were added to group: ${groupName}`, groupId]
       );
 

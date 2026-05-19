@@ -103,6 +103,17 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             }));
         };
 
+        const handleEventNotificationsDeleted = (data: { type: string; content: string }) => {
+            setNotifications(prev => {
+                const toRemove = prev.filter(n => n.type === data.type && n.content === data.content);
+                const unreadRemoved = toRemove.filter(n => !n.isRead).length;
+                if (unreadRemoved > 0) {
+                    setUnreadCount(c => Math.max(0, c - unreadRemoved));
+                }
+                return prev.filter(n => !(n.type === data.type && n.content === data.content));
+            });
+        };
+
         const handleNewAnnouncement = (data: any) => {
             const target = (data?.target || 'All').toLowerCase();
             const role = user?.role?.toLowerCase() || '';
@@ -116,6 +127,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
         socket.on('new_notification', handleNewNotification);
         socket.on('delete_notification', handleDeleteNotification);
         socket.on('update_notification', handleUpdateNotification);
+        socket.on('event-notifications-deleted', handleEventNotificationsDeleted);
         socket.on('announcement-created', handleNewAnnouncement);
 
         // Group synchronization
@@ -127,6 +139,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             socket.off('new_notification');
             socket.off('delete_notification');
             socket.off('update_notification');
+            socket.off('event-notifications-deleted', handleEventNotificationsDeleted);
             socket.off('announcement-created');
             socket.off('new_group_message');
             socket.off('group_added_to');

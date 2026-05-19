@@ -15,7 +15,8 @@ async function initPool() {
       database: process.env.MYSQL_DATABASE || 'klians',
       waitForConnections: true,
       connectionLimit: Number(process.env.MYSQL_POOL_SIZE || 15),
-      queueLimit: 0
+      queueLimit: 0,
+      timezone: 'Z'
     });
     // Simple test query to validate connection at boot
     await pool.query('SELECT 1');

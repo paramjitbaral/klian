@@ -198,15 +198,32 @@ const updateEvent = async (req, res) => {
 const deleteEvent = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
-    const rows = await query('SELECT created_by FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    const rows = await query('SELECT title, created_by FROM events WHERE id = ? LIMIT 1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Event not found' });
     if (String(rows[0].created_by) !== String(currentUserId)) {
       return res.status(403).json({ message: 'User not authorized to delete this event' });
     }
     
+    const eventTitle = rows[0].title;
+    
+    // Delete any associated notifications for this event from the database
+    await query(
+      "DELETE FROM notifications WHERE type = 'EVENT_REMINDER' AND content = ?",
+      [`Event "${eventTitle}" is starting now.`]
+    );
+    
     await query('DELETE FROM events WHERE id = ?', [req.params.id]);
+    
     const io = req.app.get('io');
-    if (io) io.emit('event-deleted', req.params.id);
+    if (io) {
+      io.emit('event-deleted', req.params.id);
+      
+      // Also emit update_notification or refresh events to sync other clients live
+      io.emit('event-notifications-deleted', {
+        type: 'EVENT_REMINDER',
+        content: `Event "${eventTitle}" is starting now.`
+      });
+    }
     
     res.json({ message: 'Event removed' });
   } catch (error) {

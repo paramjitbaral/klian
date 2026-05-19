@@ -14,7 +14,7 @@ const dispatchDueEventReminders = async (io) => {
        FROM event_reminders er
        JOIN events e ON e.id = er.event_id
       WHERE er.sent_at IS NULL
-        AND e.date <= NOW()
+        AND e.date <= UTC_TIMESTAMP()
       ORDER BY e.date ASC, er.id ASC
       LIMIT 100`
   );
@@ -37,7 +37,7 @@ const dispatchDueEventReminders = async (io) => {
       io.to(`user:${String(reminder.userId)}`).emit('new_notification', notification);
     }
 
-    await query('UPDATE event_reminders SET sent_at = NOW() WHERE id = ?', [reminder.reminderId]);
+    await query('UPDATE event_reminders SET sent_at = UTC_TIMESTAMP() WHERE id = ?', [reminder.reminderId]);
   }
 };
 

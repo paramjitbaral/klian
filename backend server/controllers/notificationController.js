@@ -85,7 +85,7 @@ const createNotification = async (userId, actorId, type, postId = null, commentI
     if (!allowSelf && actorId !== null && actorId !== undefined && String(userId) === String(actorId)) return null;
 
     const result = await query(
-      'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, group_id, content) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, group_id, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())',
       [userId, actorId, type, postId, commentId, groupId, content]
     );
     
