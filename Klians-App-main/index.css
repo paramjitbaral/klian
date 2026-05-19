@@ -39,6 +39,12 @@
   -webkit-font-smoothing: antialiased;
 }
 
+@media (min-width: 1024px) {
+  :root {
+    font-size: 14.5px; /* Slightly smaller global scale for laptop/desktop views */
+  }
+}
+
 .dark {
   color-scheme: dark;
 }

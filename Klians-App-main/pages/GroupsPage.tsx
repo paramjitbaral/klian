@@ -369,31 +369,55 @@ const GroupSettingsModal: React.FC<{
         }
     };
 
-    const handleLeaveGroup = async () => {
-        if (window.confirm('Are you sure you want to leave this group?')) {
-            const groupId = group.id || (group as any)._id;
-            try {
-                await groupsAPI.leaveGroup(groupId);
-                onClose();
-                // We let the parent handle the navigation/state update
-                if ((window as any).handleGroupLeave) {
-                    (window as any).handleGroupLeave(groupId);
-                }
-            } catch (error) {
-                console.error('Failed to leave group:', error);
-                alert('Failed to leave group. Please try again.');
+    const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isErrorOpen, setIsErrorOpen] = useState(false);
+    const [errorTitle, setErrorTitle] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+
+    const handleLeaveGroup = () => {
+        setIsLeaveConfirmOpen(true);
+    };
+
+    const confirmLeaveGroup = async () => {
+        setIsLeaveConfirmOpen(false);
+        const groupId = group.id || (group as any)._id;
+        try {
+            await groupsAPI.leaveGroup(String(groupId));
+            onClose();
+            if ((window as any).handleGroupLeave) {
+                (window as any).handleGroupLeave(groupId);
             }
+        } catch (error: any) {
+            console.error('Failed to leave group:', error);
+            const backendMsg = error.response?.data?.message || 'Failed to leave group. Please try again.';
+            setErrorTitle('Cannot Leave Group');
+            setErrorMessage(backendMsg);
+            setIsErrorOpen(true);
         }
     };
 
     const handleDeleteGroup = () => {
-        if (window.confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
-            // In a real app, this would be a DELETE request. Here we'll simulate it.
-            // A function would be needed at GroupsPage level to remove the group from the list.
-            alert(`Group "${group.name}" has been deleted.`);
+        setIsDeleteConfirmOpen(true);
+    };
+
+    const confirmDeleteGroup = async () => {
+        setIsDeleteConfirmOpen(false);
+        const groupId = group.id || (group as any)._id;
+        try {
+            await groupsAPI.deleteGroup(String(groupId));
             onClose();
+            if ((window as any).handleGroupLeave) {
+                (window as any).handleGroupLeave(groupId);
+            }
+        } catch (error: any) {
+            console.error('Failed to delete group:', error);
+            const backendMsg = error.response?.data?.message || 'Failed to delete group. Please try again.';
+            setErrorTitle('Cannot Delete Group');
+            setErrorMessage(backendMsg);
+            setIsErrorOpen(true);
         }
-    }
+    };
 
 
     const tabButtonClasses = (tab: GroupSettingsTab) =>
@@ -403,6 +427,7 @@ const GroupSettingsModal: React.FC<{
         } uppercase tracking-wider`;
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onClose} title="Group Settings">
             <div className="-mt-1.5 md:-mt-3 flex items-center justify-center gap-2 border-b border-slate-100 dark:border-slate-800 mb-2 pb-2">
                 <button onClick={() => setActiveTab('General')} className={tabButtonClasses('General')}>General</button>
@@ -585,6 +610,74 @@ const GroupSettingsModal: React.FC<{
                 )}
             </div>
         </Modal>
+
+        {/* Custom Leave Group Confirmation Modal */}
+        <Modal isOpen={isLeaveConfirmOpen} onClose={() => setIsLeaveConfirmOpen(false)} title="Leave Group?">
+            <div className="space-y-4">
+                <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                    Are you sure you want to leave <strong>{group.name}</strong>? You will no longer receive any messages from this conversation.
+                </p>
+                <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} className="rounded-xl">
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={confirmLeaveGroup} 
+                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 focus:ring-red-500"
+                    >
+                        Leave Group
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+
+        {/* Custom Delete Group Confirmation Modal */}
+        <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="Delete Group?">
+            <div className="space-y-4">
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 rounded-xl text-xs font-semibold flex items-start gap-2 border border-red-100 dark:border-red-950/30">
+                    <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>Warning: This will permanently delete the group and erase all message history for all members. This action cannot be undone.</span>
+                </div>
+                <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                    Are you sure you want to permanently delete <strong>{group.name}</strong>?
+                </p>
+                <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="secondary" onClick={() => setIsDeleteConfirmOpen(false)} className="rounded-xl">
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={confirmDeleteGroup} 
+                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 focus:ring-red-500"
+                    >
+                        Delete Group
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+
+        {/* Custom Error / Action Failed Modal */}
+        <Modal isOpen={isErrorOpen} onClose={() => setIsErrorOpen(false)} title={errorTitle || "Action Failed"}>
+            <div className="space-y-4">
+                <div className="flex items-start gap-3 text-red-500">
+                    <div className="p-2 rounded-full bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 shrink-0">
+                        <svg className="w-6 h-6 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 font-semibold pt-1">
+                        {errorMessage}
+                    </p>
+                </div>
+                <div className="flex justify-end pt-2">
+                    <Button onClick={() => setIsErrorOpen(false)} className="rounded-xl px-6">
+                        Close
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+        </>
     );
 }
 
@@ -1329,7 +1422,7 @@ export const GroupsPage: React.FC = () => {
     // Global listener for leave events
     useEffect(() => {
         (window as any).handleGroupLeave = (leftGroupId: string) => {
-            setGroups(prevGroups => prevGroups.filter(g => (g.id || (g as any)._id) !== leftGroupId));
+            setGroups(prevGroups => prevGroups.filter(g => String(g.id || (g as any)._id) !== String(leftGroupId)));
             if (String(selectedGroupId) === String(leftGroupId)) {
                 setSelectedGroupId(null);
                 navigate('/groups');
@@ -1387,9 +1480,11 @@ export const GroupsPage: React.FC = () => {
                             <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Groups</h1>
                         </div>
 
-                        <Button variant="ghost" className="!p-2" onClick={() => { setSelectedGroupId(null); setIsCreateModalOpen(true); }} title="Create new group">
-                            {ICONS.plus}
-                        </Button>
+                        {user?.role !== 'Student' && (
+                            <Button variant="ghost" className="!p-2" onClick={() => { setSelectedGroupId(null); setIsCreateModalOpen(true); }} title="Create new group">
+                                {ICONS.plus}
+                            </Button>
+                        )}
                     </header>
                     <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                         <Input placeholder="Search groups..." />
@@ -1402,15 +1497,20 @@ export const GroupsPage: React.FC = () => {
                                 </div>
                                 <h3 className="text-xl md:text-lg font-bold text-slate-900 dark:text-white mb-2">No groups yet</h3>
                                 <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400 max-w-[240px] md:max-w-[180px] mx-auto leading-relaxed">
-                                    Create a group to start collaborating with others!
+                                    {user?.role === 'Student' 
+                                        ? "You will be added to groups by your teachers once they are created."
+                                        : "Create a group to start collaborating with others!"
+                                    }
                                 </p>
-                                <Button
-                                    variant="secondary"
-                                    className="mt-8 px-8 md:mt-6 md:px-4 md:py-1.5 md:text-sm"
-                                    onClick={() => setIsCreateModalOpen(true)}
-                                >
-                                    Create New Group
-                                </Button>
+                                {user?.role !== 'Student' && (
+                                    <Button
+                                        variant="secondary"
+                                        className="mt-8 px-8 md:mt-6 md:px-4 md:py-1.5 md:text-sm"
+                                        onClick={() => setIsCreateModalOpen(true)}
+                                    >
+                                        Create New Group
+                                    </Button>
+                                )}
                             </div>
                         ) : (
                             <ul>

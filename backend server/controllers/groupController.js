@@ -265,7 +265,10 @@ const leaveGroup = async (req, res) => {
         return res.status(400).json({ message: 'Cannot leave. You are the only admin. Promote someone else first or delete the group.' });
       }
     }
-    
+    // Fetch group name first to avoid cross-table collation mix in LIKE
+    const groupRows = await query('SELECT name FROM `groups` WHERE id = ? LIMIT 1', [groupId]);
+    const groupName = groupRows.length ? groupRows[0].name : '';
+
     await query(
       'DELETE FROM group_members WHERE group_id = ? AND user_id = ?',
       [req.params.id, currentUserId]
@@ -276,11 +279,19 @@ const leaveGroup = async (req, res) => {
       DELETE FROM notifications 
       WHERE user_id = ? 
       AND type = "GROUP_ADDED" 
-      AND (group_id = ? OR content LIKE (SELECT CONCAT('%', name, '%') FROM \`groups\` WHERE id = ? LIMIT 1))
-    `, [currentUserId, groupId, groupId]);
+      AND (group_id = ? OR content LIKE ?)
+    `, [currentUserId, groupId, `%${groupName}%`]);
     const io = req.app.get('io');
     if (io) {
       io.to(`user:${currentUserId}`).emit('delete_notification', { type: 'GROUP_ADDED', groupId: groupId });
+    }
+
+    // Fetch the updated group state and broadcast to remaining members so their count updates instantly
+    const updated = await getPopulatedGroup(groupId, currentUserId);
+    if (io && updated) {
+      updated.members.forEach(m => {
+        io.to(`user:${m.user.id}`).emit('group_updated', updated);
+      });
     }
     
     res.json({ message: 'Left group successfully' });

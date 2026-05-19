@@ -520,7 +520,9 @@ export const ProfilePage: React.FC = () => {
     }, [userId, loggedInUser]);
 
     const userToDisplay = profileUser;
-    const isOwnProfile = !userId || userToDisplay?._id === (loggedInUser as any)?._id || userToDisplay?._id === (loggedInUser as any)?.id || userToDisplay?.id === (loggedInUser as any)?.id;
+    const profileId = userToDisplay?.id || userToDisplay?._id;
+    const loggedInId = loggedInUser?.id || (loggedInUser as any)?._id;
+    const isOwnProfile = !userId || (profileId !== undefined && loggedInId !== undefined && String(profileId) === String(loggedInId));
     
     useEffect(() => {
         if (!isOwnProfile && activeTab === 'saved') {
