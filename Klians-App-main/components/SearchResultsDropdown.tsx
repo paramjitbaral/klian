@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { User } from '../types';
 import { Avatar } from './ui/Avatar';
 import { Card } from './ui/Card';
+import { getBackendUrl } from '@/src/api/config';
 
 interface SearchResultsDropdownProps {
   searchTerm: string;
@@ -43,8 +44,8 @@ export const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({ se
             return;
           }
 
-          // Use localhost for the API call
-          const response = await fetch('http://localhost:5000/api/users', {
+          // Use dynamic host for the API call
+          const response = await fetch(`${getBackendUrl()}/api/users`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',

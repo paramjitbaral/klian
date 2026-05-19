@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { MOCK_EMAILS, MOCK_SENT_EMAILS, MOCK_TRASHED_EMAILS, ICONS } from '../constants';
 import { useMessages } from '../contexts/MessagesContext';
+import { getBackendUrl } from '@/src/api/config';
 import { Email } from '../types';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
@@ -226,7 +227,7 @@ export const MailboxPage: React.FC = () => {
         showAlert('Connecting...', 'Redirecting you to Google OAuth 2.0 Secure Sync.');
 
         setTimeout(() => {
-            window.location.href = `http://localhost:5000/api/email/google?token=${encodeURIComponent(token)}`;
+            window.location.href = `${getBackendUrl()}/api/email/google?token=${encodeURIComponent(token)}`;
         }, 1000);
     };
 
@@ -240,7 +241,7 @@ export const MailboxPage: React.FC = () => {
         showAlert('Connecting...', 'Redirecting you to Microsoft Outlook Secure Sync.');
 
         setTimeout(() => {
-            window.location.href = `http://localhost:5000/api/emails/outlook?token=${encodeURIComponent(token)}`;
+            window.location.href = `${getBackendUrl()}/api/emails/outlook?token=${encodeURIComponent(token)}`;
         }, 1000);
     };
 

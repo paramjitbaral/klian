@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MOCK_GROUPS, USERS, ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import { Avatar } from '../components/ui/Avatar';
+import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 import { MessageBubble } from '../components/MessageBubble';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -40,10 +41,7 @@ const GroupAvatarIcon: React.FC<{ src?: string; name: string; size?: 'sm' | 'md'
     const iconSizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-6 w-6', xl: 'h-10 w-10' };
     const textSizes = { sm: 'text-[8px]', md: 'text-[9px]', lg: 'text-[10px]', xl: 'text-[12px]' };
 
-    let imageSrc = src && src.trim() ? src : null;
-    if (imageSrc && !imageSrc.startsWith('data:') && !imageSrc.startsWith('http')) {
-        imageSrc = `http://localhost:5000${imageSrc}`;
-    }
+    const imageSrc = resolveBackendUrl(src);
 
     if (imageSrc && !imgError) {
         return (
@@ -299,7 +297,7 @@ const GroupSettingsModal: React.FC<{
             formData.append('file', croppedBlob, 'group-avatar.jpg');
 
             const token = localStorage.getItem('token');
-            const uploadRes = await fetch('http://localhost:5000/api/messages/upload', {
+            const uploadRes = await fetch(`${getBackendUrl()}/api/messages/upload`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData

@@ -4,6 +4,7 @@ import { Avatar } from './ui/Avatar';
 import { Card } from './ui/Card';
 import { Notification, notificationsAPI } from '../src/api/notifications';
 import { ICONS } from '../constants';
+import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 
 interface NotificationsDropdownProps {
   notifications: Notification[];
@@ -14,9 +15,7 @@ interface NotificationsDropdownProps {
 }
 
 const getImageUrl = (url: string | undefined) => {
-    if (!url) return '';
-    if (url.startsWith('data:') || url.startsWith('http')) return url;
-    return `http://localhost:5000${url}`;
+    return resolveBackendUrl(url);
 };
 
 const getFileType = (url: string): 'image' | 'video' | 'doc' | 'other' => {

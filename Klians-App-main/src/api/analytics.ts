@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getBackendUrl } from './config';
 
-const API_URL = 'http://localhost:5000/api/analytics';
+const API_URL = `${getBackendUrl()}/api/analytics`;
 
 export interface AnalyticsData {
   keyMetrics: {

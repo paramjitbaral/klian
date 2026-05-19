@@ -18,13 +18,31 @@ let redis;
 // Load environment variables
 dotenv.config();
 
+const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [];
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  
+  // Dynamically match local/private IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x, localhost)
+  const localIpPattern = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+  return localIpPattern.test(origin);
+};
+
 const app = express();
 app.set('trust proxy', 1); // NGINX reverse proxy compatibility
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -42,7 +60,13 @@ app.use(helmet({
 }));
 app.use(compression());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 

@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getBackendUrl } from './config';
 
-const API_BASE_URL = 'http://localhost:5000/api/emails';
+const API_BASE_URL = `${getBackendUrl()}/api/emails`;
 
 const getToken = () => {
   const token = localStorage.getItem('token');

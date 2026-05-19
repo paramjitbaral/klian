@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getBackendUrl } from './config';
 
-const API_BASE_URL = 'http://localhost:5000/api/announcements';
+const API_BASE_URL = `${getBackendUrl()}/api/announcements`;
 
 const getToken = () => {
   const token = localStorage.getItem('token');

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { ICONS } from '../constants';
 import { Post, User } from '../types';
 import { Avatar } from '../components/ui/Avatar';
+import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -15,9 +16,7 @@ type ProfileTab = 'posts' | 'documents' | 'saved';
 
 
 const getImageUrl = (url: string | undefined) => {
-    if (!url) return '';
-    if (url.startsWith('data:') || url.startsWith('http')) return url;
-    return `http://localhost:5000${url}`;
+    return resolveBackendUrl(url);
 };
 
 const isDocumentFile = (url: string | undefined) => {
@@ -466,7 +465,7 @@ export const ProfilePage: React.FC = () => {
             formData.append('file', croppedBlob, 'profile-image.jpg');
 
             const token = localStorage.getItem('token');
-            const uploadRes = await fetch('http://localhost:5000/api/messages/upload', {
+            const uploadRes = await fetch(`${getBackendUrl()}/api/messages/upload`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
@@ -501,7 +500,7 @@ export const ProfilePage: React.FC = () => {
 
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+                const response = await fetch(`${getBackendUrl()}/api/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 

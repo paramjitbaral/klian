@@ -4,11 +4,10 @@ import { Avatar } from '../components/ui/Avatar';
 import { notificationsAPI, Notification } from '../src/api/notifications';
 import { ICONS } from '../constants';
 import { useSocket } from '../contexts/SocketContext';
+import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 
 const getImageUrl = (url: string | undefined) => {
-    if (!url) return '';
-    if (url.startsWith('data:') || url.startsWith('http')) return url;
-    return `http://localhost:5000${url}`;
+    return resolveBackendUrl(url);
 };
 
 const getFileType = (url: string): 'image' | 'video' | 'doc' | 'other' => {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth';
+import { getBackendUrl } from '@/src/api/config';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -21,7 +22,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     // Connect to socket server
-    const socketInstance = io('http://localhost:5000');
+    const socketInstance = io(getBackendUrl());
     
     socketInstance.on('connect', () => {
       console.log('Socket connected');

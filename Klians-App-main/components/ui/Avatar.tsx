@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveBackendUrl } from '@/src/api/config';
 
 interface AvatarProps {
   src?: string | null;
@@ -20,13 +21,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', online = 
     xl: 'h-12 w-12 text-base'
   };
 
-  // Handle empty strings by converting to null
-  let imageSrc = src && src.trim() ? src : null;
-  
-  // Prepend backend URL if it's a relative path
-  if (imageSrc && !imageSrc.startsWith('data:') && !imageSrc.startsWith('http')) {
-    imageSrc = `http://localhost:5000${imageSrc}`;
-  }
+  const imageSrc = resolveBackendUrl(src);
   
   // Get initials from alt text
   const getInitials = (name: string) => {

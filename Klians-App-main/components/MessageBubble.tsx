@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Avatar } from './ui/Avatar';
 import { ICONS } from '../constants';
 import { useNavigate } from 'react-router-dom';
+import { resolveBackendUrl } from '@/src/api/config';
 
 interface SharedPost {
   _id: string;
@@ -70,9 +71,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
   };
 
   const getFullUrl = (url: string | null | undefined) => {
-    if (!url) return '';
-    if (url.startsWith('data:') || url.startsWith('http')) return url;
-    return `http://localhost:5000${url}`;
+    return resolveBackendUrl(url);
   };
 
   const extractFileName = (url: string) => {

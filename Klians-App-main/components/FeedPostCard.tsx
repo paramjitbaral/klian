@@ -11,11 +11,10 @@ import { ShareModal } from './ShareModal';
 import { LikesModal } from './LikesModal';
 import { CommentModal } from './CommentModal';
 import { useSocket } from '../contexts/SocketContext';
+import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 
 const getImageUrl = (url: string | undefined) => {
-    if (!url) return '';
-    if (url.startsWith('data:') || url.startsWith('http')) return url;
-    return `http://localhost:5000${url}`;
+    return resolveBackendUrl(url);
 };
 
 const useTimeAgo = (date: string | number | Date) => {

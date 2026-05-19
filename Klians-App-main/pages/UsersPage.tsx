@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Avatar } from '../components/ui/Avatar';
+import { getBackendUrl } from '@/src/api/config';
 
 interface User {
   _id: string;
@@ -39,7 +40,7 @@ export const UsersPage: React.FC = () => {
           throw new Error('No authentication token found');
         }
 
-        const response = await fetch('http://localhost:5000/api/users', {
+        const response = await fetch(`${getBackendUrl()}/api/users`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
