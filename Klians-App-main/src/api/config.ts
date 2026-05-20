@@ -4,8 +4,16 @@ export const getBackendUrl = () => {
   const viteUrl = (import.meta as any)?.env?.VITE_BACKEND_URL;
   if (viteUrl) return viteUrl;
 
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  return `http://${hostname}:5000`;
+  const isLocalHost = typeof window !== 'undefined'
+    ? ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    : true;
+
+  if (isLocalHost) {
+    return 'http://localhost:5000';
+  }
+
+  // Production fallback: the backend runs on Render, not on the Pages domain.
+  return 'https://klian.onrender.com';
 };
 
 export const resolveBackendUrl = (url: string | null | undefined): string => {
