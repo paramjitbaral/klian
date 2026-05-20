@@ -21,8 +21,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { user } = useAuth();
 
   useEffect(() => {
-    // Connect to socket server with authenticated JWT token
     const token = localStorage.getItem('token');
+
+    if (!token) {
+      setSocket(null);
+      setConnected(false);
+      return;
+    }
+
+    // Connect to socket server with authenticated JWT token
     const socketInstance = io(getBackendUrl(), {
       auth: {
         token: token
@@ -51,6 +58,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       setConnected(false);
+
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes('invalid token') || message.toLowerCase().includes('authentication error')) {
+        localStorage.removeItem('token');
+        socketInstance.disconnect();
+        setSocket(null);
+      }
     });
 
     socketInstance.on('message-error', (error) => {
