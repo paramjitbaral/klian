@@ -13,16 +13,11 @@ const resolveIpv4Host = async (host) => {
   if (!host || net.isIP(host)) return host;
 
   try {
-    const records = await dns.promises.resolve4(host);
-    return records[0] || host;
+    const result = await dns.promises.lookup(host, { family: 4 });
+    return result.address || host;
   } catch (error) {
-    console.warn(`Could not resolve IPv4 for ${host}, falling back to hostname: ${error.message}`);
-    return host;
+    throw new Error(`Could not resolve IPv4 for ${host}: ${error.message}`);
   }
-};
-
-const ipv4Lookup = (hostname, options, callback) => {
-  dns.lookup(hostname, { family: 4, all: false }, callback);
 };
 
 async function initPool() {
@@ -42,7 +37,6 @@ async function initPool() {
         database: url.pathname ? url.pathname.replace(/^\//, '') : undefined,
         ssl: { rejectUnauthorized: false },
         family: 4,
-        lookup: ipv4Lookup,
         max: Number(process.env.DATABASE_POOL_SIZE || 15),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
@@ -58,7 +52,6 @@ async function initPool() {
         database: process.env.DATABASE_NAME,
         ssl: { rejectUnauthorized: false },
         family: 4,
-        lookup: ipv4Lookup,
         max: Number(process.env.DATABASE_POOL_SIZE || 15),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
