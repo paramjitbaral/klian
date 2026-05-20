@@ -1,6 +1,7 @@
 // PostgreSQL connection pool using pg (for Supabase)
 // Why: Supabase uses PostgreSQL; pool improves concurrency and reuse.
 const dns = require('dns');
+const net = require('net');
 const { Pool } = require('pg');
 
 let pool;
@@ -9,7 +10,7 @@ let pool;
 dns.setDefaultResultOrder('ipv4first');
 
 const resolveIpv4Host = async (host) => {
-  if (!host || dns.isIP(host)) return host;
+  if (!host || net.isIP(host)) return host;
 
   try {
     const records = await dns.promises.resolve4(host);
