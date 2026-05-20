@@ -190,9 +190,9 @@ const verifyOTP = async (req, res) => {
 // @access  Public
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, captchaAnswer, captchaToken } = req.body;
 
-    // Demo account for testing
+    // Demo account for testing bypasses CAPTCHA to ensure smooth local testing environment
     if (email === '2300032645@kluniversity.in' && password === 'password123') {
       return res.json({
         _id: 1,
@@ -202,6 +202,12 @@ const loginUser = async (req, res) => {
         role: 'Student',
         token: generateToken(1),
       });
+    }
+
+    // Verify stateless math CAPTCHA
+    const { verifyCaptcha } = require('../utils/captcha');
+    if (!verifyCaptcha(captchaAnswer, captchaToken)) {
+      return res.status(400).json({ message: 'Incorrect or expired CAPTCHA verification code' });
     }
 
     const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE email = ? LIMIT 1', [email]);

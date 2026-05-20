@@ -79,16 +79,33 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
+// Strict authentication rate limiting (10 attempts per 15 minutes per IP)
+const strictAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many authentication attempts. Please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth/login', strictAuthLimiter);
+app.use('/api/auth/register', strictAuthLimiter);
+app.use('/api/auth/verify', strictAuthLimiter);
+app.use('/api/auth/resend-otp', strictAuthLimiter);
+
 const path = require('path');
 
 // Body parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Global XSS Input Sanitization Middleware
+const { sanitizeInput } = require('./middleware/sanitize');
+app.use(sanitizeInput);
+
 // Static folders
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Sessions backed by Redis (fallback to memory if redis fails)
+// Sessions backed by Redis (attempt to initialize Upstash or provided REDIS_URL when requested)
 const sessionConfig = {
   name: 'sid',
   secret: process.env.SESSION_SECRET || 'session_secret_dev',
@@ -102,13 +119,39 @@ const sessionConfig = {
   }
 };
 
-if (redis) {
-  sessionConfig.store = new RedisStore({ client: redis });
+if (process.env.USE_REDIS === 'true') {
+  try {
+    redis = getRedis();
+    sessionConfig.store = new RedisStore({ client: redis });
+    console.log('Session store configured to use Redis');
+  } catch (err) {
+    console.warn('Failed to initialize Redis for session store, falling back to memory store:', err.message);
+  }
 } else {
   console.warn('Using memory store for sessions (NOT recommended for production)');
 }
 
 app.use(session(sessionConfig));
+
+// Authentication middleware for Socket.io connections
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    // Allow connection but mark as unauthenticated. Private messaging & join events will block.
+    socket.decodedUserId = null;
+    return next();
+  }
+  
+  const jwt = require('jsonwebtoken');
+  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, decoded) => {
+    if (err) {
+      console.warn(`Socket connection with invalid token blocked: ${socket.id}`);
+      return next(new Error('Authentication error: Invalid token'));
+    }
+    socket.decodedUserId = decoded.id; // Store validated user ID
+    next();
+  });
+});
 
 // Socket.io connection
 io.on('connection', (socket) => {
@@ -120,6 +163,13 @@ io.on('connection', (socket) => {
       const userId = userData.id ? String(userData.id).trim() : null;
       const role = userData.role ? String(userData.role).trim() : null;
       const name = userData.name || '';
+
+      // Validate identity: user can ONLY join their own private room
+      if (!socket.decodedUserId || String(socket.decodedUserId) !== userId) {
+        console.warn(`Unauthorized join event blocked: Socket ${socket.id} tried to join room for user ID ${userId}`);
+        socket.emit('message-error', { error: 'Unauthorized room access' });
+        return;
+      }
 
       socket.userId = userId;
       socket.userRole = role;
@@ -236,5 +286,32 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === 'production' ? null : err.stack,
   });
 });
+
+// Graceful shutdown handling
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} signal received: closing HTTP server and MySQL pools gracefully...`);
+  
+  // Close HTTP Server
+  server.close(() => {
+    console.log('HTTP server closed.');
+  });
+
+  try {
+    const { getPool } = require('./config/db');
+    const pool = getPool();
+    if (pool) {
+      await pool.end();
+      console.log('MySQL connection pool closed.');
+    }
+  } catch (err) {
+    console.error('Error closing MySQL pool during shutdown:', err.message);
+  }
+
+  console.log('Shutdown process completed. exiting...');
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 bootstrap();

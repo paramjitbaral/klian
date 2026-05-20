@@ -13,7 +13,9 @@
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
+    "@capacitor/keyboard": "^8.0.3",
     "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.2",
     "@capawesome/capacitor-badge": "^8.0.0",
     "@react-native-firebase/app": "^23.7.0",
     "@react-native-firebase/messaging": "^23.7.0",
@@ -28,9 +30,9 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "@types/node": "^22.14.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
-    "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

@@ -7,9 +7,14 @@ export const authAPI = {
     return API.post('/auth/register', userData);
   },
   
+  // Get CAPTCHA challenge
+  getCaptcha: () => {
+    return API.get('/auth/captcha');
+  },
+  
   // Login user
-  login: (email: string, password: string) => {
-    return API.post('/auth/login', { email, password });
+  login: (email: string, password: string, captchaAnswer?: string, captchaToken?: string) => {
+    return API.post('/auth/login', { email, password, captchaAnswer, captchaToken });
   },
 
   // Verify OTP

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Role } from '../types';
+import authAPI from '../src/api/auth';
 
 // Generic icon used for a neutral "Continue" social button (no vendor branding)
 const SocialGenericIcon = () => (
@@ -25,6 +26,12 @@ const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 
 const CheckIcon: React.FC<{ className?: string }> = ({ className = '' }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 flex-shrink-0 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>;
 const CrossIcon: React.FC<{ className?: string }> = ({ className = '' }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 flex-shrink-0 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>;
 
+const RefreshIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+    </svg>
+);
+
 
 const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => {
     const { login, error: authError, loading } = useAuth();
@@ -34,6 +41,26 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
+    // Captcha States
+    const [captchaQuestion, setCaptchaQuestion] = useState('');
+    const [captchaToken, setCaptchaToken] = useState('');
+    const [captchaAnswer, setCaptchaAnswer] = useState('');
+
+    const fetchCaptcha = async () => {
+        try {
+            const response = await authAPI.getCaptcha();
+            setCaptchaQuestion(response.data.question);
+            setCaptchaToken(response.data.captchaToken);
+            setCaptchaAnswer('');
+        } catch (err) {
+            console.error('Failed to fetch CAPTCHA challenge:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchCaptcha();
+    }, []);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -42,12 +69,22 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
             return;
         }
         
+        // Ensure CAPTCHA is filled if email is not the local automated test account
+        const isTestAccount = email === '2300032645@kluniversity.in' && password === 'password123';
+        if (!isTestAccount && !captchaAnswer) {
+            setError('Please complete the security CAPTCHA answer.');
+            return;
+        }
+        
         try {
-            await login(email, password);
+            await login(email, password, captchaAnswer, captchaToken);
         } catch (err: any) {
             // Check if verification is required
             if (err.response?.data?.requiresVerification) {
                 navigate('/verify', { state: { email: err.response.data.email || email } });
+            } else {
+                // Refresh captcha on failure to prevent brute-force replays
+                fetchCaptcha();
             }
         }
     };
@@ -85,6 +122,46 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
                         endIcon={showPassword ? <EyeOffIcon /> : <EyeIcon />}
                         onEndIconClick={() => setShowPassword(!showPassword)}
                     />
+                    
+                    {/* Security CAPTCHA Card (only if it's not the test account email) */}
+                    {!(email === '2300032645@kluniversity.in' && password === 'password123') && (
+                        <div className="flex flex-col gap-2 pt-1">
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tracking-wider uppercase">Security Verification</span>
+                                <button 
+                                    type="button" 
+                                    onClick={fetchCaptcha} 
+                                    className="text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 active:scale-95 transition-all duration-150"
+                                    aria-label="Refresh Captcha"
+                                >
+                                    <RefreshIcon />
+                                    <span>Refresh</span>
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {/* Question Container */}
+                                <div className="flex-1 bg-slate-50 dark:bg-slate-800/40 rounded-xl px-4 py-3 flex items-center justify-center font-semibold text-base text-slate-700 dark:text-slate-300 select-none tracking-widest border border-slate-100 dark:border-slate-800/50">
+                                    {captchaQuestion || 'Loading...'}
+                                </div>
+                                
+                                {/* Answer Input */}
+                                <div className="w-[125px]">
+                                    <Input
+                                        id="captchaAnswer"
+                                        type="text"
+                                        pattern="[0-9]*"
+                                        inputMode="numeric"
+                                        value={captchaAnswer}
+                                        onChange={(e) => setCaptchaAnswer(e.target.value)}
+                                        placeholder="Answer"
+                                        aria-label="Captcha Answer"
+                                        required
+                                        className="!py-3 text-center font-bold text-base bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/50 text-slate-800 dark:text-white"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
                 <div className="flex items-center justify-between text-sm">
@@ -238,7 +315,7 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
                 setError('Email validation failed. Please use a valid KL University email.');
                 return;
             }
-            const role = assignedRole === Role.STUDENT ? 'student' : 'faculty';
+            const role = (assignedRole === Role.STUDENT ? 'student' : 'faculty') as Role;
             await register({ name, email, password, role });
             // If register doesn't throw, it means we need to verify
             navigate('/verify', { state: { email } });

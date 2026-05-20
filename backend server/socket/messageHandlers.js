@@ -7,6 +7,13 @@ const setupMessageHandlers = (io, socket, redis) => {
   socket.on('private-message', async ({ senderId, recipientId, content, type = 'text', postId }) => {
     console.log('Received private message:', { senderId, recipientId, content, type, postId });
     
+    // ENFORCE JWT SENDER AUTHENTICATION
+    if (!socket.decodedUserId || String(senderId) !== String(socket.decodedUserId)) {
+      console.warn(`Blocked spoofed message sender: ${socket.decodedUserId} tried to send as ${senderId}`);
+      socket.emit('message-error', { error: 'Unauthorized: Sender identity mismatch' });
+      return;
+    }
+
     try {
       // Validate sender exists
       const sender = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = ? LIMIT 1', [senderId]);
@@ -80,6 +87,12 @@ const setupMessageHandlers = (io, socket, redis) => {
 
   // Handle marking messages as read
   socket.on('mark-messages-read', async ({ userId, senderId }) => {
+    // ENFORCE JWT RECIPIENT AUTHENTICATION
+    if (!socket.decodedUserId || String(userId) !== String(socket.decodedUserId)) {
+      console.warn(`Blocked unauthorized mark-read request from ${socket.decodedUserId} for ${userId}`);
+      return;
+    }
+
     try {
       await query('UPDATE messages SET `read` = 1 WHERE recipient_id = ? AND sender_id = ? AND `read` = 0', [userId, senderId]);
 
@@ -93,9 +106,9 @@ const setupMessageHandlers = (io, socket, redis) => {
   // Handle group messages
   socket.on('send_group_message', async ({ groupId, content, type = 'text' }) => {
     try {
-      const senderId = socket.userId || socket.decoded?.id || socket.handshake?.auth?.userId;
-      if (!senderId) {
-        socket.emit('message-error', { error: 'Sender not found for group message' });
+      const senderId = socket.userId || socket.decodedUserId;
+      if (!senderId || !socket.decodedUserId || String(senderId) !== String(socket.decodedUserId)) {
+        socket.emit('message-error', { error: 'Sender not authorized for group message' });
         return;
       }
 
@@ -149,6 +162,12 @@ const setupMessageHandlers = (io, socket, redis) => {
 
   // Handle post sharing
   socket.on('share-post', async ({ senderId, recipientId, postId, message }) => {
+    // ENFORCE JWT SENDER AUTHENTICATION
+    if (!socket.decodedUserId || String(senderId) !== String(socket.decodedUserId)) {
+      console.warn(`Blocked unauthorized share-post request from ${socket.decodedUserId} as ${senderId}`);
+      return;
+    }
+
     try {
       await query('INSERT INTO messages (sender_id, recipient_id, content, type, post_id, `read`) VALUES (?, ?, ?, ?, ?, 0)', [senderId, recipientId, message || '', 'post', postId || null]);
       // For simplicity, emit a minimal event; clients can fetch thread on demand

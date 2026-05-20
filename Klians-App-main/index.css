@@ -304,3 +304,29 @@ input::-webkit-calendar-picker-indicator {
     display: inline-block;
     transform-origin: top center;
 }
+
+/* Capacitor Native Mobile Safe Area Adjustments */
+@media (max-width: 767px) {
+  /* Dynamic Header Height with Safe Area top padding */
+  header.fixed {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    height: calc(3.5rem + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Offset for main content under the fixed header */
+  main {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+  }
+
+  /* Dynamic Bottom Navigation Bar Height with Safe Area bottom padding */
+  nav.fixed.bottom-0 {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    height: calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Support for chat pages, full height screens */
+  .h-screen {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}

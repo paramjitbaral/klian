@@ -19,10 +19,10 @@ router.post('/upload', protect, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
-  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  const fileUrl = req.file.uploadedUrl || `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
   res.json({ 
     url: fileUrl, 
-    type: req.file.mimetype.startsWith('image/') ? 'image' : 'file',
+    type: req.file.mimetype && req.file.mimetype.startsWith('image/') ? 'image' : 'file',
     filename: req.file.originalname 
   });
 });

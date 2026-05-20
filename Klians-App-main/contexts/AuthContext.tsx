@@ -7,7 +7,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, captchaAnswer?: string, captchaToken?: string) => Promise<void>;
   verify: (email: string, otp: string) => Promise<void>;
   resendOTP: (email: string) => Promise<void>;
   logout: () => void;
@@ -93,11 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, captchaAnswer?: string, captchaToken?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(email, password, captchaAnswer, captchaToken);
       
       // Backend returns user data directly with token at top level
       const { token, ...userData } = response.data;
@@ -156,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const register = async (userData: { name: string, email: string, password: string, role: string }) => {
+  const register = async (userData: { name: string, email: string, password: string, role?: Role }): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
@@ -164,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // If the backend says verification is required, we don't set the user yet
       if (response.data.requiresVerification) {
-        return response.data;
+        return;
       }
       
       const { token, ...newUser } = response.data;

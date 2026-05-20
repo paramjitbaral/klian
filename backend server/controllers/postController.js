@@ -3,18 +3,33 @@ const path = require('path');
 const { query } = require('../config/db');
 const { createNotification, deleteNotification } = require('./notificationController');
 
-// Helper to save base64 file to uploads folder
-const saveFile = (base64String, originalName = null) => {
+// Helper to save base64 file to uploads folder or Cloudinary
+const saveFile = async (base64String, originalName = null) => {
   if (!base64String || !base64String.startsWith('data:')) return base64String;
 
   try {
     const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) return base64String;
 
+    const data = matches[2];
+    const buffer = Buffer.from(data, 'base64');
+
+    // If Cloudinary is configured, upload to Cloudinary
+    if (process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        const cloudinaryHelper = require('../utils/cloudinary');
+        const publicId = originalName ? `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9-_\.]/g,'')}` : undefined;
+        const result = await cloudinaryHelper.uploadBase64(base64String, { public_id: publicId });
+        return result.secure_url || result.url;
+      } catch (err) {
+        console.error('[Cloudinary] upload failed, falling back to disk:', err.message);
+        // fall through to disk write
+      }
+    }
+
+    // Disk fallback
     const mimeType = matches[1];
     let extension = 'bin';
-    
-    // Map common mime types to extensions
     if (mimeType.includes('jpeg')) extension = 'jpg';
     else if (mimeType.includes('png')) extension = 'png';
     else if (mimeType.includes('gif')) extension = 'gif';
@@ -27,25 +42,16 @@ const saveFile = (base64String, originalName = null) => {
       extension = mimeType.split('/')[1] || 'bin';
     }
 
-    const data = matches[2];
-    const buffer = Buffer.from(data, 'base64');
-
-    // Use original name if provided, otherwise generate one
     let filename;
     if (originalName) {
-      // Sanitize: remove non-alphanumeric except dots/dashes/underscores
       const cleanName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
       filename = `${Date.now()}-${cleanName}`;
     } else {
       filename = `post-${Date.now()}-${Math.floor(Math.random() * 1000)}.${extension}`;
     }
-    
+
     const uploadDir = path.join(__dirname, '../uploads');
-
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
     const filepath = path.join(uploadDir, filename);
     fs.writeFileSync(filepath, buffer);
 
@@ -72,7 +78,7 @@ const createPost = async (req, res) => {
     const { content, image, fileName, isBroadcast } = req.body;
 
     // Process file if provided (convert base64 to file) - handles images and docs
-    const imageUrl = image ? saveFile(image, fileName) : null;
+    const imageUrl = image ? await saveFile(image, fileName) : null;
 
     // Validate that at least content or image is provided
     if (!content?.trim() && !imageUrl) {

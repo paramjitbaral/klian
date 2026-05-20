@@ -1,4 +1,9 @@
 export const getBackendUrl = () => {
+  // Prefer an explicit Vite env var in production (set VITE_BACKEND_URL on Cloudflare Pages)
+  // @ts-ignore - import.meta.env is injected by Vite at build time
+  const viteUrl = (import.meta as any)?.env?.VITE_BACKEND_URL;
+  if (viteUrl) return viteUrl;
+
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   return `http://${hostname}:5000`;
 };

@@ -1,6 +1,7 @@
 
 import React, { createContext, useState, useEffect, useMemo } from 'react';
 import { Theme } from '../types';
+import { updateMobileTheme } from '../src/mobileSetup';
 
 interface ThemeContextType {
   theme: Theme;
@@ -20,6 +21,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     root.classList.remove(Theme.LIGHT, Theme.DARK);
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
+    
+    // Dynamically adjust native device status bar style
+    updateMobileTheme(theme as 'light' | 'dark');
   }, [theme]);
 
   const toggleTheme = () => {

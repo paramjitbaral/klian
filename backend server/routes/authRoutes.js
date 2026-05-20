@@ -11,7 +11,14 @@ const {
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
+const { generateCaptcha } = require('../utils/captcha');
+
 // Public routes
+router.get('/captcha', (req, res) => {
+  const data = generateCaptcha();
+  res.json(data);
+});
+
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify', verifyOTP);

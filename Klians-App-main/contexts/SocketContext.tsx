@@ -21,8 +21,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { user } = useAuth();
 
   useEffect(() => {
-    // Connect to socket server
-    const socketInstance = io(getBackendUrl());
+    // Connect to socket server with authenticated JWT token
+    const token = localStorage.getItem('token');
+    const socketInstance = io(getBackendUrl(), {
+      auth: {
+        token: token
+      }
+    });
     
     socketInstance.on('connect', () => {
       console.log('Socket connected');

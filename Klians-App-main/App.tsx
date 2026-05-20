@@ -8,6 +8,7 @@ import { useAuth } from './hooks/useAuth';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { initMobileFeatures } from './src/mobileSetup';
 import { MessagesProvider } from './contexts/MessagesContext';
 import { QueryProvider } from './providers/QueryProvider';
 import { Layout } from './components/Layout';
@@ -81,6 +82,9 @@ const App: React.FC = () => {
   const unreadCount = unreadNotices.length;
 
   useEffect(() => {
+    // Initialize native mobile features (Status bar overlays, styles, keyboard settings)
+    initMobileFeatures();
+
     // Prefetch posts when app starts
     prefetchPosts();
 
