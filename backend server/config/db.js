@@ -21,6 +21,10 @@ const resolveIpv4Host = async (host) => {
   }
 };
 
+const ipv4Lookup = (hostname, options, callback) => {
+  dns.lookup(hostname, { family: 4, all: false }, callback);
+};
+
 async function initPool() {
   if (pool) return pool;
   try {
@@ -38,6 +42,7 @@ async function initPool() {
         database: url.pathname ? url.pathname.replace(/^\//, '') : undefined,
         ssl: { rejectUnauthorized: false },
         family: 4,
+        lookup: ipv4Lookup,
         max: Number(process.env.DATABASE_POOL_SIZE || 15),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
@@ -53,6 +58,7 @@ async function initPool() {
         database: process.env.DATABASE_NAME,
         ssl: { rejectUnauthorized: false },
         family: 4,
+        lookup: ipv4Lookup,
         max: Number(process.env.DATABASE_POOL_SIZE || 15),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
