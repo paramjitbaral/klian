@@ -91,17 +91,17 @@ const createPost = async (req, res) => {
       return res.status(403).json({ message: 'Only faculty can create broadcasts' });
     }
     const result = await query(
-      'INSERT INTO posts (user_id, content, image_url, is_broadcast) VALUES (?, ?, ?, ?)',
+      'INSERT INTO posts (user_id, content, image_url, is_broadcast) VALUES ($1, $2, $3, $4) RETURNING id',
       [req.user.id || req.user._id, content || '', imageUrl, !!isBroadcast]
     );
-    const postId = result.insertId;
+    const postId = result[0]?.id;
     const rows = await query(
       `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
-              UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+              FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
               u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
          FROM posts p
          JOIN users u ON u.id = p.user_id
-        WHERE p.id = ?
+        WHERE p.id = $1
         LIMIT 1`,
       [postId]
     );
@@ -130,30 +130,30 @@ const getPosts = async (req, res) => {
     if (cursor && cursor.createdAt && cursor.id) {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
-                UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+                FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
-          WHERE (p.created_at < FROM_UNIXTIME(? / 1000) OR (p.created_at = FROM_UNIXTIME(? / 1000) AND p.id < ?))
+          WHERE (p.created_at < to_timestamp($2 / 1000.0) OR (p.created_at = to_timestamp($2 / 1000.0) AND p.id < $3))
           ORDER BY p.created_at DESC, p.id DESC
-          LIMIT ?`,
-        [currentUserId, cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
+          LIMIT $4`,
+        [currentUserId, cursor.createdAt, cursor.id, limit + 1]
       );
     } else {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
-                UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+                FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
           ORDER BY p.created_at DESC, p.id DESC
-          LIMIT ?`,
+          LIMIT $2`,
         [currentUserId, limit + 1]
       );
     }
@@ -224,31 +224,31 @@ const getBroadcasts = async (req, res) => {
     if (cursor && cursor.createdAt && cursor.id) {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
-                UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+                FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
-          WHERE p.is_broadcast = 1 AND (p.created_at < FROM_UNIXTIME(? / 1000) OR (p.created_at = FROM_UNIXTIME(? / 1000) AND p.id < ?))
+          WHERE p.is_broadcast = true AND (p.created_at < to_timestamp($2 / 1000.0) OR (p.created_at = to_timestamp($2 / 1000.0) AND p.id < $3))
           ORDER BY p.created_at DESC, p.id DESC
-          LIMIT ?`,
-        [currentUserId, cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
+          LIMIT $4`,
+        [currentUserId, cursor.createdAt, cursor.id, limit + 1]
       );
     } else {
       rows = await query(
         `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
-                UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+                FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
            FROM posts p
            JOIN users u ON u.id = p.user_id
-          WHERE p.is_broadcast = 1
+          WHERE p.is_broadcast = true
           ORDER BY p.created_at DESC, p.id DESC
-          LIMIT ?`,
+          LIMIT $2`,
         [currentUserId, limit + 1]
       );
     }
@@ -276,13 +276,13 @@ const getPostById = async (req, res) => {
   try {
     const rows = await query(
       `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
-              UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+              FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
               u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
               (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likesCount,
               (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS commentsCount
          FROM posts p
          JOIN users u ON u.id = p.user_id
-        WHERE p.id = ?
+        WHERE p.id = $1
         LIMIT 1`,
       [req.params.id]
     );
@@ -481,13 +481,13 @@ const commentOnPost = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const text = req.body.text || '';
     const parentId = req.body.parentId || null;
-    const insertResult = await query('INSERT INTO post_comments (post_id, user_id, text, parent_id) VALUES (?, ?, ?, ?)', [req.params.id, userId, text, parentId]);
-    const commentId = insertResult.insertId;
+    const insertResult = await query('INSERT INTO post_comments (post_id, user_id, text, parent_id) VALUES ($1, $2, $3, $4) RETURNING id', [req.params.id, userId, text, parentId]);
+    const commentId = insertResult[0]?.id;
 
     // Emit real-time update
     const io = req.app.get('io');
     if (io) {
-      const countResult = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = ?', [req.params.id]);
+      const countResult = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = $1', [req.params.id]);
       io.emit('post_update', { 
         type: 'COMMENT_CHANGE', 
         postId: req.params.id, 
@@ -698,7 +698,7 @@ const sharePost = async (req, res) => {
     }
 
     // Find user IDs for these emails
-    const users = await query('SELECT id, email FROM users WHERE email IN (?)', [recipientEmails]);
+    const users = await query('SELECT id, email FROM users WHERE email = ANY($1)', [recipientEmails]);
     
     if (users.length === 0) {
       return res.status(404).json({ message: 'No valid recipients found' });
@@ -707,7 +707,7 @@ const sharePost = async (req, res) => {
     // Create a message for each recipient
     for (const user of users) {
       await query(
-        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES ($1, $2, $3, $4, $5)',
         [senderId, user.id, '', 'post', postId]
       );
     }

@@ -28,7 +28,7 @@ const getReminderFlag = async (eventId, currentUserId) => {
 
   try {
     const reminderRows = await query(
-      'SELECT id FROM event_reminders WHERE event_id = ? AND user_id = ? LIMIT 1',
+      'SELECT id FROM event_reminders WHERE event_id = $1 AND user_id = $2 LIMIT 1',
       [eventId, currentUserId]
     );
     return reminderRows.length > 0;
@@ -46,7 +46,7 @@ const getFormattedEvent = async (eventId, currentUserId = null) => {
             u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
        FROM events e
        JOIN users u ON u.id = e.created_by
-      WHERE e.id = ?
+      WHERE e.id = $1
       LIMIT 1`,
     [eventId]
   );
@@ -58,7 +58,7 @@ const getFormattedEvent = async (eventId, currentUserId = null) => {
     `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
        FROM event_attendees ea
        JOIN users u ON u.id = ea.user_id
-      WHERE ea.event_id = ?`,
+      WHERE ea.event_id = $1`,
     [event.id]
   );
 
@@ -84,11 +84,11 @@ const createEvent = async (req, res) => {
     const formattedDate = formatEventDate(date);
 
     const result = await query(
-      'INSERT INTO events (title, description, date, location, created_by) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO events (title, description, date, location, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [title, description, formattedDate, location || null, currentUserId]
     );
 
-    const eventId = result.insertId;
+    const eventId = result[0]?.id;
     
     const populatedEvent = await getFormattedEvent(eventId, currentUserId);
     
@@ -121,7 +121,7 @@ const getEvents = async (req, res) => {
         `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
            FROM event_attendees ea
            JOIN users u ON u.id = ea.user_id
-          WHERE ea.event_id = ?`,
+          WHERE ea.event_id = $1`,
         [event.id]
       );
       return {
@@ -166,17 +166,17 @@ const updateEvent = async (req, res) => {
     const { title, description, date, location } = req.body;
     const currentUserId = req.user.id || req.user._id;
     
-    const rows = await query('SELECT created_by FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    const rows = await query('SELECT created_by FROM events WHERE id = $1 LIMIT 1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Event not found' });
     if (String(rows[0].created_by) !== String(currentUserId)) {
       return res.status(403).json({ message: 'User not authorized to update this event' });
     }
     
-    // Format ISO date to MySQL datetime format (YYYY-MM-DD HH:mm:ss)
+    // Format ISO date to PostgreSQL datetime format (YYYY-MM-DD HH:mm:ss)
     const formattedDate = formatEventDate(date);
     
     await query(
-      'UPDATE events SET title = ?, description = ?, date = ?, location = ? WHERE id = ?',
+      'UPDATE events SET title = $1, description = $2, date = $3, location = $4 WHERE id = $5',
       [title, description, formattedDate, location || null, req.params.id]
     );
     
@@ -198,7 +198,7 @@ const updateEvent = async (req, res) => {
 const deleteEvent = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
-    const rows = await query('SELECT title, created_by FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    const rows = await query('SELECT title, created_by FROM events WHERE id = $1 LIMIT 1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Event not found' });
     if (String(rows[0].created_by) !== String(currentUserId)) {
       return res.status(403).json({ message: 'User not authorized to delete this event' });
@@ -208,11 +208,11 @@ const deleteEvent = async (req, res) => {
     
     // Delete any associated notifications for this event from the database
     await query(
-      "DELETE FROM notifications WHERE type = 'EVENT_REMINDER' AND content = ?",
-      [`Event "${eventTitle}" is starting now.`]
+      "DELETE FROM notifications WHERE type = $1 AND content = $2",
+      ['EVENT_REMINDER', `Event "${eventTitle}" is starting now.`]
     );
     
-    await query('DELETE FROM events WHERE id = ?', [req.params.id]);
+    await query('DELETE FROM events WHERE id = $1', [req.params.id]);
     
     const io = req.app.get('io');
     if (io) {
@@ -240,12 +240,12 @@ const attendEvent = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
     const eventId = req.params.id;
 
-    const exists = await query('SELECT 1 FROM event_attendees WHERE event_id = ? AND user_id = ? LIMIT 1', [eventId, currentUserId]);
+    const exists = await query('SELECT 1 FROM event_attendees WHERE event_id = $1 AND user_id = $2 LIMIT 1', [eventId, currentUserId]);
     if (exists.length) {
       return res.status(400).json({ message: 'Already attending this event' });
     }
     
-    await query('INSERT INTO event_attendees (event_id, user_id) VALUES (?, ?)', [eventId, currentUserId]);
+    await query('INSERT INTO event_attendees (event_id, user_id) VALUES ($1, $2)', [eventId, currentUserId]);
 
     const updatedEvent = await getFormattedEvent(eventId, currentUserId);
     const io = req.app.get('io');
@@ -266,7 +266,7 @@ const unattendEvent = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
     const eventId = req.params.id;
 
-    await query('DELETE FROM event_attendees WHERE event_id = ? AND user_id = ?', [eventId, currentUserId]);
+    await query('DELETE FROM event_attendees WHERE event_id = $1 AND user_id = $2', [eventId, currentUserId]);
 
     const updatedEvent = await getFormattedEvent(eventId, currentUserId);
     const io = req.app.get('io');
@@ -288,12 +288,12 @@ const toggleEventReminder = async (req, res) => {
     const eventId = req.params.id;
     const { enabled } = req.body;
 
-    const eventRows = await query('SELECT id, title, date, created_by FROM events WHERE id = ? LIMIT 1', [eventId]);
+    const eventRows = await query('SELECT id, title, date, created_by FROM events WHERE id = $1 LIMIT 1', [eventId]);
     if (!eventRows.length) return res.status(404).json({ message: 'Event not found' });
 
     let existing = [];
     try {
-      existing = await query('SELECT id, sent_at FROM event_reminders WHERE event_id = ? AND user_id = ? LIMIT 1', [eventId, currentUserId]);
+      existing = await query('SELECT id, sent_at FROM event_reminders WHERE event_id = $1 AND user_id = $2 LIMIT 1', [eventId, currentUserId]);
     } catch (error) {
       if (error.code === 'ER_NO_SUCH_TABLE' || error.code === 'ER_BAD_FIELD_ERROR') {
         return res.json(await getFormattedEvent(eventId, currentUserId));
@@ -310,13 +310,13 @@ const toggleEventReminder = async (req, res) => {
           const now = new Date();
           if (eventDate <= now) {
             // Event has already passed, insert reminder already marked as sent/processed
-            await query('INSERT INTO event_reminders (event_id, user_id, sent_at) VALUES (?, ?, UTC_TIMESTAMP())', [eventId, currentUserId]);
+            await query('INSERT INTO event_reminders (event_id, user_id, sent_at) VALUES ($1, $2, CURRENT_TIMESTAMP)', [eventId, currentUserId]);
           } else {
-            await query('INSERT INTO event_reminders (event_id, user_id) VALUES (?, ?)', [eventId, currentUserId]);
+            await query('INSERT INTO event_reminders (event_id, user_id) VALUES ($1, $2)', [eventId, currentUserId]);
           }
         }
       } else if (existing.length) {
-        await query('DELETE FROM event_reminders WHERE event_id = ? AND user_id = ?', [eventId, currentUserId]);
+        await query('DELETE FROM event_reminders WHERE event_id = $1 AND user_id = $2', [eventId, currentUserId]);
       }
     } catch (error) {
       if (error.code === 'ER_NO_SUCH_TABLE' || error.code === 'ER_BAD_FIELD_ERROR') {

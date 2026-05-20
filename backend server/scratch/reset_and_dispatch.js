@@ -26,7 +26,7 @@ async function run() {
     };
     
     // Run dispatch
-    // Wait a brief moment to let node-mysql2 connect
+    // Wait a brief moment before running the scheduler dispatch
     setTimeout(async () => {
       try {
         const { query: checkQuery } = require('../config/db');

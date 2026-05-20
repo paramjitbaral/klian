@@ -16,7 +16,7 @@ const getNotifications = async (req, res) => {
          LEFT JOIN users a ON a.id = n.actor_id
          LEFT JOIN post_comments pc ON pc.id = n.comment_id
          LEFT JOIN posts p ON p.id = n.post_id
-        WHERE n.user_id = ?
+        WHERE n.user_id = $1
         ORDER BY n.created_at DESC
         LIMIT 50`,
       [currentUserId]
@@ -56,7 +56,7 @@ const getNotifications = async (req, res) => {
 const markAllAsRead = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
-    await query('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [currentUserId]);
+    await query('UPDATE notifications SET is_read = true WHERE user_id = $1', [currentUserId]);
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
     console.error('[Notifications] Error:', error);
@@ -68,7 +68,7 @@ const markByType = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
     const { type } = req.params;
-    await query('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type = ?', [currentUserId, type]);
+    await query('UPDATE notifications SET is_read = true WHERE user_id = $1 AND type = $2', [currentUserId, type]);
     res.json({ message: `Notifications of type ${type} marked as read` });
   } catch (error) {
     console.error('[Notifications] Error:', error);
@@ -85,11 +85,11 @@ const createNotification = async (userId, actorId, type, postId = null, commentI
     if (!allowSelf && actorId !== null && actorId !== undefined && String(userId) === String(actorId)) return null;
 
     const result = await query(
-      'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, group_id, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())',
+      'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, group_id, content, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) RETURNING id',
       [userId, actorId, type, postId, commentId, groupId, content]
     );
     
-    const notifId = result.insertId;
+    const notifId = result[0]?.id;
     
     // Fetch formatted notif for socket emission
     const rows = await query(
@@ -101,7 +101,7 @@ const createNotification = async (userId, actorId, type, postId = null, commentI
          JOIN users a ON a.id = n.actor_id
          LEFT JOIN post_comments pc ON pc.id = n.comment_id
          LEFT JOIN posts p ON p.id = n.post_id
-        WHERE n.id = ?
+        WHERE n.id = $1
         LIMIT 1`,
       [notifId]
     );
@@ -138,11 +138,12 @@ const createNotification = async (userId, actorId, type, postId = null, commentI
 // Helper to delete a notification
 const deleteNotification = async (type, postId, actorId, commentId = null) => {
   try {
-    let whereClause = 'type = ? AND post_id = ? AND actor_id = ?';
+    let whereClause = 'type = $1 AND post_id = $2 AND actor_id = $3';
     let params = [type, postId, actorId];
+    let paramIndex = 4;
     
     if (commentId) {
-      whereClause += ' AND comment_id = ?';
+      whereClause += ` AND comment_id = $${paramIndex}`;
       params.push(commentId);
     }
 
@@ -158,7 +159,7 @@ const deleteNotification = async (type, postId, actorId, commentId = null) => {
     const notifId = rows[0].id;
     const recipientId = rows[0].user_id;
 
-    // Delete it by ID to be precise
+    // Delete it by ID to be precise$1
     await query('DELETE FROM notifications WHERE id = ?', [notifId]);
     
     console.log(`[Notifications] Successfully deleted notification ${notifId} for recipient ${recipientId}`);
@@ -177,10 +178,10 @@ const deleteNotificationById = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const notifId = req.params.id;
     
-    // Check ownership
-    const rows = await query('SELECT id FROM notifications WHERE id = ? AND user_id = ?', [notifId, userId]);
+    // Check ownership$1 AND user_id = $2', [notifId, userId]);
     if (!rows.length) return res.status(404).json({ message: 'Notification not found or unauthorized' });
 
+    await query('DELETE FROM notifications WHERE id = $1
     await query('DELETE FROM notifications WHERE id = ?', [notifId]);
     res.json({ message: 'Notification deleted' });
   } catch (error) {

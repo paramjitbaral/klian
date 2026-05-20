@@ -6,10 +6,10 @@ const getPopulatedGroup = async (groupId, userId) => {
     `SELECT g.id, g.name, g.description, g.avatar, g.only_admins_can_message AS onlyAdminsCanMessage, g.created_at AS createdAt,
             u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture,
             gm.notification_setting AS notificationSetting, gm.last_read_id AS lastReadId
-       FROM \`groups\` g
+       FROM groups g
        JOIN users u ON u.id = g.created_by
-       LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
-      WHERE g.id = ?
+       LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
+      WHERE g.id = $2
       LIMIT 1`,
     [userId, groupId]
   );
@@ -21,7 +21,7 @@ const getPopulatedGroup = async (groupId, userId) => {
     `SELECT gm.user_id AS id, gm.role, gm.notification_setting AS notificationSetting, u.name, u.email, u.profile_picture AS profilePicture
        FROM group_members gm
        JOIN users u ON u.id = gm.user_id
-      WHERE gm.group_id = ?`,
+      WHERE gm.group_id = $1`,
     [group.id]
   );
 
@@ -30,14 +30,14 @@ const getPopulatedGroup = async (groupId, userId) => {
             u.id AS senderId, u.name AS senderName, u.profile_picture AS senderAvatar
        FROM group_messages gm
        JOIN users u ON u.id = gm.sender_id
-      WHERE gm.group_id = ?
+      WHERE gm.group_id = $1
       ORDER BY gm.created_at ASC`,
     [group.id]
   );
 
   // Calculate unread count
   const unreadRow = await query(
-    'SELECT COUNT(*) AS cnt FROM group_messages WHERE group_id = ? AND id > ?',
+    'SELECT COUNT(*) AS cnt FROM group_messages WHERE group_id = $1 AND id > $2',
     [group.id, group.lastReadId || 0]
   );
 
@@ -67,15 +67,15 @@ const createGroup = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     const result = await query(
-      'INSERT INTO `groups` (name, description, created_by) VALUES (?, ?, ?)',
+      'INSERT INTO groups (name, description, created_by) VALUES ($1, $2, $3) RETURNING id',
       [name, description, currentUserId]
     );
 
-    const groupId = result.insertId;
+    const groupId = result[0]?.id;
     
     // Add creator as admin
     await query(
-      'INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)',
+      'INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, $3)',
       [groupId, currentUserId, 'admin']
     );
 
@@ -103,8 +103,8 @@ const getGroups = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
     const groupsRows = await query(
-      `SELECT g.id FROM \`groups\` g
-       JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+      `SELECT g.id FROM groups g
+       JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
        ORDER BY g.created_at DESC`,
       [currentUserId]
     );
@@ -147,7 +147,7 @@ const updateGroup = async (req, res) => {
     const { name, description, avatar, onlyAdminsCanMessage } = req.body;
     const currentUserId = req.user.id || req.user._id;
     
-    const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [req.params.id, currentUserId]);
+    const rows = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1', [req.params.id, currentUserId]);
     if (!rows.length || rows[0].role !== 'admin') {
       return res.status(403).json({ message: 'User not authorized to update this group' });
     }
@@ -157,26 +157,27 @@ const updateGroup = async (req, res) => {
     let queryParams = [];
     
     if (name !== undefined) {
-      updateFields.push('name = ?');
+      updateFields.push('name = $' + (queryParams.length + 1));
       queryParams.push(name);
     }
     if (description !== undefined) {
-      updateFields.push('description = ?');
+      updateFields.push('description = $' + (queryParams.length + 1));
       queryParams.push(description);
     }
     if (avatar !== undefined) {
-      updateFields.push('avatar = ?');
+      updateFields.push('avatar = $' + (queryParams.length + 1));
       queryParams.push(avatar);
     }
     if (onlyAdminsCanMessage !== undefined) {
-      updateFields.push('only_admins_can_message = ?');
-      queryParams.push(onlyAdminsCanMessage ? 1 : 0);
+      updateFields.push('only_admins_can_message = $' + (queryParams.length + 1));
+      queryParams.push(onlyAdminsCanMessage ? true : false);
     }
 
     if (updateFields.length > 0) {
       queryParams.push(req.params.id);
+      const paramIndex = queryParams.length;
       await query(
-        `UPDATE \`groups\` SET ${updateFields.join(', ')} WHERE id = ?`,
+        `UPDATE groups SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`,
         queryParams
       );
     }
@@ -206,20 +207,20 @@ const deleteGroup = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
     const groupId = req.params.id;
     
-    const rows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
+    const rows = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1', [groupId, currentUserId]);
     if (!rows.length || rows[0].role !== 'admin') {
       return res.status(403).json({ message: 'User not authorized to delete this group' });
     }
 
     // 1. Fetch all members before deleting to clean up UI/notifications live
-    const members = await query('SELECT user_id FROM group_members WHERE group_id = ?', [groupId]);
+    const members = await query('SELECT user_id FROM group_members WHERE group_id = $1', [groupId]);
     const memberIds = members.map(m => m.user_id);
     
     // 2. Delete the group (cascades deletes group_members and group_messages in SQL)
-    await query('DELETE FROM `groups` WHERE id = ?', [groupId]);
+    await query('DELETE FROM groups WHERE id = $1', [groupId]);
 
     // 3. Delete all group add notifications associated with this group
-    await query('DELETE FROM notifications WHERE type = "GROUP_ADDED" AND group_id = ?', [groupId]);
+    await query('DELETE FROM notifications WHERE type = $1 AND group_id = $2', ['GROUP_ADDED', groupId]);
 
     // 4. Emit live socket events to clear UI notifications instantly for everyone
     const io = req.app.get('io');
@@ -246,13 +247,13 @@ const joinGroup = async (req, res) => {
     const groupId = req.params.id;
     
     // Check if already a member
-    const check = await query('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, currentUserId]);
+    const check = await query('SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, currentUserId]);
     if (check.length) {
       return res.status(400).json({ message: 'Already a member of this group' });
     }
     
     await query(
-      'INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)',
+      'INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, $3)',
       [req.params.id, currentUserId, 'member']
     );
     
@@ -273,33 +274,34 @@ const leaveGroup = async (req, res) => {
     const groupId = req.params.id;
 
     // Check if member
-    const check = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, currentUserId]);
+    const check = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, currentUserId]);
     if (!check.length) {
       return res.status(400).json({ message: 'Not a member of this group' });
     }
 
     if (check[0].role === 'admin') {
-      const admins = await query('SELECT COUNT(*) as count FROM group_members WHERE group_id = ? AND role = "admin"', [groupId]);
+      const admins = await query('SELECT COUNT(*) as count FROM group_members WHERE group_id = $1 AND role = $2', [groupId, 'admin']);
       if (admins[0].count <= 1) {
         return res.status(400).json({ message: 'Cannot leave. You are the only admin. Promote someone else first or delete the group.' });
       }
     }
     // Fetch group name first to avoid cross-table collation mix in LIKE
-    const groupRows = await query('SELECT name FROM `groups` WHERE id = ? LIMIT 1', [groupId]);
+    const groupRows = await query('SELECT name FROM groups WHERE id = $1 LIMIT 1', [groupId]);
     const groupName = groupRows.length ? groupRows[0].name : '';
 
     await query(
-      'DELETE FROM group_members WHERE group_id = ? AND user_id = ?',
+      'DELETE FROM group_members WHERE group_id = $1 AND user_id = $2',
       [req.params.id, currentUserId]
     );
 
     // Delete notification (including old ones without group_id by matching name)
     await query(`
       DELETE FROM notifications 
-      WHERE user_id = ? 
-      AND type = "GROUP_ADDED" 
-      AND (group_id = ? OR content LIKE ?)
-    `, [currentUserId, groupId, `%${groupName}%`]);
+      WHERE user_id = $1 
+      AND type = $2 
+      AND (group_id = $3 OR content LIKE $4)
+    `, [currentUserId, 'GROUP_ADDED', groupId, `%${groupName}%`]);
+    
     const io = req.app.get('io');
     if (io) {
       io.to(`user:${currentUserId}`).emit('delete_notification', { type: 'GROUP_ADDED', groupId: groupId });
@@ -334,14 +336,14 @@ const addMembers = async (req, res) => {
     }
 
     // 1. Check if group exists
-    const groupRows = await query('SELECT name FROM `groups` WHERE id = ?', [groupId]);
+    const groupRows = await query('SELECT name FROM groups WHERE id = $1', [groupId]);
     if (!groupRows.length) {
       return res.status(404).json({ message: 'Group not found' });
     }
     const groupName = groupRows[0].name;
 
     // 2. Check if current user is admin
-    const adminCheck = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
+    const adminCheck = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1', [groupId, currentUserId]);
     if (!adminCheck.length || adminCheck[0].role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can add members' });
     }
@@ -350,25 +352,25 @@ const addMembers = async (req, res) => {
     const io = req.app.get('io');
     await Promise.all(userIds.map(async (uid) => {
       // Check if already a member
-      const exists = await query('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, uid]);
+      const exists = await query('SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, uid]);
       if (exists.length) return null;
 
-      await query('INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)', [groupId, uid, 'member']);
+      await query('INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, $3)', [groupId, uid, 'member']);
       
       // Notify the user with currentUserId as actor_id
       const notifResult = await query(
-        'INSERT INTO notifications (user_id, actor_id, type, content, group_id, created_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())',
+        'INSERT INTO notifications (user_id, actor_id, type, content, group_id, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING id',
         [uid, currentUserId, 'GROUP_ADDED', `added you to the group "${groupName}"`, groupId]
       );
 
       // Fetch actor info to emit complete notification object
-      const actorRows = await query('SELECT id, name, profile_picture AS avatar FROM users WHERE id = ?', [currentUserId]);
+      const actorRows = await query('SELECT id, name, profile_picture AS avatar FROM users WHERE id = $1', [currentUserId]);
       const actor = actorRows.length ? { id: actorRows[0].id, name: actorRows[0].name, avatar: actorRows[0].avatar } : null;
 
       // Emit real-time notification
       if (io) {
         io.to(`user:${uid}`).emit('new_notification', {
-          id: notifResult.insertId,
+          id: notifResult[0]?.id,
           type: 'GROUP_ADDED',
           content: `added you to the group "${groupName}"`,
           isRead: false,
@@ -412,7 +414,7 @@ const updateNotificationSetting = async (req, res) => {
     }
 
     await query(
-      'UPDATE group_members SET notification_setting = ? WHERE group_id = ? AND user_id = ?',
+      'UPDATE group_members SET notification_setting = $1 WHERE group_id = $2 AND user_id = $3',
       [setting, groupId, currentUserId]
     );
 
@@ -429,18 +431,18 @@ const markAsRead = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     // Get max ID
-    const maxIdRow = await query('SELECT MAX(id) AS maxId FROM group_messages WHERE group_id = ?', [groupId]);
+    const maxIdRow = await query('SELECT MAX(id) AS maxId FROM group_messages WHERE group_id = $1', [groupId]);
     const maxId = maxIdRow[0].maxId || 0;
 
     await query(
-      'UPDATE group_members SET last_read_id = ? WHERE group_id = ? AND user_id = ?',
+      'UPDATE group_members SET last_read_id = $1 WHERE group_id = $2 AND user_id = $3',
       [maxId, groupId, currentUserId]
     );
 
     // Also mark "added to group" notifications as read
     await query(
-      'UPDATE notifications SET isRead = 1 WHERE user_id = ? AND type = "GROUP_ADDED" AND group_id = ?',
-      [currentUserId, groupId]
+      'UPDATE notifications SET is_read = true WHERE user_id = $1 AND type = $2 AND group_id = $3',
+      [currentUserId, 'GROUP_ADDED', groupId]
     );
 
     const io = req.app.get('io');
@@ -463,31 +465,31 @@ const removeMember = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     // Check admin
-    const adminCheck = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
+    const adminCheck = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1', [groupId, currentUserId]);
     if (!adminCheck.length || adminCheck[0].role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can remove members' });
     }
 
     // Cannot remove self if only admin (already handled in leaveGroup but good to have)
     if (String(targetUserId) === String(currentUserId)) {
-      const admins = await query('SELECT COUNT(*) as count FROM group_members WHERE group_id = ? AND role = "admin"', [groupId]);
+      const admins = await query('SELECT COUNT(*) as count FROM group_members WHERE group_id = $1 AND role = $2', [groupId, 'admin']);
       if (admins[0].count <= 1) {
         return res.status(400).json({ message: 'Cannot remove yourself. You are the only admin.' });
       }
     }
 
-    await query('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, targetUserId]);
+    await query('DELETE FROM group_members WHERE group_id = $1 AND user_id = $2', [groupId, targetUserId]);
     
     // Delete notification (including old ones without group_id by matching name)
-    const groupNameResult = await query('SELECT name FROM `groups` WHERE id = ?', [groupId]);
+    const groupNameResult = await query('SELECT name FROM groups WHERE id = $1', [groupId]);
     const groupName = groupNameResult[0]?.name;
 
     await query(`
       DELETE FROM notifications 
-      WHERE user_id = ? 
-      AND type = "GROUP_ADDED" 
-      AND (group_id = ? OR content LIKE ?)
-    `, [targetUserId, groupId, `%${groupName}%`]);
+      WHERE user_id = $1 
+      AND type = $2 
+      AND (group_id = $3 OR content LIKE $4)
+    `, [targetUserId, 'GROUP_ADDED', groupId, `%${groupName}%`]);
 
     const updated = await getPopulatedGroup(groupId, currentUserId);
     const io = req.app.get('io');
@@ -526,12 +528,12 @@ const updateMemberRole = async (req, res) => {
     }
 
     // Check admin
-    const adminCheck = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, currentUserId]);
+    const adminCheck = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1', [groupId, currentUserId]);
     if (!adminCheck.length || adminCheck[0].role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can change roles' });
     }
 
-    await query('UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?', [role, groupId, userId]);
+    await query('UPDATE group_members SET role = $1 WHERE group_id = $2 AND user_id = $3', [role, groupId, userId]);
 
     const updated = await getPopulatedGroup(groupId, currentUserId);
     const io = req.app.get('io');
@@ -557,7 +559,7 @@ const deleteMessage = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     // Verify ownership
-    const msg = await query('SELECT sender_id FROM group_messages WHERE id = ? AND group_id = ? LIMIT 1', [msgId, groupId]);
+    const msg = await query('SELECT sender_id FROM group_messages WHERE id = $1 AND group_id = $2 LIMIT 1', [msgId, groupId]);
     if (!msg.length) {
       return res.status(404).json({ message: 'Message not found' });
     }
@@ -566,12 +568,12 @@ const deleteMessage = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this message' });
     }
 
-    await query('DELETE FROM group_messages WHERE id = ?', [msgId]);
+    await query('DELETE FROM group_messages WHERE id = $1', [msgId]);
 
     // Emit socket event to notify other group members to remove it
     const io = req.app.get('io');
     if (io) {
-      const members = await query('SELECT user_id FROM group_members WHERE group_id = ?', [groupId]);
+      const members = await query('SELECT user_id FROM group_members WHERE group_id = $1', [groupId]);
       members.forEach(m => {
         io.to(`user:${m.user_id}`).emit('group_message_deleted', { groupId, msgId });
       });

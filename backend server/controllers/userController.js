@@ -123,7 +123,7 @@ const getUserPosts = async (req, res) => {
       `SELECT p.id,
               p.content,
               p.image_url,
-              UNIX_TIMESTAMP(p.created_at) * 1000 AS created_at,
+              FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
               u.id AS userId,
               u.name,
               u.email,
@@ -133,10 +133,10 @@ const getUserPosts = async (req, res) => {
               u.bio,
               (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
               (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-              EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = ?) AS isLiked
+              EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
          FROM posts p
          JOIN users u ON u.id = p.user_id
-        WHERE p.user_id = ?
+        WHERE p.user_id = $2
         ORDER BY p.created_at DESC, p.id DESC`,
       [req.user.id || req.user._id || 0, req.params.id]
     );

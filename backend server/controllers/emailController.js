@@ -23,7 +23,7 @@ const refreshMicrosoftToken = async (connId, refreshToken) => {
     
     // Save new tokens
     await query(
-      'UPDATE connected_emails SET access_token = ?, refresh_token = ? WHERE id = ?',
+      'UPDATE connected_emails SET access_token = $1, refresh_token = $2 WHERE id = $3',
       [access_token, newRefreshToken || refreshToken, connId]
     );
 
@@ -36,7 +36,7 @@ const refreshMicrosoftToken = async (connId, refreshToken) => {
 
 // Helper to fetch and verify active oauth token for user (either Gmail or Outlook)
 const getAccessTokenForUser = async (userId) => {
-  const connections = await query('SELECT * FROM connected_emails WHERE user_id = ? LIMIT 1', [userId]);
+  const connections = await query('SELECT * FROM connected_emails WHERE user_id = $1 LIMIT 1', [userId]);
   if (!connections.length) {
     return null;
   }
@@ -56,7 +56,7 @@ const getAccessTokenForUser = async (userId) => {
     
     oauth2Client.on('tokens', async (tokens) => {
       if (tokens.access_token) {
-        await query('UPDATE connected_emails SET access_token = ? WHERE id = ?', [tokens.access_token, conn.id]);
+        await query('UPDATE connected_emails SET access_token = $1 WHERE id = $2', [tokens.access_token, conn.id]);
       }
     });
     
@@ -257,10 +257,10 @@ exports.googleCallback = async (req, res) => {
     const userInfo = await oauth2.userinfo.get();
     const emailAddress = userInfo.data.email;
     
-    await query('DELETE FROM connected_emails WHERE user_id = ?', [userId]);
+    await query('DELETE FROM connected_emails WHERE user_id = $1', [userId]);
     
     await query(
-      'INSERT INTO connected_emails (user_id, email, access_token, refresh_token, provider) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO connected_emails (user_id, email, access_token, refresh_token, provider) VALUES ($1, $2, $3, $4, $5)',
       [userId, emailAddress, tokens.access_token, tokens.refresh_token || '', 'google']
     );
     
@@ -312,10 +312,10 @@ exports.outlookCallback = async (req, res) => {
     
     const emailAddress = userRes.data.mail || userRes.data.userPrincipalName;
     
-    await query('DELETE FROM connected_emails WHERE user_id = ?', [userId]);
+    await query('DELETE FROM connected_emails WHERE user_id = $1', [userId]);
     
     await query(
-      'INSERT INTO connected_emails (user_id, email, access_token, refresh_token, provider) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO connected_emails (user_id, email, access_token, refresh_token, provider) VALUES ($1, $2, $3, $4, $5)',
       [userId, emailAddress, access_token, refresh_token || '', 'microsoft']
     );
     
@@ -330,7 +330,7 @@ exports.outlookCallback = async (req, res) => {
 exports.getStatus = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    const connections = await query('SELECT email, provider FROM connected_emails WHERE user_id = ? LIMIT 1', [userId]);
+    const connections = await query('SELECT email, provider FROM connected_emails WHERE user_id = $1 LIMIT 1', [userId]);
     if (connections.length) {
       res.json({
         connected: true,
@@ -350,7 +350,7 @@ exports.getStatus = async (req, res) => {
 exports.disconnect = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    await query('DELETE FROM connected_emails WHERE user_id = ?', [userId]);
+    await query('DELETE FROM connected_emails WHERE user_id = $1', [userId]);
     res.json({ success: true });
   } catch (error) {
     console.error('Error disconnecting:', error);
@@ -488,11 +488,11 @@ exports.getInbox = async (req, res) => {
       FROM emails e
       JOIN email_recipients er ON e.id = er.email_id
       JOIN users u ON e.sender_id = u.id
-      WHERE er.recipient_id = ? AND er.is_deleted = 0
+      WHERE er.recipient_id = $1 AND er.is_deleted = 0
     `;
     const params = [userId];
     if (searchVal) {
-      sql += ' AND (e.subject LIKE ? OR e.body LIKE ?)';
+      sql += ' AND (e.subject LIKE $2 OR e.body LIKE $3)';
       params.push(searchVal, searchVal);
     }
     sql += ' ORDER BY e.created_at DESC';
@@ -646,16 +646,16 @@ exports.getSent = async (req, res) => {
     const searchVal = search ? `%${search}%` : null;
     let sql = `
       SELECT e.id, e.subject, e.body, e.created_at as timestamp,
-             GROUP_CONCAT(u.name) as recipientNames,
-             GROUP_CONCAT(u.email) as recipientEmails
+             string_agg(u.name, ',') as recipientNames,
+             string_agg(u.email, ',') as recipientEmails
       FROM emails e
       JOIN email_recipients er ON e.id = er.email_id
       JOIN users u ON er.recipient_id = u.id
-      WHERE e.sender_id = ? AND e.sender_deleted = 0
+      WHERE e.sender_id = $1 AND e.sender_deleted = 0
     `;
     const params = [userId];
     if (searchVal) {
-      sql += ' AND (e.subject LIKE ? OR e.body LIKE ?)';
+      sql += ' AND (e.subject LIKE $2 OR e.body LIKE $3)';
       params.push(searchVal, searchVal);
     }
     sql += ` GROUP BY e.id ORDER BY e.created_at DESC`;
@@ -812,11 +812,11 @@ exports.getTrash = async (req, res) => {
       FROM emails e
       JOIN email_recipients er ON e.id = er.email_id
       JOIN users u ON e.sender_id = u.id
-      WHERE er.recipient_id = ? AND er.is_deleted = 1
+      WHERE er.recipient_id = $1 AND er.is_deleted = 1
     `;
     const receivedParams = [userId];
     if (searchVal) {
-      deletedReceivedSql += ' AND (e.subject LIKE ? OR e.body LIKE ?)';
+      deletedReceivedSql += ' AND (e.subject LIKE $2 OR e.body LIKE $3)';
       receivedParams.push(searchVal, searchVal);
     }
     const deletedReceived = await query(deletedReceivedSql, receivedParams);
@@ -826,11 +826,11 @@ exports.getTrash = async (req, res) => {
              u.name as senderName, u.email as senderEmail, u.profile_picture as senderAvatar
       FROM emails e
       JOIN users u ON e.sender_id = u.id
-      WHERE e.sender_id = ? AND e.sender_deleted = 1
+      WHERE e.sender_id = $1 AND e.sender_deleted = 1
     `;
     const sentParams = [userId];
     if (searchVal) {
-      deletedSentSql += ' AND (e.subject LIKE ? OR e.body LIKE ?)';
+      deletedSentSql += ' AND (e.subject LIKE $2 OR e.body LIKE $3)';
       sentParams.push(searchVal, searchVal);
     }
     const deletedSent = await query(deletedSentSql, sentParams);
@@ -909,18 +909,18 @@ exports.sendEmail = async (req, res) => {
     }
 
     const result = await query(
-      'INSERT INTO emails (sender_id, subject, body) VALUES (?, ?, ?)',
+      'INSERT INTO emails (sender_id, subject, body) VALUES ($1, $2, $3) RETURNING id',
       [senderId, subject, body]
     );
-    const emailId = result.insertId;
+    const emailId = result[0]?.id;
 
     const addRecipients = async (emails, type) => {
       if (!emails || !emails.length) return;
       for (const email of emails) {
-        const users = await query('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+        const users = await query('SELECT id FROM users WHERE email = $1 LIMIT 1', [email]);
         if (users.length) {
           await query(
-            'INSERT INTO email_recipients (email_id, recipient_id, type) VALUES (?, ?, ?)',
+            'INSERT INTO email_recipients (email_id, recipient_id, type) VALUES ($1, $2, $3)',
             [emailId, users[0].id, type]
           );
         }
@@ -928,7 +928,7 @@ exports.sendEmail = async (req, res) => {
     };
 
     if (targetAudience) {
-      let targetSql = 'SELECT id FROM users WHERE id != ?';
+      let targetSql = 'SELECT id FROM users WHERE id != $1';
       const params = [senderId];
 
       if (targetAudience === 'Student') {
@@ -940,7 +940,7 @@ exports.sendEmail = async (req, res) => {
       const targetUsers = await query(targetSql, params);
       for (const tUser of targetUsers) {
         await query(
-          'INSERT INTO email_recipients (email_id, recipient_id, type) VALUES (?, ?, ?)',
+          'INSERT INTO email_recipients (email_id, recipient_id, type) VALUES ($1, $2, $3)',
           [emailId, tUser.id, 'to']
         );
       }
@@ -985,7 +985,7 @@ exports.markAsRead = async (req, res) => {
     }
 
     await query(
-      'UPDATE email_recipients SET is_read = 1 WHERE email_id = ? AND recipient_id = ?',
+      'UPDATE email_recipients SET is_read = 1 WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
@@ -1021,12 +1021,12 @@ exports.moveToTrash = async (req, res) => {
     }
 
     await query(
-      'UPDATE email_recipients SET is_deleted = 1 WHERE email_id = ? AND recipient_id = ?',
+      'UPDATE email_recipients SET is_deleted = 1 WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
     await query(
-      'UPDATE emails SET sender_deleted = 1 WHERE id = ? AND sender_id = ?',
+      'UPDATE emails SET sender_deleted = 1 WHERE id = $1 AND sender_id = $2',
       [emailId, userId]
     );
 
@@ -1062,12 +1062,12 @@ exports.restoreFromTrash = async (req, res) => {
     }
 
     await query(
-      'UPDATE email_recipients SET is_deleted = 0 WHERE email_id = ? AND recipient_id = ?',
+      'UPDATE email_recipients SET is_deleted = 0 WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
     await query(
-      'UPDATE emails SET sender_deleted = 0 WHERE id = ? AND sender_id = ?',
+      'UPDATE emails SET sender_deleted = 0 WHERE id = $1 AND sender_id = $2',
       [emailId, userId]
     );
 
@@ -1102,7 +1102,7 @@ exports.deletePermanently = async (req, res) => {
     }
 
     await query(
-      'DELETE FROM email_recipients WHERE email_id = ? AND recipient_id = ?',
+      'DELETE FROM email_recipients WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
@@ -1199,7 +1199,7 @@ exports.emptyTrash = async (req, res) => {
     }
 
     await query(
-      'DELETE FROM email_recipients WHERE recipient_id = ? AND is_deleted = 1',
+      'DELETE FROM email_recipients WHERE recipient_id = $1 AND is_deleted = 1',
       [userId]
     );
 

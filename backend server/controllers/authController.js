@@ -17,7 +17,7 @@ const registerUser = async (req, res) => {
     const { name, email, password, role } = req.body;
 
     // Check if user exists
-    const existing = await query('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    const existing = await query('SELECT id FROM users WHERE email = $1 LIMIT 1', [email]);
     if (existing.length) {
       return res.status(400).json({ message: 'User already exists' });
     }
@@ -39,7 +39,7 @@ const registerUser = async (req, res) => {
     const standardizedRole = role === 'admin' ? 'Admin' : (role === 'faculty' ? 'Teacher' : 'Student');
     
     // Admin accounts are auto-verified
-    const isVerified = standardizedRole === 'Admin' ? 1 : 0;
+    const isVerified = standardizedRole === 'Admin' ? true : false;
 
     // Generate 6-digit OTP (only if not admin)
     const otp = isVerified ? null : Math.floor(100000 + Math.random() * 900000).toString();
@@ -49,10 +49,10 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     const result = await query(
-      'INSERT INTO users (name, email, password_hash, role, is_verified, verification_otp, otp_expires) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO users (name, email, password_hash, role, is_verified, verification_otp, otp_expires) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
       [name, email, passwordHash, standardizedRole, isVerified, otp, otpExpires]
     );
-    const userId = result.insertId;
+    const userId = result[0]?.id;
 
     // Send Email (only if not admin)
     if (!isVerified) {
@@ -97,7 +97,7 @@ const resendOTP = async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const rows = await query('SELECT id, is_verified FROM users WHERE email = ? LIMIT 1', [email]);
+    const rows = await query('SELECT id, is_verified FROM users WHERE email = $1 LIMIT 1', [email]);
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     
     if (rows[0].is_verified) {
@@ -109,7 +109,7 @@ const resendOTP = async (req, res) => {
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     await query(
-      'UPDATE users SET verification_otp = ?, otp_expires = ? WHERE email = ?',
+      'UPDATE users SET verification_otp = $1, otp_expires = $2 WHERE email = $3',
       [otp, otpExpires, email]
     );
 
@@ -151,7 +151,7 @@ const verifyOTP = async (req, res) => {
     }
 
     const rows = await query(
-      'SELECT id, verification_otp, otp_expires FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, verification_otp, otp_expires FROM users WHERE email = $1 LIMIT 1',
       [email]
     );
 
@@ -171,7 +171,7 @@ const verifyOTP = async (req, res) => {
 
     // Mark as verified
     await query(
-      'UPDATE users SET is_verified = 1, verification_otp = NULL, otp_expires = NULL WHERE id = ?',
+      'UPDATE users SET is_verified = true, verification_otp = NULL, otp_expires = NULL WHERE id = $1',
       [user.id]
     );
 
@@ -210,7 +210,7 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Incorrect or expired CAPTCHA verification code' });
     }
 
-    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE email = ? LIMIT 1', [email]);
+    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE email = $1 LIMIT 1', [email]);
     if (!rows.length) return res.status(401).json({ message: 'Invalid email or password' });
     const user = rows[0];
 
@@ -252,7 +252,7 @@ const loginUser = async (req, res) => {
 // @access  Private
 const getUserProfile = async (req, res) => {
   try {
-    const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1', [req.user.id || req.user._id]);
+    const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1', [req.user.id || req.user._id]);
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     const user = rows[0];
     res.json({
@@ -278,23 +278,23 @@ const getUserProfile = async (req, res) => {
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    const rows = await query('SELECT id, role FROM users WHERE id = ? LIMIT 1', [userId]);
+    const rows = await query('SELECT id, role FROM users WHERE id = $1 LIMIT 1', [userId]);
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     const role = rows[0].role;
 
     const fields = [];
     const params = [];
-    if (req.body.name !== undefined) { fields.push('name = ?'); params.push(req.body.name); }
-    if (req.body.profilePicture !== undefined) { fields.push('profile_picture = ?'); params.push(req.body.profilePicture); }
-    if (req.body.coverPhoto !== undefined) { fields.push('cover_photo = ?'); params.push(req.body.coverPhoto); }
-    if (req.body.bio !== undefined) { fields.push('bio = ?'); params.push(req.body.bio); }
-    if (req.body.linkedin !== undefined) { fields.push('linkedin = ?'); params.push(req.body.linkedin); }
-    if (req.body.github !== undefined) { fields.push('github = ?'); params.push(req.body.github); }
-    if (req.body.portfolio !== undefined) { fields.push('portfolio = ?'); params.push(req.body.portfolio); }
+    if (req.body.name !== undefined) { fields.push('name = $' + (params.length + 1)); params.push(req.body.name); }
+    if (req.body.profilePicture !== undefined) { fields.push('profile_picture = $' + (params.length + 1)); params.push(req.body.profilePicture); }
+    if (req.body.coverPhoto !== undefined) { fields.push('cover_photo = $' + (params.length + 1)); params.push(req.body.coverPhoto); }
+    if (req.body.bio !== undefined) { fields.push('bio = $' + (params.length + 1)); params.push(req.body.bio); }
+    if (req.body.linkedin !== undefined) { fields.push('linkedin = $' + (params.length + 1)); params.push(req.body.linkedin); }
+    if (req.body.github !== undefined) { fields.push('github = $' + (params.length + 1)); params.push(req.body.github); }
+    if (req.body.portfolio !== undefined) { fields.push('portfolio = $' + (params.length + 1)); params.push(req.body.portfolio); }
 
     if (role === 'faculty' && req.body.cabinNumber) {
       if (/^[a-zA-Z]\d{3}$/.test(req.body.cabinNumber)) {
-        fields.push('cabin_number = ?'); params.push(req.body.cabinNumber);
+        fields.push('cabin_number = $' + (params.length + 1)); params.push(req.body.cabinNumber);
       } else {
         return res.status(400).json({ message: 'Cabin number must be in format: letter followed by 3 digits (e.g., C001)' });
       }
@@ -303,14 +303,15 @@ const updateUserProfile = async (req, res) => {
     if (req.body.password !== undefined) {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(req.body.password, salt);
-      fields.push('password_hash = ?'); params.push(passwordHash);
+      fields.push('password_hash = $' + (params.length + 1)); params.push(passwordHash);
     }
 
     if (!fields.length) return res.json({ message: 'No changes' });
     params.push(userId);
-    await query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, params);
+    const paramIndex = params.length;
+    await query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex}`, params);
 
-    const updated = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1', [userId]);
+    const updated = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1', [userId]);
     const u = updated[0];
     res.json({
       _id: u.id,

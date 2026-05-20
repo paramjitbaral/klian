@@ -11,18 +11,18 @@ exports.createAnnouncement = async (req, res) => {
     }
 
     const result = await query(
-      'INSERT INTO announcements (title, content, author_id, target) VALUES (?, ?, ?, ?)',
+      'INSERT INTO announcements (title, content, author_id, target) VALUES ($1, $2, $3, $4) RETURNING id',
       [title, content, currentUserId, target || 'All']
     );
 
-    const announcementId = result.insertId;
+    const announcementId = result[0]?.id;
     
     const rows = await query(
-      `SELECT a.id, a.title, a.content, a.target, UNIX_TIMESTAMP(a.created_at) * 1000 AS createdAt,
+      `SELECT a.id, a.title, a.content, a.target, FLOOR(EXTRACT(EPOCH FROM a.created_at) * 1000) AS createdAt,
               u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole
          FROM announcements a
          JOIN users u ON u.id = a.author_id
-        WHERE a.id = ?
+        WHERE a.id = $1
         LIMIT 1`,
       [announcementId]
     );
@@ -53,11 +53,11 @@ exports.createAnnouncement = async (req, res) => {
 exports.getAnnouncements = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
-    let sql = `SELECT a.id, a.title, a.content, a.target, UNIX_TIMESTAMP(a.created_at) * 1000 AS createdAt,
+    let sql = `SELECT a.id, a.title, a.content, a.target, FLOOR(EXTRACT(EPOCH FROM a.created_at) * 1000) AS createdAt,
                       u.id AS authorId, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole,
-                      (SELECT COUNT(*) FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?) AS isRead
+                      (SELECT COUNT(*) FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = $1) AS isRead
                  FROM announcements a
-                 JOIN users u ON u.id = a.author_id`;
+                 WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = $1)`;
     
     const params = [currentUserId];
 
@@ -99,7 +99,7 @@ exports.getUnreadCount = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
     let sql = `SELECT COUNT(*) AS unreadCount 
                  FROM announcements a
-                 WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?)`;
+                 WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = $1)`;
     
     const params = [currentUserId];
 
@@ -133,10 +133,10 @@ exports.markAsRead = async (req, res) => {
     const { announcementId } = req.params;
     const currentUserId = req.user.id || req.user._id;
 
-    const exists = await query('SELECT 1 FROM announcement_reads WHERE announcement_id = ? AND user_id = ? LIMIT 1', [announcementId, currentUserId]);
+    const exists = await query('SELECT 1 FROM announcement_reads WHERE announcement_id = $1 AND user_id = $2 LIMIT 1', [announcementId, currentUserId]);
 
     if (!exists.length) {
-      await query('INSERT INTO announcement_reads (announcement_id, user_id) VALUES (?, ?)', [announcementId, currentUserId]);
+      await query('INSERT INTO announcement_reads (announcement_id, user_id) VALUES ($1, $2)', [announcementId, currentUserId]);
     }
 
     res.json({
@@ -158,17 +158,17 @@ exports.markAllAsRead = async (req, res) => {
     
     // Insert into announcement_reads for all announcements the user hasn't read yet
     // and that are targeted to them
-    let sql = `INSERT IGNORE INTO announcement_reads (announcement_id, user_id)
-               SELECT a.id, ? 
+    let sql = `INSERT INTO announcement_reads (announcement_id, user_id)
+               SELECT a.id, $1 
                  FROM announcements a
-                WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = ?)`;
+                WHERE NOT EXISTS (SELECT 1 FROM announcement_reads ar WHERE ar.announcement_id = a.id AND ar.user_id = $2)`;
     
     const params = [currentUserId, currentUserId];
 
     if (req.user.role !== 'Admin' && req.user.role !== 'admin') {
       const userRole = req.user.role === 'faculty' ? 'faculty' : 'student';
-      sql += ' AND (a.target = "All" OR a.target = ?)';
-      params.push(userRole);
+      sql += ' AND (a.target = $3 OR a.target = $4)';
+      params.push('All', userRole);
     }
 
     await query(sql, params);
@@ -189,7 +189,7 @@ exports.deleteAnnouncement = async (req, res) => {
     const { announcementId } = req.params;
     const currentUserId = req.user.id || req.user._id;
 
-    const rows = await query('SELECT author_id FROM announcements WHERE id = ? LIMIT 1', [announcementId]);
+    const rows = await query('SELECT author_id FROM announcements WHERE id = $1 LIMIT 1', [announcementId]);
 
     if (!rows.length) {
       return res.status(404).json({ message: 'Announcement not found' });
@@ -200,10 +200,10 @@ exports.deleteAnnouncement = async (req, res) => {
     }
 
     // First delete associated reads to avoid foreign key constraints
-    await query('DELETE FROM announcement_reads WHERE announcement_id = ?', [announcementId]);
+    await query('DELETE FROM announcement_reads WHERE announcement_id = $1', [announcementId]);
     
     // Then delete the announcement itself
-    await query('DELETE FROM announcements WHERE id = ?', [announcementId]);
+    await query('DELETE FROM announcements WHERE id = $1', [announcementId]);
 
     // Emit to all connected clients so their feeds update instantly
     const io = req.app.get('io');
@@ -226,7 +226,7 @@ exports.updateAnnouncement = async (req, res) => {
     const { title, content, target } = req.body;
     const currentUserId = req.user.id || req.user._id;
 
-    const rows = await query('SELECT author_id FROM announcements WHERE id = ? LIMIT 1', [announcementId]);
+    const rows = await query('SELECT author_id FROM announcements WHERE id = $1 LIMIT 1', [announcementId]);
 
     if (!rows.length) {
       return res.status(404).json({ message: 'Announcement not found' });
@@ -238,20 +238,22 @@ exports.updateAnnouncement = async (req, res) => {
 
     const fields = [];
     const params = [];
-    if (title) { fields.push('title = ?'); params.push(title); }
-    if (content) { fields.push('content = ?'); params.push(content); }
-    if (target) { fields.push('target = ?'); params.push(target); }
+    let paramIndex = 1;
+    if (title) { fields.push('title = $' + paramIndex); params.push(title); paramIndex++; }
+    if (content) { fields.push('content = $' + paramIndex); params.push(content); paramIndex++; }
+    if (target) { fields.push('target = $' + paramIndex); params.push(target); paramIndex++; }
 
     if (fields.length > 0) {
       params.push(announcementId);
-      await query(`UPDATE announcements SET ${fields.join(', ')} WHERE id = ?`, params);
+      const finalParamIndex = params.length;
+      await query(`UPDATE announcements SET ${fields.join(', ')} WHERE id = $${finalParamIndex}`, params);
     }
 
     const updated = await query(
       `SELECT a.*, u.name AS authorName, u.profile_picture AS authorAvatar, u.role AS authorRole
          FROM announcements a
          JOIN users u ON u.id = a.author_id
-        WHERE a.id = ?`,
+        WHERE a.id = $1`,
       [announcementId]
     );
 

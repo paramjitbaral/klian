@@ -16,7 +16,7 @@ const setupMessageHandlers = (io, socket, redis) => {
 
     try {
       // Validate sender exists
-      const sender = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = ? LIMIT 1', [senderId]);
+      const sender = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = $1 LIMIT 1', [senderId]);
       if (!sender.length) {
         console.error('Sender not found:', senderId);
         socket.emit('message-error', { error: 'Sender not found' });
@@ -24,7 +24,7 @@ const setupMessageHandlers = (io, socket, redis) => {
       }
 
       // Validate recipient exists
-      const recipient = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = ? LIMIT 1', [recipientId]);
+      const recipient = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = $1 LIMIT 1', [recipientId]);
       if (!recipient.length) {
         console.error('Recipient not found:', recipientId);
         socket.emit('message-error', { error: 'Recipient not found' });
@@ -33,10 +33,10 @@ const setupMessageHandlers = (io, socket, redis) => {
 
       // Create and save message
       const result = await query(
-        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id, `read`) VALUES (?, ?, ?, ?, ?, 0)',
+        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id, read) VALUES ($1, $2, $3, $4, $5, false) RETURNING id',
         [senderId, recipientId, content, type, postId || null]
       );
-      const msgId = result.insertId;
+      const msgId = result[0]?.id;
 
       // Load populated
       const rows = await query(
@@ -46,7 +46,7 @@ const setupMessageHandlers = (io, socket, redis) => {
            FROM messages m
            JOIN users s ON s.id = m.sender_id
            JOIN users r ON r.id = m.recipient_id
-          WHERE m.id = ? LIMIT 1`,
+          WHERE m.id = $1 LIMIT 1`,
         [msgId]
       );
       const row = rows[0];
@@ -55,7 +55,7 @@ const setupMessageHandlers = (io, socket, redis) => {
         content: row.content,
         type: row.type,
         postId: row.postId,
-        read: row.read === 1,
+        read: row.read === true,
         createdAt: row.created_at,
         sender: {
           _id: row.senderId,
@@ -94,7 +94,7 @@ const setupMessageHandlers = (io, socket, redis) => {
     }
 
     try {
-      await query('UPDATE messages SET `read` = 1 WHERE recipient_id = ? AND sender_id = ? AND `read` = 0', [userId, senderId]);
+      await query('UPDATE messages SET read = true WHERE recipient_id = $1 AND sender_id = $2 AND read = false', [userId, senderId]);
 
       // Notify sender that messages have been read
       io.to(`user:${senderId}`).emit('messages-marked-read', { by: userId });
@@ -113,9 +113,9 @@ const setupMessageHandlers = (io, socket, redis) => {
       }
 
       // Verify if only admins can message
-      const groupRows = await query('SELECT only_admins_can_message FROM `groups` WHERE id = ? LIMIT 1', [groupId]);
-      if (groupRows.length && groupRows[0].only_admins_can_message === 1) {
-        const memberRows = await query('SELECT role FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1', [groupId, senderId]);
+      const groupRows = await query('SELECT only_admins_can_message FROM groups WHERE id = $1 LIMIT 1', [groupId]);
+      if (groupRows.length && groupRows[0].only_admins_can_message === true) {
+        const memberRows = await query('SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1', [groupId, senderId]);
         if (!memberRows.length || memberRows[0].role !== 'admin') {
           socket.emit('message-error', { error: 'Only admins can message in this group' });
           return;
@@ -124,10 +124,10 @@ const setupMessageHandlers = (io, socket, redis) => {
 
       // Save message to DB
       const result = await query(
-        'INSERT INTO group_messages (group_id, sender_id, content, type) VALUES (?, ?, ?, ?)',
+        'INSERT INTO group_messages (group_id, sender_id, content, type) VALUES ($1, $2, $3, $4) RETURNING id',
         [groupId, senderId, content, type]
       );
-      const msgId = result.insertId;
+      const msgId = result[0]?.id;
 
       // Fetch populated message
       const rows = await query(
@@ -135,7 +135,7 @@ const setupMessageHandlers = (io, socket, redis) => {
                 u.id AS senderId, u.name AS senderName, u.profile_picture AS senderAvatar
            FROM group_messages gm
            JOIN users u ON u.id = gm.sender_id
-          WHERE gm.id = ? LIMIT 1`,
+          WHERE gm.id = $1 LIMIT 1`,
         [msgId]
       );
       
@@ -150,7 +150,7 @@ const setupMessageHandlers = (io, socket, redis) => {
       };
 
       // Broadcast to group members
-      const members = await query('SELECT user_id FROM group_members WHERE group_id = ?', [groupId]);
+      const members = await query('SELECT user_id FROM group_members WHERE group_id = $1', [groupId]);
       members.forEach(m => {
         io.to(`user:${m.user_id}`).emit('new_group_message', formatted);
       });
@@ -169,7 +169,7 @@ const setupMessageHandlers = (io, socket, redis) => {
     }
 
     try {
-      await query('INSERT INTO messages (sender_id, recipient_id, content, type, post_id, `read`) VALUES (?, ?, ?, ?, ?, 0)', [senderId, recipientId, message || '', 'post', postId || null]);
+      await query('INSERT INTO messages (sender_id, recipient_id, content, type, post_id, read) VALUES ($1, $2, $3, $4, $5, false)', [senderId, recipientId, message || '', 'post', postId || null]);
       // For simplicity, emit a minimal event; clients can fetch thread on demand
       io.to(`user:${recipientId}`).emit('new-message', { senderId, recipientId, postId, type: 'post', content: message || '' });
       io.to(`user:${senderId}`).emit('new-message', { senderId, recipientId, postId, type: 'post', content: message || '' });

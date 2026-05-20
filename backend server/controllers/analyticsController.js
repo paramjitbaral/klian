@@ -1,6 +1,5 @@
 const { query } = require('../config/db');
 
-// Get dashboard analytics
 exports.getAnalytics = async (req, res) => {
   try {
     const now = new Date();
@@ -9,22 +8,22 @@ exports.getAnalytics = async (req, res) => {
     const last6Months = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
     // Key Metrics
-    const userCountsResult = await query('SELECT COUNT(*) AS total, IFNULL(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS active FROM users', [last30Days]);
+    const userCountsResult = await query('SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN created_at >= $1 THEN 1 ELSE 0 END), 0) AS active FROM users', [last30Days]);
     const userCounts = userCountsResult[0] || { total: 0, active: 0 };
     
-    const postsTodayResult = await query('SELECT COUNT(*) AS cnt FROM posts WHERE created_at >= ?', [today]);
+    const postsTodayResult = await query('SELECT COUNT(*) AS cnt FROM posts WHERE created_at >= $1', [today]);
     const postsToday = postsTodayResult[0] || { cnt: 0 };
     
-    const messagesTodayResult = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ?', [today]);
+    const messagesTodayResult = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= $1', [today]);
     const messagesToday = messagesTodayResult[0] || { cnt: 0 };
 
     // User Engagement (Last 6 Months)
     const userEngagement = await query(`
-      SELECT DATE_FORMAT(created_at, '%b') AS name, COUNT(*) AS value
+      SELECT to_char(created_at, 'Mon') AS name, COUNT(*) AS value
       FROM users
-      WHERE created_at >= ?
-      GROUP BY MONTH(created_at), DATE_FORMAT(created_at, '%b')
-      ORDER BY MONTH(created_at) ASC
+      WHERE created_at >= $1
+      GROUP BY EXTRACT(MONTH FROM created_at), to_char(created_at, 'Mon')
+      ORDER BY EXTRACT(MONTH FROM created_at) ASC
     `, [last6Months]);
 
     // Post Activity by Role
@@ -48,8 +47,8 @@ exports.getAnalytics = async (req, res) => {
       const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 19).replace('T', ' ');
       const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).toISOString().slice(0, 19).replace('T', ' ');
 
-      const dmsResult = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ? AND created_at < ? AND post_id IS NULL', [start, end]);
-      const groupMsgsResult = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ? AND created_at < ? AND post_id IS NOT NULL', [start, end]);
+      const dmsResult = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= $1 AND created_at < $2 AND post_id IS NULL', [start, end]);
+      const groupMsgsResult = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= $1 AND created_at < $2 AND post_id IS NOT NULL', [start, end]);
       
       const dms = dmsResult[0] || { cnt: 0 };
       const groupMsgs = groupMsgsResult[0] || { cnt: 0 };
@@ -63,7 +62,7 @@ exports.getAnalytics = async (req, res) => {
 
     // Additional Stats
     const totalPostsResult = await query('SELECT COUNT(*) AS cnt FROM posts');
-    const totalGroupsResult = await query('SELECT COUNT(*) AS cnt FROM `groups`');
+    const totalGroupsResult = await query('SELECT COUNT(*) AS cnt FROM groups');
     const totalEventsResult = await query('SELECT COUNT(*) AS cnt FROM events');
     const totalAnnouncementsResult = await query('SELECT COUNT(*) AS cnt FROM announcements');
     
@@ -115,14 +114,14 @@ exports.getRealTimeStats = async (req, res) => {
     const now = new Date();
     const last5Minutes = new Date(now.getTime() - 5 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
-    const [recentPosts] = await query('SELECT COUNT(*) AS cnt FROM posts WHERE created_at >= ?', [last5Minutes]);
-    const [recentMessages] = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= ?', [last5Minutes]);
-    const [onlineUsers] = await query('SELECT COUNT(*) AS cnt FROM users WHERE updated_at >= ?', [last5Minutes]);
+    const recentPosts = await query('SELECT COUNT(*) AS cnt FROM posts WHERE created_at >= $1', [last5Minutes]);
+    const recentMessages = await query('SELECT COUNT(*) AS cnt FROM messages WHERE created_at >= $1', [last5Minutes]);
+    const onlineUsers = await query('SELECT COUNT(*) AS cnt FROM users WHERE updated_at >= $1', [last5Minutes]);
 
     res.json({
-      recentPosts: recentPosts.cnt,
-      recentMessages: recentMessages.cnt,
-      onlineUsers: onlineUsers.cnt,
+      recentPosts: recentPosts[0].cnt,
+      recentMessages: recentMessages[0].cnt,
+      onlineUsers: onlineUsers[0].cnt,
       timestamp: now
     });
   } catch (error) {

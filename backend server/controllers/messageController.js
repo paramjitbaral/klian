@@ -9,17 +9,17 @@ const sendMessage = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     // Check if recipient exists
-    const recipientRows = await query('SELECT id FROM users WHERE id = ? LIMIT 1', [recipient]);
+    const recipientRows = await query('SELECT id FROM users WHERE id = $1 LIMIT 1', [recipient]);
     if (!recipientRows.length) {
       return res.status(404).json({ message: 'Recipient not found' });
     }
 
     const result = await query(
-      'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [currentUserId, recipient, content || '', type || 'text', postId || null]
     );
 
-    const messageId = result.insertId;
+    const messageId = result[0]?.id;
     
     // Fetch populated message
     const rows = await query(
@@ -29,7 +29,7 @@ const sendMessage = async (req, res) => {
          FROM messages m
          JOIN users s ON s.id = m.sender_id
          JOIN users r ON r.id = m.recipient_id
-        WHERE m.id = ?
+        WHERE m.id = $1
         LIMIT 1`,
       [messageId]
     );
@@ -74,7 +74,7 @@ const getMessagesWith = async (req, res) => {
          JOIN users r ON r.id = m.recipient_id
          LEFT JOIN posts p ON p.id = m.post_id
          LEFT JOIN users pu ON pu.id = p.user_id
-        WHERE (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
+        WHERE (m.sender_id = $1 AND m.recipient_id = $2) OR (m.sender_id = $3 AND m.recipient_id = $4)
         ORDER BY m.created_at ASC`,
       [currentUserId, otherUserId, otherUserId, currentUserId]
     );
@@ -99,7 +99,7 @@ const getMessagesWith = async (req, res) => {
 
     // Mark messages as read if current user is recipient
     await query(
-      'UPDATE messages SET `read` = 1 WHERE recipient_id = ? AND sender_id = ? AND `read` = 0',
+      'UPDATE messages SET read = true WHERE recipient_id = $1 AND sender_id = $2 AND read = false',
       [currentUserId, otherUserId]
     );
     
@@ -117,22 +117,23 @@ const getConversations = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
 
-    // Get the last message of each conversation
+    // Get the last message of each conversation (PostgreSQL doesn't have LEAST/GREATEST in older versions, so we use different approach)
     const rows = await query(
-      `SELECT m1.*, 
+      `SELECT m1.* , 
               s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
               r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture
          FROM messages m1
          JOIN (
            SELECT MAX(id) as lastId
            FROM messages
-           WHERE sender_id = ? OR recipient_id = ?
-           GROUP BY LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id)
+           WHERE sender_id = $1 OR recipient_id = $1
+           GROUP BY CASE WHEN sender_id < recipient_id THEN sender_id || '|' || recipient_id 
+                         ELSE recipient_id || '|' || sender_id END
          ) m2 ON m1.id = m2.lastId
          JOIN users s ON s.id = m1.sender_id
          JOIN users r ON r.id = m1.recipient_id
          ORDER BY m1.created_at DESC`,
-      [currentUserId, currentUserId]
+      [currentUserId]
     );
     
     const conversations = rows.map(msg => {
@@ -185,11 +186,11 @@ module.exports = {
       }
 
       const result = await query(
-        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
         [currentUserId, recipient, message || '', 'post', postId]
       );
 
-      const messageId = result.insertId;
+      const messageId = result[0]?.id;
       
       // Fetch populated message with post details
       const rows = await query(
