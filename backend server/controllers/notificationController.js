@@ -140,10 +140,9 @@ const deleteNotification = async (type, postId, actorId, commentId = null) => {
   try {
     let whereClause = 'type = $1 AND post_id = $2 AND actor_id = $3';
     let params = [type, postId, actorId];
-    let paramIndex = 4;
     
     if (commentId) {
-      whereClause += ` AND comment_id = $${paramIndex}`;
+      whereClause += ' AND comment_id = $4';
       params.push(commentId);
     }
 
@@ -159,8 +158,8 @@ const deleteNotification = async (type, postId, actorId, commentId = null) => {
     const notifId = rows[0].id;
     const recipientId = rows[0].user_id;
 
-    // Delete it by ID to be precise$1
-    await query('DELETE FROM notifications WHERE id = ?', [notifId]);
+    // Delete it by ID to be precise
+    await query('DELETE FROM notifications WHERE id = $1', [notifId]);
     
     console.log(`[Notifications] Successfully deleted notification ${notifId} for recipient ${recipientId}`);
     return { id: notifId, recipientId };
@@ -178,11 +177,11 @@ const deleteNotificationById = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const notifId = req.params.id;
     
-    // Check ownership$1 AND user_id = $2', [notifId, userId]);
+    // Check ownership before deleting
+    const rows = await query('SELECT id FROM notifications WHERE id = $1 AND user_id = $2', [notifId, userId]);
     if (!rows.length) return res.status(404).json({ message: 'Notification not found or unauthorized' });
 
-    await query('DELETE FROM notifications WHERE id = $1
-    await query('DELETE FROM notifications WHERE id = ?', [notifId]);
+    await query('DELETE FROM notifications WHERE id = $1', [notifId]);
     res.json({ message: 'Notification deleted' });
   } catch (error) {
     console.error('[Notifications] Delete Error:', error);
