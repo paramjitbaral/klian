@@ -1,8 +1,12 @@
 // PostgreSQL connection pool using pg (for Supabase)
 // Why: Supabase uses PostgreSQL; pool improves concurrency and reuse.
+const dns = require('dns');
 const { Pool } = require('pg');
 
 let pool;
+
+// Render/Supabase may resolve IPv6 first; force IPv4 to avoid ENETUNREACH on some hosts.
+dns.setDefaultResultOrder('ipv4first');
 
 async function initPool() {
   if (pool) return pool;
@@ -13,6 +17,7 @@ async function initPool() {
       pool = new Pool({
         connectionString,
         ssl: { rejectUnauthorized: false },
+        family: 4,
         max: Number(process.env.DATABASE_POOL_SIZE || 15),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
@@ -25,6 +30,7 @@ async function initPool() {
         password: process.env.DATABASE_PASSWORD,
         database: process.env.DATABASE_NAME,
         ssl: { rejectUnauthorized: false },
+        family: 4,
         max: Number(process.env.DATABASE_POOL_SIZE || 15),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,

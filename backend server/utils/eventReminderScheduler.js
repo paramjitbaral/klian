@@ -52,12 +52,12 @@ const autoDeleteExpiredEvents = async (io) => {
     for (const event of expiredEvents) {
       // 1. Delete associated notifications
       await query(
-        "DELETE FROM notifications WHERE type = 'EVENT_REMINDER' AND content = ?",
+        "DELETE FROM notifications WHERE type = 'EVENT_REMINDER' AND content = $1",
         [formatReminderContent(event.title)]
       );
 
       // 2. Delete the event itself (cascading deletes event_attendees and event_reminders automatically)
-      await query('DELETE FROM events WHERE id = ?', [event.id]);
+      await query('DELETE FROM events WHERE id = $1', [event.id]);
 
       // 3. Emit live socket events to update client UI instantly
       if (io) {
