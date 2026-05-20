@@ -36,7 +36,7 @@ router.put('/change-password', protect, async (req, res) => {
   }
 
   try {
-    const rows = await query('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+    const rows = await query('SELECT password_hash FROM users WHERE id = $1 LIMIT 1', [req.user.id]);
     const user = rows[0];
 
     const isMatch = await require('bcryptjs').compare(currentPassword, user.password_hash);
@@ -47,7 +47,7 @@ router.put('/change-password', protect, async (req, res) => {
     const salt = await require('bcryptjs').genSalt(10);
     const passwordHash = await require('bcryptjs').hash(newPassword, salt);
 
-    await query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, req.user.id]);
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -57,7 +57,7 @@ router.put('/change-password', protect, async (req, res) => {
 router.post('/request-password-otp', protect, async (req, res) => {
   const { currentPassword } = req.body;
   try {
-    const rows = await query('SELECT password_hash, email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+    const rows = await query('SELECT password_hash, email FROM users WHERE id = $1 LIMIT 1', [req.user.id]);
     const user = rows[0];
 
     const isMatch = await require('bcryptjs').compare(currentPassword, user.password_hash);
@@ -69,7 +69,7 @@ router.post('/request-password-otp', protect, async (req, res) => {
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     await query(
-      'UPDATE users SET verification_otp = ?, otp_expires = ? WHERE id = ?',
+      'UPDATE users SET verification_otp = $1, otp_expires = $2 WHERE id = $3',
       [otp, otpExpires, req.user.id]
     );
 
@@ -116,7 +116,7 @@ router.post('/request-password-otp', protect, async (req, res) => {
 router.put('/verify-password-change', protect, async (req, res) => {
   const { currentPassword, newPassword, otp } = req.body;
   try {
-    const rows = await query('SELECT password_hash, verification_otp, otp_expires FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+    const rows = await query('SELECT password_hash, verification_otp, otp_expires FROM users WHERE id = $1 LIMIT 1', [req.user.id]);
     const user = rows[0];
 
     if (user.verification_otp !== otp || new Date() > new Date(user.otp_expires)) {
@@ -132,7 +132,7 @@ router.put('/verify-password-change', protect, async (req, res) => {
     const passwordHash = await require('bcryptjs').hash(newPassword, salt);
 
     await query(
-      'UPDATE users SET password_hash = ?, verification_otp = NULL, otp_expires = NULL WHERE id = ?',
+      'UPDATE users SET password_hash = $1, verification_otp = NULL, otp_expires = NULL WHERE id = $2',
       [passwordHash, req.user.id]
     );
 
