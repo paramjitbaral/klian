@@ -108,7 +108,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
     } catch (err: any) {
       console.error('Login failed:', err);
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      const status = err.response?.status;
+      const message = err.response?.data?.message || err.message || 'Login failed. Please check your credentials.';
+
+      if (status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
