@@ -2,7 +2,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
 
-const EXTERNAL_ADMIN_EMAIL_ALLOWLIST = ['paramjitbaral@gmail.com'];
+const getExternalAdminEmailAllowlist = () => {
+  const fromEnv = String(process.env.ADMIN_EMAIL_ALLOWLIST || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  // Keep the existing admin exception as a fallback if env is not set yet.
+  return fromEnv.length ? fromEnv : ['paramjitbaral@gmail.com'];
+};
 
 // Generate JWT token
 const generateToken = (id) => {
@@ -194,7 +202,7 @@ const loginUser = async (req, res) => {
   try {
     const { email, password, captchaAnswer, captchaToken } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const isAllowlistedExternalAdmin = EXTERNAL_ADMIN_EMAIL_ALLOWLIST.includes(normalizedEmail);
+    const isAllowlistedExternalAdmin = getExternalAdminEmailAllowlist().includes(normalizedEmail);
 
     // Demo account for testing bypasses CAPTCHA to ensure smooth local testing environment
     if (normalizedEmail === '2300032645@kluniversity.in' && password === 'password123') {
