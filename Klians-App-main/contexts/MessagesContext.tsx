@@ -376,7 +376,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const currentUserId = getUserId(user);
     console.log('User ID:', currentUserId);
 
-    // Find recipient info
+    // Find recipient info from existing conversation first
     let recipientInfo = conversations.find(c => String(c.user._id) === String(recipientId))?.user;
     
     // If not found in conversations, check if we're currently viewing this user
@@ -387,14 +387,25 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
-    // If still not found, create minimal recipient info
+    // If still not found, fetch recipient profile once so UI shows correct user details
     if (!recipientInfo) {
-      recipientInfo = {
-        _id: recipientId,
-        name: 'Admin', // Default to Admin if ID is likely admin, but better to keep current name
-        email: '',
-        profilePicture: ''
-      };
+      try {
+        const userRes = await usersAPI.getUserById(recipientId);
+        const targetUser = userRes?.data;
+        recipientInfo = {
+          _id: String(targetUser?.id || targetUser?._id || recipientId),
+          name: targetUser?.name || 'User',
+          email: targetUser?.email || '',
+          profilePicture: targetUser?.profilePicture || targetUser?.avatar || ''
+        };
+      } catch {
+        recipientInfo = {
+          _id: String(recipientId),
+          name: 'User',
+          email: '',
+          profilePicture: ''
+        };
+      }
     }
 
     // Create optimistic message with timestamp-based temporary ID
