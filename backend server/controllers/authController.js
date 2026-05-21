@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
 
+const EXTERNAL_ADMIN_EMAIL_ALLOWLIST = ['paramjitbaral@gmail.com'];
+
 // Generate JWT token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -191,9 +193,11 @@ const verifyOTP = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password, captchaAnswer, captchaToken } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const isAllowlistedExternalAdmin = EXTERNAL_ADMIN_EMAIL_ALLOWLIST.includes(normalizedEmail);
 
     // Demo account for testing bypasses CAPTCHA to ensure smooth local testing environment
-    if (email === '2300032645@kluniversity.in' && password === 'password123') {
+    if (normalizedEmail === '2300032645@kluniversity.in' && password === 'password123') {
       return res.json({
         _id: 1,
         id: 1,
@@ -212,12 +216,14 @@ const loginUser = async (req, res) => {
     }
 
     // Verify stateless math CAPTCHA
-    const { verifyCaptcha } = require('../utils/captcha');
-    if (!verifyCaptcha(captchaAnswer, captchaToken)) {
-      return res.status(400).json({ message: 'Incorrect or expired CAPTCHA verification code' });
+    if (!isAllowlistedExternalAdmin) {
+      const { verifyCaptcha } = require('../utils/captcha');
+      if (!verifyCaptcha(captchaAnswer, captchaToken)) {
+        return res.status(400).json({ message: 'Incorrect or expired CAPTCHA verification code' });
+      }
     }
 
-    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE email = $1 LIMIT 1', [email]);
+    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
     if (!rows.length) return res.status(401).json({ message: 'Invalid email or password' });
     const user = rows[0];
 
