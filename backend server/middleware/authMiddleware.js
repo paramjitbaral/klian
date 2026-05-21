@@ -14,8 +14,8 @@ exports.protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_for_dev');
       
-      // Get user from token (MySQL)
-      const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1', [decoded.id]);
+      // Get user from token
+      const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [decoded.id]);
       if (!rows.length) return res.status(401).json({ message: 'Not authorized, user not found' });
       req.user = rows[0];
       

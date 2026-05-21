@@ -13,6 +13,7 @@ const { initPool } = require('./config/db');
 const { getRedis } = require('./config/redis');
 const ensureGroupChatSchema = require('./utils/ensureGroupChatSchema');
 const ensurePostCommentsSchema = require('./utils/ensurePostCommentsSchema');
+const ensureUserProfileSchema = require('./utils/ensureUserProfileSchema');
 
 let redis;
 
@@ -241,6 +242,7 @@ async function bootstrap() {
     await initPool();
     await ensureGroupChatSchema();
     await ensurePostCommentsSchema();
+    await ensureUserProfileSchema();
 
     // Clean up any orphan group add notifications (self-healing db routine)
     const { query } = require('./config/db');

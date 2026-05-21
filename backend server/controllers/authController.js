@@ -200,6 +200,13 @@ const loginUser = async (req, res) => {
         name: 'Demo Student',
         email: '2300032645@kluniversity.in',
         role: 'Student',
+        profilePicture: '',
+        coverPhoto: '',
+        bio: '',
+        linkedin: '',
+        github: '',
+        portfolio: '',
+        cabinNumber: '',
         token: generateToken(1),
       });
     }
@@ -210,7 +217,7 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Incorrect or expired CAPTCHA verification code' });
     }
 
-    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber FROM users WHERE email = $1 LIMIT 1', [email]);
+    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE email = $1 LIMIT 1', [email]);
     if (!rows.length) return res.status(401).json({ message: 'Invalid email or password' });
     const user = rows[0];
 
@@ -235,6 +242,9 @@ const loginUser = async (req, res) => {
       profilePicture: user.profilePicture,
       coverPhoto: user.coverPhoto,
       bio: user.bio,
+      linkedin: user.linkedin,
+      github: user.github,
+      portfolio: user.portfolio,
       cabinNumber: user.cabinNumber,
       token: generateToken(user.id),
     });
@@ -249,7 +259,7 @@ const loginUser = async (req, res) => {
 // @access  Private
 const getUserProfile = async (req, res) => {
   try {
-    const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1', [req.user.id || req.user._id]);
+    const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [req.user.id || req.user._id]);
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     const user = rows[0];
     res.json({
@@ -261,6 +271,9 @@ const getUserProfile = async (req, res) => {
       profilePicture: user.profilePicture,
       coverPhoto: user.coverPhoto,
       bio: user.bio,
+      linkedin: user.linkedin,
+      github: user.github,
+      portfolio: user.portfolio,
       cabinNumber: user.cabinNumber,
     });
   } catch (error) {
@@ -282,6 +295,9 @@ const updateUserProfile = async (req, res) => {
     if (req.body.profilePicture !== undefined) { fields.push('profile_picture = $' + (params.length + 1)); params.push(req.body.profilePicture); }
     if (req.body.coverPhoto !== undefined) { fields.push('cover_photo = $' + (params.length + 1)); params.push(req.body.coverPhoto); }
     if (req.body.bio !== undefined) { fields.push('bio = $' + (params.length + 1)); params.push(req.body.bio); }
+    if (req.body.linkedin !== undefined) { fields.push('linkedin = $' + (params.length + 1)); params.push(req.body.linkedin); }
+    if (req.body.github !== undefined) { fields.push('github = $' + (params.length + 1)); params.push(req.body.github); }
+    if (req.body.portfolio !== undefined) { fields.push('portfolio = $' + (params.length + 1)); params.push(req.body.portfolio); }
     if (role === 'faculty' && req.body.cabinNumber) {
       if (/^[a-zA-Z]\d{3}$/.test(req.body.cabinNumber)) {
         fields.push('cabin_number = $' + (params.length + 1)); params.push(req.body.cabinNumber);
@@ -301,7 +317,7 @@ const updateUserProfile = async (req, res) => {
     const paramIndex = params.length;
     await query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex}`, params);
 
-    const updated = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1', [userId]);
+    const updated = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1', [userId]);
     const u = updated[0];
     res.json({
       _id: u.id,
@@ -312,6 +328,9 @@ const updateUserProfile = async (req, res) => {
       profilePicture: u.profilePicture,
       coverPhoto: u.coverPhoto,
       bio: u.bio,
+      linkedin: u.linkedin,
+      github: u.github,
+      portfolio: u.portfolio,
       cabinNumber: u.cabinNumber,
       token: generateToken(u.id),
     });

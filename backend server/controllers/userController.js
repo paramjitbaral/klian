@@ -66,7 +66,7 @@ const searchUsers = async (req, res) => {
 
     const searchTerm = `${q}%`;
     const users = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, role FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10',
+      'SELECT id, name, email, profile_picture AS profilePicture, role FROM users WHERE name ILIKE $1 OR email ILIKE $2 LIMIT 10',
       [searchTerm, searchTerm]
     );
     
@@ -99,7 +99,7 @@ const getUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, role, cabin_number AS cabinNumber, created_at AS createdAt FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, role, cabin_number AS cabinNumber, created_at AS createdAt FROM users WHERE id = $1 LIMIT 1',
       [req.params.id]
     );
     
@@ -164,21 +164,21 @@ const updateUser = async (req, res) => {
 
     const fields = [];
     const params = [];
-    if (name) { fields.push('name = ?'); params.push(name); }
-    if (bio !== undefined) { fields.push('bio = ?'); params.push(bio); }
-    if (profilePicture) { fields.push('profile_picture = ?'); params.push(profilePicture); }
-    if (coverPhoto) { fields.push('cover_photo = ?'); params.push(coverPhoto); }
-    if (linkedin !== undefined) { fields.push('linkedin = ?'); params.push(linkedin); }
-    if (github !== undefined) { fields.push('github = ?'); params.push(github); }
-    if (portfolio !== undefined) { fields.push('portfolio = ?'); params.push(portfolio); }
+    if (name) { fields.push('name = $' + (params.length + 1)); params.push(name); }
+    if (bio !== undefined) { fields.push('bio = $' + (params.length + 1)); params.push(bio); }
+    if (profilePicture) { fields.push('profile_picture = $' + (params.length + 1)); params.push(profilePicture); }
+    if (coverPhoto) { fields.push('cover_photo = $' + (params.length + 1)); params.push(coverPhoto); }
+    if (linkedin !== undefined) { fields.push('linkedin = $' + (params.length + 1)); params.push(linkedin); }
+    if (github !== undefined) { fields.push('github = $' + (params.length + 1)); params.push(github); }
+    if (portfolio !== undefined) { fields.push('portfolio = $' + (params.length + 1)); params.push(portfolio); }
 
     if (fields.length > 0) {
       params.push(userId);
-      await query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, params);
+      await query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${params.length}`, params);
     }
 
     const updated = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, role, cabin_number AS cabinNumber FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, role, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1',
       [userId]
     );
     res.json(updated[0]);
