@@ -61,7 +61,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
   const postAuthor = post?.user;
 
   const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const isEmojiOnly = (text: string) => {
@@ -110,7 +112,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
         onMouseLeave={() => setIsHovered(false)}
       >
         {!isOwnMessage && message.sender && (
-          <Avatar src={message.sender.profilePicture} alt={message.sender.name} size="sm" />
+          <Avatar src={(message.sender as any).profilePicture || (message.sender as any).avatar} alt={message.sender.name} size="sm" />
         )}
 
         <div className="relative group flex items-end gap-2">

@@ -13,6 +13,7 @@ import { postsAPI } from '../src/api/posts';
 import { ImageCropperModal } from '../components/ImageCropperModal';
 
 type ProfileTab = 'posts' | 'documents' | 'saved';
+type PhotoActionTarget = 'avatar' | 'banner' | null;
 
 
 const getImageUrl = (url: string | undefined) => {
@@ -418,6 +419,8 @@ export const ProfilePage: React.FC = () => {
     const [savedLoading, setSavedLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [bannerUploading, setBannerUploading] = useState(false);
+    const [photoActionTarget, setPhotoActionTarget] = useState<PhotoActionTarget>(null);
+    const [avatarLoadError, setAvatarLoadError] = useState(false);
     
     // Cropper states
     const [imageToCrop, setImageToCrop] = useState<string | null>(null);
@@ -490,6 +493,29 @@ export const ProfilePage: React.FC = () => {
         }
     };
 
+    const handleDeleteCurrentPhoto = async () => {
+        if (!photoActionTarget || !profileUser) return;
+
+        try {
+            if (photoActionTarget === 'avatar') {
+                setUploading(true);
+                await updateProfile({ avatar: '' });
+                setProfileUser((prev: any) => ({ ...prev, profilePicture: '', avatar: '' }));
+            } else {
+                setBannerUploading(true);
+                await updateProfile({ coverPhoto: '' });
+                setProfileUser((prev: any) => ({ ...prev, coverPhoto: '' }));
+            }
+        } catch (error) {
+            console.error('Delete photo error:', error);
+            alert('Failed to delete image');
+        } finally {
+            setUploading(false);
+            setBannerUploading(false);
+            setPhotoActionTarget(null);
+        }
+    };
+
     useEffect(() => {
         const fetchUserProfile = async () => {
             if (!userId) {
@@ -519,9 +545,14 @@ export const ProfilePage: React.FC = () => {
     }, [userId, loggedInUser]);
 
     const userToDisplay = profileUser;
+    const profileImage = userToDisplay?.profilePicture || userToDisplay?.avatar || '';
     const profileId = userToDisplay?.id || userToDisplay?._id;
     const loggedInId = loggedInUser?.id || (loggedInUser as any)?._id;
     const isOwnProfile = !userId || (profileId !== undefined && loggedInId !== undefined && String(profileId) === String(loggedInId));
+
+    useEffect(() => {
+        setAvatarLoadError(false);
+    }, [profileImage]);
     
     useEffect(() => {
         if (!isOwnProfile && activeTab === 'saved') {
@@ -843,6 +874,47 @@ export const ProfilePage: React.FC = () => {
                 />
             )}
 
+            {photoActionTarget && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
+                        <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 dark:border-slate-800">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                {photoActionTarget === 'avatar' ? 'Profile Photo' : 'Banner Photo'}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose what you want to do</p>
+                        </div>
+
+                        <div className="p-4 space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (photoActionTarget === 'avatar') fileInputRef.current?.click();
+                                    if (photoActionTarget === 'banner') bannerInputRef.current?.click();
+                                    setPhotoActionTarget(null);
+                                }}
+                                className="w-full h-11 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-semibold text-slate-900 dark:text-white transition-colors"
+                            >
+                                Change Photo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteCurrentPhoto}
+                                className="w-full h-11 rounded-xl bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-sm font-semibold text-rose-600 dark:text-rose-400 transition-colors"
+                            >
+                                Delete Current
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPhotoActionTarget(null)}
+                                className="w-full h-11 rounded-xl text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header / Banner */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
                 <div className="h-32 sm:h-48 bg-slate-900 relative">
@@ -856,7 +928,7 @@ export const ProfilePage: React.FC = () => {
                     
                     {isOwnProfile && (
                         <button 
-                            onClick={() => bannerInputRef.current?.click()}
+                            onClick={() => setPhotoActionTarget('banner')}
                             disabled={bannerUploading}
                             className="absolute bottom-3 right-4 sm:bottom-4 sm:right-8 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-md disabled:opacity-50 z-20"
                         >
@@ -870,12 +942,23 @@ export const ProfilePage: React.FC = () => {
                         <div className="relative">
                             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} />
                             <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden bg-slate-200 dark:bg-slate-700 ${uploading ? 'animate-pulse' : ''}`}>
-                                <img src={getImageUrl(userToDisplay.profilePicture || userToDisplay.avatar)} alt="avatar" className="w-full h-full object-cover" />
+                                {profileImage && !avatarLoadError ? (
+                                    <img
+                                        src={getImageUrl(profileImage)}
+                                        alt="avatar"
+                                        className="w-full h-full object-cover"
+                                        onError={() => setAvatarLoadError(true)}
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-2xl">
+                                        {(userToDisplay?.name || 'U').slice(0, 1).toUpperCase()}
+                                    </div>
+                                )}
                             </div>
 
                             {isOwnProfile && (
                                 <button 
-                                    onClick={() => fileInputRef.current?.click()}
+                                    onClick={() => setPhotoActionTarget('avatar')}
                                     disabled={uploading}
                                     className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-white dark:bg-slate-700 rounded-full p-1.5 sm:p-2 shadow-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 border border-slate-100 dark:border-slate-600"
                                 >

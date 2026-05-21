@@ -169,10 +169,65 @@ const setupMessageHandlers = (io, socket, redis) => {
     }
 
     try {
-      await query('INSERT INTO messages (sender_id, recipient_id, content, type, post_id, read) VALUES ($1, $2, $3, $4, $5, false)', [senderId, recipientId, message || '', 'post', postId || null]);
-      // For simplicity, emit a minimal event; clients can fetch thread on demand
-      io.to(`user:${recipientId}`).emit('new-message', { senderId, recipientId, postId, type: 'post', content: message || '' });
-      io.to(`user:${senderId}`).emit('new-message', { senderId, recipientId, postId, type: 'post', content: message || '' });
+      const result = await query(
+        'INSERT INTO messages (sender_id, recipient_id, content, type, post_id, read) VALUES ($1, $2, $3, $4, $5, false) RETURNING id',
+        [senderId, recipientId, message || '', 'post', postId || null]
+      );
+
+      const messageId = result[0]?.id;
+      const rows = await query(
+        `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at AS createdAt,
+                s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
+                r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture,
+                p.content AS postContent, p.image_url AS postImage, p.created_at AS postCreatedAt,
+                pu.name AS postUserName, pu.profile_picture AS postUserProfilePicture
+           FROM messages m
+           JOIN users s ON s.id = m.sender_id
+           JOIN users r ON r.id = m.recipient_id
+           LEFT JOIN posts p ON p.id = m.post_id
+           LEFT JOIN users pu ON pu.id = p.user_id
+          WHERE m.id = $1
+          LIMIT 1`,
+        [messageId]
+      );
+
+      const row = rows[0];
+      const populatedMessage = {
+        _id: row.id,
+        id: row.id,
+        content: row.content,
+        type: row.type,
+        postId: row.postId ? {
+          _id: row.postId,
+          id: row.postId,
+          content: row.postContent,
+          image: row.postImage,
+          createdAt: row.postCreatedAt,
+          user: {
+            name: row.postUserName,
+            profilePicture: row.postUserProfilePicture,
+          },
+        } : null,
+        read: row.read === true,
+        createdAt: row.createdAt,
+        sender: {
+          _id: row.senderId,
+          id: row.senderId,
+          name: row.senderName,
+          email: row.senderEmail,
+          profilePicture: row.senderProfilePicture,
+        },
+        recipient: {
+          _id: row.recipientId,
+          id: row.recipientId,
+          name: row.recipientName,
+          email: row.recipientEmail,
+          profilePicture: row.recipientProfilePicture,
+        },
+      };
+
+      io.to(`user:${recipientId}`).emit('new-message', populatedMessage);
+      io.to(`user:${senderId}`).emit('new-message', populatedMessage);
     } catch (error) {
       console.error('Error sharing post:', error);
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
 import { Theme } from '../types';
@@ -9,6 +9,7 @@ import { ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 
 type SettingsCategory = 'profile' | 'security' | 'appearance' | 'privacy' | 'danger';
+type PhotoActionTarget = 'profile' | 'banner' | null;
 
 const settingsNav: { id: SettingsCategory; label: string; icon: React.ReactNode }[] = [
     { id: 'profile', label: 'Edit Profile', icon: ICONS.profile },
@@ -84,6 +85,9 @@ export const SettingsPage: React.FC = () => {
     const [profilePortfolio, setProfilePortfolio] = useState(user?.portfolio || '');
     const [profilePictureError, setProfilePictureError] = useState('');
     const [coverPhotoError, setCoverPhotoError] = useState('');
+    const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
+    const [removeCoverPhoto, setRemoveCoverPhoto] = useState(false);
+    const [photoActionTarget, setPhotoActionTarget] = useState<PhotoActionTarget>(null);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [profileSaveMessage, setProfileSaveMessage] = useState('');
     const [passwordSaveMessage, setPasswordSaveMessage] = useState('');
@@ -104,6 +108,8 @@ export const SettingsPage: React.FC = () => {
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const profileFileInputRef = useRef<HTMLInputElement>(null);
+    const coverFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const errors = { newPassword: '', confirmPassword: '' };
@@ -130,6 +136,7 @@ export const SettingsPage: React.FC = () => {
             setProfilePictureError(error);
             setProfilePicturePreview('');
         } else {
+            setRemoveProfilePicture(false);
             setProfilePicturePreview(base64);
         }
     };
@@ -145,8 +152,34 @@ export const SettingsPage: React.FC = () => {
             setCoverPhotoError(error);
             setCoverPhotoPreview('');
         } else {
+            setRemoveCoverPhoto(false);
             setCoverPhotoPreview(base64);
         }
+    };
+
+    const handlePhotoAction = (action: 'change' | 'delete') => {
+        if (!photoActionTarget) return;
+
+        if (action === 'change') {
+            if (photoActionTarget === 'profile') profileFileInputRef.current?.click();
+            if (photoActionTarget === 'banner') coverFileInputRef.current?.click();
+            setPhotoActionTarget(null);
+            return;
+        }
+
+        if (photoActionTarget === 'profile') {
+            setProfilePicturePreview('');
+            setRemoveProfilePicture(true);
+            setProfilePictureError('');
+        }
+
+        if (photoActionTarget === 'banner') {
+            setCoverPhotoPreview('');
+            setRemoveCoverPhoto(true);
+            setCoverPhotoError('');
+        }
+
+        setPhotoActionTarget(null);
     };
 
     const handleSaveProfile = async () => {
@@ -164,6 +197,18 @@ export const SettingsPage: React.FC = () => {
                 portfolio: profilePortfolio
             };
 
+            if (profilePicturePreview) {
+                updateData.avatar = profilePicturePreview;
+            } else if (removeProfilePicture) {
+                updateData.avatar = '';
+            }
+
+            if (coverPhotoPreview) {
+                updateData.coverPhoto = coverPhotoPreview;
+            } else if (removeCoverPhoto) {
+                updateData.coverPhoto = '';
+            }
+
             console.log('Sending update data:', {
                 hasProfilePicture: !!profilePicturePreview,
                 hasCoverPhoto: !!coverPhotoPreview,
@@ -178,6 +223,8 @@ export const SettingsPage: React.FC = () => {
             // Clear image previews after successful save
             setProfilePicturePreview('');
             setCoverPhotoPreview('');
+            setRemoveProfilePicture(false);
+            setRemoveCoverPhoto(false);
 
             // Clear message after 3 seconds
             setTimeout(() => setProfileSaveMessage(''), 3000);
@@ -292,11 +339,15 @@ export const SettingsPage: React.FC = () => {
                                         className="w-full h-full object-cover opacity-80"
                                     />
                                 )}
-                                <label className="absolute top-3 right-3 bg-black/20 backdrop-blur-md text-white px-2.5 py-1.5 rounded-lg cursor-pointer text-[9px] font-bold uppercase tracking-widest hover:bg-black/40 transition-all flex items-center gap-2 z-20 border border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setPhotoActionTarget('banner')}
+                                    className="absolute top-3 right-3 bg-black/20 backdrop-blur-md text-white px-2.5 py-1.5 rounded-lg cursor-pointer text-[9px] font-bold uppercase tracking-widest hover:bg-black/40 transition-all flex items-center gap-2 z-20 border border-white/10"
+                                >
                                     {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3 w-3" })}
                                     <span>Edit Banner</span>
-                                    <input type="file" accept="image/*" onChange={handleCoverPhotoChange} className="hidden" />
-                                </label>
+                                </button>
+                                <input ref={coverFileInputRef} type="file" accept="image/*" onChange={handleCoverPhotoChange} className="hidden" />
                             </div>
 
                             {/* Overlapping Profile Photo */}
@@ -309,15 +360,19 @@ export const SettingsPage: React.FC = () => {
                                             className="w-full h-full object-cover"
                                         />
                                     </div>
-                                    <label className="absolute bottom-1 right-1 bg-white dark:bg-slate-800 p-2 rounded-full shadow-md border border-slate-100 dark:border-slate-700 cursor-pointer hover:scale-110 active:scale-95 transition-all z-10 group-hover:shadow-red-500/20">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPhotoActionTarget('profile')}
+                                        className="absolute bottom-1 right-1 bg-white dark:bg-slate-800 p-2 rounded-full shadow-md border border-slate-100 dark:border-slate-700 cursor-pointer hover:scale-110 active:scale-95 transition-all z-10 group-hover:shadow-red-500/20"
+                                    >
                                         {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-4 w-4 text-slate-600 dark:text-slate-400" })}
-                                        <input type="file" accept="image/*" onChange={handleProfilePictureChange} className="hidden" />
-                                    </label>
+                                    </button>
+                                    <input ref={profileFileInputRef} type="file" accept="image/*" onChange={handleProfilePictureChange} className="hidden" />
                                 </div>
                                 <div className="text-center mt-3">
                                     <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{profileName || user.name}</h1>
                                     <button 
-                                        onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+                                        onClick={() => setPhotoActionTarget('profile')}
                                         className="text-blue-500 text-[11px] font-bold mt-1 hover:text-blue-600 transition-colors"
                                     >
                                         Change Profile Photo
@@ -619,6 +674,43 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* OTP Verification Modal */}
+            {photoActionTarget && (
+                <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 dark:border-slate-800">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                {photoActionTarget === 'profile' ? 'Profile Photo' : 'Banner Photo'}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose what you want to do</p>
+                        </div>
+
+                        <div className="p-4 space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => handlePhotoAction('change')}
+                                className="w-full h-11 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-semibold text-slate-900 dark:text-white transition-colors"
+                            >
+                                Change Photo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handlePhotoAction('delete')}
+                                className="w-full h-11 rounded-xl bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-sm font-semibold text-rose-600 dark:text-rose-400 transition-colors"
+                            >
+                                Delete Current
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPhotoActionTarget(null)}
+                                className="w-full h-11 rounded-xl text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showOtpModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-white dark:bg-slate-900 w-full max-w-[400px] rounded-[40px] p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-white/20 dark:border-slate-800/50 animate-in zoom-in-95 duration-300">

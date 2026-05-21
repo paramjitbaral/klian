@@ -305,7 +305,7 @@ export const HomePage: React.FC = () => {
           timestamp: p.created_at || p.createdAt || p.timestamp,
           likes: p.likes || 0,
           comments: p.comments || 0,
-          isLiked: !!p.isLiked,
+          isLiked: !!(p.isLiked ?? p.isliked),
           type: (p.isBroadcast || p.is_broadcast) ? 'broadcast' as const : 'post' as const
         }))
         : [];

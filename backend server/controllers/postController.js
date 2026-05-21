@@ -134,7 +134,7 @@ const getPosts = async (req, res) => {
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
            FROM posts p
            JOIN users u ON u.id = p.user_id
           WHERE (p.created_at < to_timestamp($2 / 1000.0) OR (p.created_at = to_timestamp($2 / 1000.0) AND p.id < $3))
@@ -149,7 +149,7 @@ const getPosts = async (req, res) => {
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
            FROM posts p
            JOIN users u ON u.id = p.user_id
           ORDER BY p.created_at DESC, p.id DESC
@@ -228,7 +228,7 @@ const getBroadcasts = async (req, res) => {
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
            FROM posts p
            JOIN users u ON u.id = p.user_id
           WHERE p.is_broadcast = true AND (p.created_at < to_timestamp($2 / 1000.0) OR (p.created_at = to_timestamp($2 / 1000.0) AND p.id < $3))
@@ -243,7 +243,7 @@ const getBroadcasts = async (req, res) => {
                 u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
+                EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
            FROM posts p
            JOIN users u ON u.id = p.user_id
           WHERE p.is_broadcast = true
@@ -294,7 +294,7 @@ const getPostById = async (req, res) => {
     const comments = await query(
       `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
               (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
-              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS isLiked
+              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS "isLiked"
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
         WHERE c.post_id = $2
@@ -547,7 +547,7 @@ const commentOnPost = async (req, res) => {
     const newCommentRows = await query(
       `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
               0 AS likesCount,
-              0 AS isLiked
+              0 AS "isLiked"
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
         WHERE c.id = $1`,
@@ -647,7 +647,7 @@ const updateComment = async (req, res) => {
     const updatedRows = await query(
       `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
               (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
-              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS isLiked
+              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS "isLiked"
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
         WHERE c.id = $2`,

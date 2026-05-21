@@ -84,6 +84,56 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Helper function to get user ID (handle both _id and id)
   const getUserId = (userObj: any) => userObj?._id || userObj?.id;
 
+  const normalizeTimestamp = (value: any) => {
+    if (!value) return new Date().toISOString();
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+    return new Date().toISOString();
+  };
+
+  const normalizeMessage = React.useCallback((raw: any): Message => {
+    const fallbackSender = {
+      _id: String(raw?.senderId || ''),
+      name: raw?.senderName || 'User',
+      email: raw?.senderEmail || '',
+      profilePicture: raw?.senderProfilePicture || '',
+    };
+    const fallbackRecipient = {
+      _id: String(raw?.recipientId || ''),
+      name: raw?.recipientName || 'User',
+      email: raw?.recipientEmail || '',
+      profilePicture: raw?.recipientProfilePicture || '',
+    };
+
+    const sender = raw?.sender
+      ? {
+          _id: String(raw.sender._id || raw.sender.id || ''),
+          name: raw.sender.name || 'User',
+          email: raw.sender.email || '',
+          profilePicture: raw.sender.profilePicture || raw.sender.avatar || '',
+        }
+      : fallbackSender;
+    const recipient = raw?.recipient
+      ? {
+          _id: String(raw.recipient._id || raw.recipient.id || ''),
+          name: raw.recipient.name || 'User',
+          email: raw.recipient.email || '',
+          profilePicture: raw.recipient.profilePicture || raw.recipient.avatar || '',
+        }
+      : fallbackRecipient;
+
+    return {
+      _id: String(raw?._id || raw?.id || `temp_${Date.now()}`),
+      sender,
+      recipient,
+      content: raw?.content || raw?.text || '',
+      type: raw?.type || 'text',
+      postId: raw?.postId,
+      read: !!raw?.read,
+      createdAt: normalizeTimestamp(raw?.createdAt || raw?.created_at || raw?.timestamp),
+    };
+  }, []);
+
   useEffect(() => {
     const count = conversations.reduce((acc, conv) => acc + (conv.unread ? 1 : 0), 0);
     console.log('--- Unread Count Sync ---');
@@ -180,7 +230,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         const response = await messagesAPI.getMessagesWith(currentConversation);
-        setMessages(response.data);
+        setMessages((response.data || []).map((m: any) => normalizeMessage(m)));
         
         // Mark messages as read locally
         setConversations(prev => prev.map(conv => {
@@ -209,7 +259,8 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (!socket || !user) return;
 
-    socket.on('new-message', (message: Message) => {
+    socket.on('new-message', (incomingMessage: any) => {
+      const message = normalizeMessage(incomingMessage);
       const userId = getUserId(user);
       console.log('--- Real-time Message Received ---');
       console.log('My ID:', userId);
@@ -220,8 +271,12 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       if (String(currentConversation) === String(otherUserId)) {
         setMessages(prev => {
-          // Remove any temporary messages (optimistic updates)
-          const filteredMessages = prev.filter(msg => !String(msg._id).startsWith('temp_'));
+          // Remove matching optimistic message for this conversation only
+          const filteredMessages = prev.filter(msg => {
+            const isTemp = String(msg._id).startsWith('temp_');
+            const msgOtherUserId = String(msg.sender._id) === String(userId) ? msg.recipient._id : msg.sender._id;
+            return !(isTemp && String(msgOtherUserId) === String(otherUserId) && msg.content === message.content && msg.type === message.type);
+          });
           
           // Check if message already exists (avoid duplicates)
           const existingMessage = filteredMessages.find(msg => String(msg._id) === String(message._id));
@@ -234,7 +289,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       
       // Mark as read if we're the recipient and in current conversation
-      if (message.recipient._id === userId && currentConversation === message.sender._id) {
+      if (String(message.recipient._id) === String(userId) && String(currentConversation) === String(message.sender._id)) {
         socket.emit('mark-messages-read', {
           userId: userId,
           senderId: message.sender._id
@@ -255,7 +310,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       // Update unread count
-      setUnreadCount(prev => message.sender._id !== userId && !message.read ? prev + 1 : prev);
+      setUnreadCount(prev => String(message.sender._id) !== String(userId) && !message.read ? prev + 1 : prev);
     });
 
     socket.on('messages-marked-read', ({ by }) => {
@@ -308,7 +363,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       socket.off('update_notification');
       socket.off('group_marked_read');
     };
-  }, [socket, user, currentConversation]);
+  }, [socket, user, currentConversation, normalizeMessage]);
 
   const sendMessage = async (recipientId: string, content: string, type: 'text' | 'image' | 'file' | 'post' = 'text', postId?: string) => {
     if (!socket || !user) {

@@ -15,7 +15,7 @@ function messageType(mimetype) {
     return mimetype;
 }
 
-const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt/;
+const allowedTypes = /jpeg|jpg|png|gif|webp|pdf|doc|docx|txt|csv|xls|xlsx|ppt|pptx|zip|rar|7z|mp4|webm|mov/;
 
 // Choose storage: memory for Cloudinary, disk otherwise
 const useCloudinary = !!process.env.CLOUDINARY_URL || !!process.env.CLOUDINARY_CLOUD_NAME;

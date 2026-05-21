@@ -84,7 +84,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage }) => {
                 ref={fileInputRef} 
                 className="hidden" 
                 onChange={handleFileChange}
-                accept="image/*,.pdf,.doc,.docx,.txt"
+                accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"
             />
 
             <div className="flex items-end gap-3">

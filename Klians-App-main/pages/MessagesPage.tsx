@@ -14,8 +14,16 @@ import { messagesAPI } from '../src/api/messages';
 import { groupsAPI } from '../src/api/groups';
 import { useSocket } from '../contexts/SocketContext';
 
-const formatDividerDate = (dateString: string) => {
-  const d = new Date(dateString);
+const toValidDate = (value?: string) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+};
+
+const formatDividerDate = (dateString?: string) => {
+  const d = toValidDate(dateString);
+  if (!d) return 'Today';
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
@@ -134,14 +142,15 @@ export const MessagesPage: React.FC = () => {
   const renderTime = (date?: string) => {
     if (!date) return '';
     const now = new Date();
-    const d = new Date(date);
+    const d = toValidDate(date);
+    if (!d) return '';
     const diff = now.getTime() - d.getTime();
     const days = diff / (1000 * 60 * 60 * 24);
     if (days >= 1) return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const activeConversation = conversations.find(c => c.user._id === currentConversation);
+  const activeConversation = conversations.find(c => String(c.user._id) === String(currentConversation));
   const hasConversations = conversations.length > 0;
 
   return (
@@ -397,7 +406,7 @@ export const MessagesPage: React.FC = () => {
                                 {msg.sender.name}
                               </span>
                               <span className="text-[9px] text-slate-400 flex-shrink-0">
-                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {renderTime(msg.createdAt)}
                               </span>
                             </div>
                             <p className="text-xs text-slate-700 dark:text-slate-300 truncate leading-tight">
@@ -412,15 +421,16 @@ export const MessagesPage: React.FC = () => {
                   <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 bg-white dark:bg-slate-900 flex flex-col">
                     <div className="space-y-2">
                       {messages.map((message, index) => {
+                        const messageId = message._id || (message as any).id || `msg-${index}`;
                         const showDivider = index === 0 || (() => {
                           const prevMsg = messages[index - 1];
-                          const prevDate = new Date(prevMsg.createdAt).toDateString();
-                          const currDate = new Date(message.createdAt).toDateString();
+                          const prevDate = toValidDate(prevMsg.createdAt)?.toDateString() || '';
+                          const currDate = toValidDate(message.createdAt)?.toDateString() || '';
                           return prevDate !== currDate;
                         })();
 
                         return (
-                          <React.Fragment key={message._id}>
+                          <React.Fragment key={messageId}>
                             {showDivider && (
                               <div className="flex justify-center my-4 animate-in fade-in duration-300 select-none">
                                 <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 rounded-full tracking-wider shadow-sm uppercase border border-slate-200/50 dark:border-slate-700/50">
@@ -428,7 +438,7 @@ export const MessagesPage: React.FC = () => {
                                 </span>
                               </div>
                             )}
-                            <div id={`message-${message._id}`} className="transition-all duration-300">
+                            <div id={`message-${messageId}`} className="transition-all duration-300">
                               <MessageBubble
                                 message={message}
                                 isOwnMessage={String(message.sender._id) === String(user?.id || (user as any)?._id)}
