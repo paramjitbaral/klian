@@ -163,6 +163,101 @@ export const HomePage: React.FC = () => {
         });
       });
 
+      const applyPostUpdate = (postId: string, updater: (post: any) => any) => {
+        queryClient.setQueryData(['posts'], (oldData: any) => {
+          if (!oldData) return oldData;
+
+          const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
+          const nextItems = items.map((post: any) => (
+            String(post.id) === String(postId) ? updater(post) : post
+          ));
+
+          if (Array.isArray(oldData)) {
+            return nextItems;
+          }
+
+          return {
+            ...oldData,
+            items: nextItems,
+          };
+        });
+      };
+
+      socket.on('post-updated', (updatedPost: any) => {
+        console.log('[Socket] Post updated:', updatedPost);
+        const id = updatedPost?.id || updatedPost?._id;
+        if (!id) return;
+
+        applyPostUpdate(String(id), (post) => ({
+          ...post,
+          ...updatedPost,
+          id: String(id),
+          timestamp: updatedPost.created_at || updatedPost.createdAt || post.timestamp,
+        }));
+      });
+
+      socket.on('post-deleted', ({ postId }: { postId: string }) => {
+        console.log('[Socket] Post deleted:', postId);
+        queryClient.setQueryData(['posts'], (oldData: any) => {
+          if (!oldData) return oldData;
+
+          const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
+          const nextItems = items.filter((post: any) => String(post.id) !== String(postId));
+
+          if (Array.isArray(oldData)) {
+            return nextItems;
+          }
+
+          return {
+            ...oldData,
+            items: nextItems,
+          };
+        });
+      });
+
+      socket.on('post_update', (data: any) => {
+        if (!data?.postId) return;
+
+        if (data.type === 'LIKE_CHANGE') {
+          applyPostUpdate(String(data.postId), (post) => ({
+            ...post,
+            likes: Number(data.likesCount ?? post.likes ?? 0),
+            isLiked: typeof post.isLiked === 'boolean' ? post.isLiked : post.isLiked,
+          }));
+        }
+
+        if (data.type === 'COMMENT_CHANGE') {
+          applyPostUpdate(String(data.postId), (post) => ({
+            ...post,
+            comments: Number(data.commentCount ?? post.comments ?? 0),
+          }));
+        }
+
+        if (data.type === 'POST_UPDATED' && data.post) {
+          applyPostUpdate(String(data.postId), (post) => ({
+            ...post,
+            ...data.post,
+          }));
+        }
+
+        if (data.type === 'POST_DELETED') {
+          queryClient.setQueryData(['posts'], (oldData: any) => {
+            if (!oldData) return oldData;
+            const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
+            const nextItems = items.filter((post: any) => String(post.id) !== String(data.postId));
+
+            if (Array.isArray(oldData)) {
+              return nextItems;
+            }
+
+            return {
+              ...oldData,
+              items: nextItems,
+            };
+          });
+        }
+      });
+
       socket.on('announcement-deleted', ({ id }: { id: string }) => {
         console.log('[Socket] Broadcast deleted, removing from feed:', id);
         setBroadcasts(prev => prev.filter(b => String(b.id) !== String(id)));
@@ -171,6 +266,9 @@ export const HomePage: React.FC = () => {
       return () => {
         socket.off('announcement-created');
         socket.off('new-post');
+        socket.off('post-updated');
+        socket.off('post-deleted');
+        socket.off('post_update');
         socket.off('announcement-deleted');
       };
     }

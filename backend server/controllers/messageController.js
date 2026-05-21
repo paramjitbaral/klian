@@ -180,7 +180,7 @@ module.exports = {
         return res.status(400).json({ message: 'Recipient and postId are required' });
       }
 
-      const recipientRows = await query('SELECT id FROM users WHERE id = ? LIMIT 1', [recipient]);
+      const recipientRows = await query('SELECT id FROM users WHERE id = $1 LIMIT 1', [recipient]);
       if (!recipientRows.length) {
         return res.status(404).json({ message: 'Recipient not found' });
       }
@@ -204,7 +204,7 @@ module.exports = {
            JOIN users r ON r.id = m.recipient_id
            LEFT JOIN posts p ON p.id = m.post_id
            LEFT JOIN users pu ON pu.id = p.user_id
-          WHERE m.id = ?
+          WHERE m.id = $1
           LIMIT 1`,
         [messageId]
       );

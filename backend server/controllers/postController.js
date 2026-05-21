@@ -294,10 +294,10 @@ const getPostById = async (req, res) => {
     const comments = await query(
       `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
               (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
-              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = ?) AS isLiked
+              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS isLiked
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
-        WHERE c.post_id = ?
+        WHERE c.post_id = $2
         ORDER BY (c.user_id = ?) DESC, c.created_at DESC`,
       [userId, req.params.id, userId]
     );
@@ -334,7 +334,7 @@ const updatePost = async (req, res) => {
     const { content } = req.body;
     console.log(`[PostUpdate] Attempting to update post ${req.params.id} by user ${req.user.id || req.user._id}`);
 
-    const rows = await query('SELECT user_id FROM posts WHERE id = ? LIMIT 1', [req.params.id]);
+    const rows = await query('SELECT user_id FROM posts WHERE id = $1 LIMIT 1', [req.params.id]);
     if (!rows.length) {
       console.log(`[PostUpdate] Post ${req.params.id} not found in DB`);
       return res.status(404).json({ message: 'Post not found' });
@@ -348,8 +348,27 @@ const updatePost = async (req, res) => {
       return res.status(403).json({ message: 'You are not authorized to edit this post' });
     }
 
-    await query('UPDATE posts SET content = ? WHERE id = ?', [content, req.params.id]);
-    res.json({ message: 'Post updated' });
+    await query('UPDATE posts SET content = $1 WHERE id = $2', [content, req.params.id]);
+
+    const updatedRows = await query(
+      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast,
+              FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
+              u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+         FROM posts p
+         JOIN users u ON u.id = p.user_id
+        WHERE p.id = $1
+        LIMIT 1`,
+      [req.params.id]
+    );
+
+    const updatedPost = updatedRows[0];
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('post-updated', updatedPost);
+      io.emit('post_update', { type: 'POST_UPDATED', postId: req.params.id, post: updatedPost });
+    }
+
+    res.json({ message: 'Post updated', post: updatedPost });
   } catch (error) {
     console.error('[PostUpdate] Error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -363,7 +382,7 @@ const deletePost = async (req, res) => {
   try {
     console.log(`[PostDelete] Attempting to delete post ${req.params.id} by user ${req.user.id || req.user._id}`);
 
-    const rows = await query('SELECT user_id FROM posts WHERE id = ? LIMIT 1', [req.params.id]);
+    const rows = await query('SELECT user_id FROM posts WHERE id = $1 LIMIT 1', [req.params.id]);
     if (!rows.length) {
       console.log(`[PostDelete] Post ${req.params.id} not found in DB`);
       return res.status(404).json({ message: 'Post not found' });
@@ -377,17 +396,19 @@ const deletePost = async (req, res) => {
       return res.status(403).json({ message: 'You are not authorized to delete this post' });
     }
 
-    await query('DELETE FROM posts WHERE id = ?', [req.params.id]);
+    await query('DELETE FROM posts WHERE id = $1', [req.params.id]);
 
     // Cleanup ALL notifications for this post
     const io = req.app.get('io');
-    const notifs = await query('SELECT id, user_id FROM notifications WHERE post_id = ?', [req.params.id]);
-    await query('DELETE FROM notifications WHERE post_id = ?', [req.params.id]);
+    const notifs = await query('SELECT id, user_id FROM notifications WHERE post_id = $1', [req.params.id]);
+    await query('DELETE FROM notifications WHERE post_id = $1', [req.params.id]);
     
     if (io) {
        notifs.forEach(n => {
          io.to(`user:${n.user_id}`).emit('delete_notification', { id: n.id });
        });
+      io.emit('post-deleted', { postId: req.params.id });
+      io.emit('post_update', { type: 'POST_DELETED', postId: req.params.id });
     }
 
     res.json({ message: 'Post removed' });
@@ -402,25 +423,26 @@ const deletePost = async (req, res) => {
 // @access  Private
 const likePost = async (req, res) => {
   try {
-    const postRow = await query('SELECT id FROM posts WHERE id = ? LIMIT 1', [req.params.id]);
+    const postRow = await query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [req.params.id]);
     if (!postRow.length) return res.status(404).json({ message: 'Post not found' });
     const userId = req.user.id || req.user._id;
-    const exists = await query('SELECT 1 FROM post_likes WHERE post_id = ? AND user_id = ? LIMIT 1', [req.params.id, userId]);
+    const exists = await query('SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2 LIMIT 1', [req.params.id, userId]);
     if (exists.length) return res.status(400).json({ message: 'Post already liked' });
-    await query('INSERT INTO post_likes (post_id, user_id) VALUES (?, ?)', [req.params.id, userId]);
-    const count = await query('SELECT COUNT(*) AS cnt FROM post_likes WHERE post_id = ?', [req.params.id]);
+    await query('INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)', [req.params.id, userId]);
+    const count = await query('SELECT COUNT(*) AS cnt FROM post_likes WHERE post_id = $1', [req.params.id]);
     
     // Emit real-time update
     const io = req.app.get('io');
     if (io) {
-      io.emit('post_update', { 
-        type: 'LIKE_CHANGE', 
-        postId: req.params.id, 
-        likesCount: count[0].cnt 
+      io.emit('post_update', {
+        type: 'LIKE_CHANGE',
+        postId: req.params.id,
+        likesCount: Number(count[0].cnt || 0)
       });
+      io.emit('post-liked', { postId: req.params.id, likesCount: Number(count[0].cnt || 0) });
 
       // Send notification
-      const postRows = await query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+      const postRows = await query('SELECT user_id FROM posts WHERE id = $1', [req.params.id]);
       if (postRows.length) {
         const postOwnerId = postRows[0].user_id;
         const notification = await createNotification(postOwnerId, userId, 'LIKE', req.params.id);
@@ -443,19 +465,20 @@ const likePost = async (req, res) => {
 const unlikePost = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    const exists = await query('SELECT 1 FROM post_likes WHERE post_id = ? AND user_id = ? LIMIT 1', [req.params.id, userId]);
+    const exists = await query('SELECT 1 FROM post_likes WHERE post_id = $1 AND user_id = $2 LIMIT 1', [req.params.id, userId]);
     if (!exists.length) return res.status(400).json({ message: 'Post has not yet been liked' });
-    await query('DELETE FROM post_likes WHERE post_id = ? AND user_id = ?', [req.params.id, userId]);
-    const count = await query('SELECT COUNT(*) AS cnt FROM post_likes WHERE post_id = ?', [req.params.id]);
+    await query('DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2', [req.params.id, userId]);
+    const count = await query('SELECT COUNT(*) AS cnt FROM post_likes WHERE post_id = $1', [req.params.id]);
     
     // Emit real-time update
     const io = req.app.get('io');
     if (io) {
-      io.emit('post_update', { 
-        type: 'LIKE_CHANGE', 
-        postId: req.params.id, 
-        likesCount: count[0].cnt 
+      io.emit('post_update', {
+        type: 'LIKE_CHANGE',
+        postId: req.params.id,
+        likesCount: Number(count[0].cnt || 0)
       });
+      io.emit('post-unliked', { postId: req.params.id, likesCount: Number(count[0].cnt || 0) });
 
       // Cleanup notification
       const delResult = await deleteNotification('LIKE', req.params.id, userId);
@@ -476,7 +499,7 @@ const unlikePost = async (req, res) => {
 // @access  Private
 const commentOnPost = async (req, res) => {
   try {
-    const postRow = await query('SELECT id FROM posts WHERE id = ? LIMIT 1', [req.params.id]);
+    const postRow = await query('SELECT id FROM posts WHERE id = $1 LIMIT 1', [req.params.id]);
     if (!postRow.length) return res.status(404).json({ message: 'Post not found' });
     const userId = req.user.id || req.user._id;
     const text = req.body.text || '';
@@ -488,14 +511,15 @@ const commentOnPost = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       const countResult = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = $1', [req.params.id]);
-      io.emit('post_update', { 
-        type: 'COMMENT_CHANGE', 
-        postId: req.params.id, 
-        commentCount: countResult[0].cnt 
+      io.emit('post_update', {
+        type: 'COMMENT_CHANGE',
+        postId: req.params.id,
+        commentCount: Number(countResult[0].cnt || 0)
       });
+      io.emit('post-commented', { postId: req.params.id, commentCount: Number(countResult[0].cnt || 0) });
 
       // Send notification to post owner
-      const postRows = await query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+      const postRows = await query('SELECT user_id FROM posts WHERE id = $1', [req.params.id]);
       if (postRows.length) {
         const postOwnerId = postRows[0].user_id;
         const notification = await createNotification(postOwnerId, userId, 'COMMENT', req.params.id, commentId);
@@ -506,7 +530,7 @@ const commentOnPost = async (req, res) => {
 
       // If it's a reply, notify the parent comment owner too
       if (parentId) {
-        const parentRows = await query('SELECT user_id FROM post_comments WHERE id = ?', [parentId]);
+        const parentRows = await query('SELECT user_id FROM post_comments WHERE id = $1', [parentId]);
         if (parentRows.length) {
           const parentOwnerId = parentRows[0].user_id;
           if (parentOwnerId !== userId) { // Don't notify if replying to own comment
@@ -526,7 +550,7 @@ const commentOnPost = async (req, res) => {
               0 AS isLiked
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
-        WHERE c.id = ?`,
+        WHERE c.id = $1`,
       [commentId]
     );
 
@@ -557,7 +581,7 @@ const commentOnPost = async (req, res) => {
 const deleteComment = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    const rows = await query('SELECT user_id FROM post_comments WHERE id = ? AND post_id = ? LIMIT 1', [req.params.comment_id, req.params.id]);
+    const rows = await query('SELECT user_id FROM post_comments WHERE id = $1 AND post_id = $2 LIMIT 1', [req.params.comment_id, req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Post or comment not found' });
     
     const ownerId = rows[0].user_id;
@@ -565,19 +589,20 @@ const deleteComment = async (req, res) => {
       return res.status(401).json({ message: 'User not authorized' });
     }
     
-    await query('DELETE FROM post_comments WHERE id = ? AND post_id = ?', [req.params.comment_id, req.params.id]);
+    await query('DELETE FROM post_comments WHERE id = $1 AND post_id = $2', [req.params.comment_id, req.params.id]);
     
     // Get total comment count for real-time update
-    const countRows = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = ?', [req.params.id]);
+    const countRows = await query('SELECT COUNT(*) AS cnt FROM post_comments WHERE post_id = $1', [req.params.id]);
     
     // Emit real-time update
     const io = req.app.get('io');
     if (io) {
-      io.emit('post_update', { 
-        type: 'COMMENT_CHANGE', 
-        postId: req.params.id, 
-        commentCount: countRows[0].cnt 
+      io.emit('post_update', {
+        type: 'COMMENT_CHANGE',
+        postId: req.params.id,
+        commentCount: Number(countRows[0].cnt || 0)
       });
+      io.emit('post-comment-deleted', { postId: req.params.id, commentCount: Number(countRows[0].cnt || 0) });
 
       // Cleanup notification
       // We don't know if it was a COMMENT or REPLY here easily, so we try to find by commentId
@@ -608,7 +633,7 @@ const updateComment = async (req, res) => {
     const userId = req.user?.id || req.user?._id || 0;
     const { text } = req.body;
     
-    const rows = await query('SELECT user_id FROM post_comments WHERE id = ? AND post_id = ? LIMIT 1', [req.params.comment_id, req.params.id]);
+    const rows = await query('SELECT user_id FROM post_comments WHERE id = $1 AND post_id = $2 LIMIT 1', [req.params.comment_id, req.params.id]);
     if (!rows.length) return res.status(404).json({ message: 'Post or comment not found' });
     
     const ownerId = rows[0].user_id;
@@ -616,16 +641,16 @@ const updateComment = async (req, res) => {
       return res.status(401).json({ message: 'User not authorized to edit this comment' });
     }
     
-    await query('UPDATE post_comments SET text = ? WHERE id = ?', [text, req.params.comment_id]);
+    await query('UPDATE post_comments SET text = $1 WHERE id = $2', [text, req.params.comment_id]);
     
     // Fetch the updated comment with user info
     const updatedRows = await query(
       `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
               (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
-              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = ?) AS isLiked
+              EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS isLiked
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
-        WHERE c.id = ?`,
+        WHERE c.id = $2`,
       [userId, req.params.comment_id]
     );
 
@@ -656,9 +681,14 @@ const updateComment = async (req, res) => {
 const likeComment = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    const exists = await query('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ? LIMIT 1', [req.params.comment_id, userId]);
+    const exists = await query('SELECT 1 FROM comment_likes WHERE comment_id = $1 AND user_id = $2 LIMIT 1', [req.params.comment_id, userId]);
     if (exists.length) return res.status(400).json({ message: 'Comment already liked' });
-    await query('INSERT INTO comment_likes (comment_id, user_id) VALUES (?, ?)', [req.params.comment_id, userId]);
+    await query('INSERT INTO comment_likes (comment_id, user_id) VALUES ($1, $2)', [req.params.comment_id, userId]);
+    const countRows = await query('SELECT COUNT(*) AS cnt FROM comment_likes WHERE comment_id = $1', [req.params.comment_id]);
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('comment_update', { type: 'COMMENT_LIKE_CHANGE', postId: req.params.id, commentId: req.params.comment_id, likesCount: Number(countRows[0].cnt || 0) });
+    }
     res.json({ ok: true });
   } catch (error) {
     console.error(error);
@@ -672,7 +702,12 @@ const likeComment = async (req, res) => {
 const unlikeComment = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
-    await query('DELETE FROM comment_likes WHERE comment_id = ? AND user_id = ?', [req.params.comment_id, userId]);
+    await query('DELETE FROM comment_likes WHERE comment_id = $1 AND user_id = $2', [req.params.comment_id, userId]);
+    const countRows = await query('SELECT COUNT(*) AS cnt FROM comment_likes WHERE comment_id = $1', [req.params.comment_id]);
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('comment_update', { type: 'COMMENT_LIKE_CHANGE', postId: req.params.id, commentId: req.params.comment_id, likesCount: Number(countRows[0].cnt || 0) });
+    }
     res.json({ ok: true });
   } catch (error) {
     console.error(error);

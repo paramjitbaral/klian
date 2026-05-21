@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useSocket } from '../contexts/SocketContext';
 import { postsAPI } from '../src/api/posts';
 import { ICONS } from '../constants';
 
@@ -33,6 +34,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
   onCommentAdded,
 }) => {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [allComments, setAllComments] = useState<any[]>([]);
   const [displayedComments, setDisplayedComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -62,6 +64,27 @@ export const CommentModal: React.FC<CommentModalProps> = ({
       setEditingCommentId(null);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!socket || !isOpen) return;
+
+    const refreshIfRelevant = (payload: any) => {
+      if (String(payload?.postId) !== String(postId)) return;
+      loadComments();
+    };
+
+    socket.on('post_update', refreshIfRelevant);
+    socket.on('comment_update', refreshIfRelevant);
+    socket.on('post-commented', refreshIfRelevant);
+    socket.on('post-comment-deleted', refreshIfRelevant);
+
+    return () => {
+      socket.off('post_update', refreshIfRelevant);
+      socket.off('comment_update', refreshIfRelevant);
+      socket.off('post-commented', refreshIfRelevant);
+      socket.off('post-comment-deleted', refreshIfRelevant);
+    };
+  }, [socket, isOpen, postId]);
 
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 

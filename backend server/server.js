@@ -12,6 +12,7 @@ const socketIo = require('socket.io');
 const { initPool } = require('./config/db');
 const { getRedis } = require('./config/redis');
 const ensureGroupChatSchema = require('./utils/ensureGroupChatSchema');
+const ensurePostCommentsSchema = require('./utils/ensurePostCommentsSchema');
 
 let redis;
 
@@ -239,6 +240,7 @@ async function bootstrap() {
   try {
     await initPool();
     await ensureGroupChatSchema();
+    await ensurePostCommentsSchema();
 
     // Clean up any orphan group add notifications (self-healing db routine)
     const { query } = require('./config/db');
