@@ -209,10 +209,11 @@ const makeRawEmail = (to, subject, body) => {
 
 // Google Auth initiator
 exports.googleAuth = (req, res) => {
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}/api/email/google/callback`;
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    'http://localhost:5000/api/emails/google/callback'
+    redirectUri
   );
   
   const state = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET || 'fallback_secret_for_dev', { expiresIn: '10m' });
@@ -244,10 +245,11 @@ exports.googleCallback = async (req, res) => {
     const decoded = jwt.verify(state, process.env.JWT_SECRET || 'fallback_secret_for_dev');
     const userId = decoded.userId;
     
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}/api/email/google/callback`;
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      'http://localhost:5000/api/emails/google/callback'
+      redirectUri
     );
     
     const { tokens } = await oauth2Client.getToken(code);
@@ -264,7 +266,8 @@ exports.googleCallback = async (req, res) => {
       [userId, emailAddress, tokens.access_token, tokens.refresh_token || '', 'google']
     );
     
-    res.redirect('http://localhost:3000/#/mailbox');
+    const frontendUrl = req.get('host').includes('localhost') ? 'http://localhost:5173' : 'https://klian.pages.dev';
+    res.redirect(`${frontendUrl}/#/mailbox`);
   } catch (error) {
     console.error('Google OAuth callback error:', error);
     res.status(500).send('Authentication failed: ' + error.message);
@@ -274,7 +277,7 @@ exports.googleCallback = async (req, res) => {
 // Microsoft Outlook Auth initiator
 exports.outlookAuth = (req, res) => {
   const state = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET || 'fallback_secret_for_dev', { expiresIn: '10m' });
-  const redirectUri = encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:5000/api/emails/outlook/callback');
+  const redirectUri = encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}/api/email/outlook/callback`);
   const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.MICROSOFT_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&response_mode=query&scope=${encodeURIComponent('offline_access user.read mail.read mail.readwrite mail.send')}&state=${state}`;
   res.redirect(authUrl);
 };
@@ -294,7 +297,7 @@ exports.outlookCallback = async (req, res) => {
     params.append('client_id', process.env.MICROSOFT_CLIENT_ID);
     params.append('scope', 'offline_access user.read mail.read mail.readwrite mail.send');
     params.append('code', code);
-    params.append('redirect_uri', process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:5000/api/emails/outlook/callback');
+    params.append('redirect_uri', process.env.MICROSOFT_REDIRECT_URI || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}/api/email/outlook/callback`);
     params.append('grant_type', 'authorization_code');
     params.append('client_secret', process.env.MICROSOFT_CLIENT_SECRET);
     
@@ -319,7 +322,8 @@ exports.outlookCallback = async (req, res) => {
       [userId, emailAddress, access_token, refresh_token || '', 'microsoft']
     );
     
-    res.redirect('http://localhost:3000/#/mailbox');
+    const frontendUrl = req.get('host').includes('localhost') ? 'http://localhost:5173' : 'https://klian.pages.dev';
+    res.redirect(`${frontendUrl}/#/mailbox`);
   } catch (error) {
     console.error('Microsoft OAuth callback error:', error.response?.data || error.message);
     res.status(500).send('Authentication failed: ' + (error.response?.data?.error_description || error.message));
