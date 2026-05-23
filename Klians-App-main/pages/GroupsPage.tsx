@@ -365,6 +365,7 @@ const GroupSettingsModal: React.FC<{
     };
 
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+    const [isLeavingGroup, setIsLeavingGroup] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
     const [isErrorOpen, setIsErrorOpen] = useState(false);
@@ -393,10 +394,11 @@ const GroupSettingsModal: React.FC<{
     };
 
     const confirmLeaveGroup = async () => {
-        setIsLeaveConfirmOpen(false);
+        setIsLeavingGroup(true);
         const groupId = group.id || (group as any)._id;
         try {
             await groupsAPI.leaveGroup(String(groupId));
+            setIsLeaveConfirmOpen(false);
             onClose();
             if ((window as any).handleGroupLeave) {
                 (window as any).handleGroupLeave(groupId);
@@ -407,6 +409,8 @@ const GroupSettingsModal: React.FC<{
             setErrorTitle('Cannot Leave Group');
             setErrorMessage(backendMsg);
             setIsErrorOpen(true);
+        } finally {
+            setIsLeavingGroup(false);
         }
     };
 
@@ -636,9 +640,17 @@ const GroupSettingsModal: React.FC<{
                     </Button>
                     <Button 
                         onClick={confirmLeaveGroup} 
-                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 focus:ring-red-500"
+                        disabled={isLeavingGroup}
+                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 focus:ring-red-500 min-w-[120px] flex justify-center items-center"
                     >
-                        Leave Group
+                        {isLeavingGroup ? (
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            'Leave Group'
+                        )}
                     </Button>
                 </div>
             </div>
@@ -970,7 +982,6 @@ const ChatWindow: React.FC<{
                             })()}
                         </div>
                     )}
-
                     <div className="flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto bg-white dark:bg-slate-900 scrollbar-hide">
                         {(group.messages || []).map((msg, index) => {
                             const senderId = String(msg.sender?.id || (msg.sender as any)?._id || '');
@@ -980,6 +991,7 @@ const ChatWindow: React.FC<{
                                 _id: msg.id || (msg as any)._id || String(index),
                                 type: msg.type || 'text',
                                 content: msg.content || msg.text || '',
+                                postId: (msg as any).postId,
                                 createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
                                 sender: msg.sender ? {
                                     name: msg.sender.name,
@@ -1364,7 +1376,9 @@ export const GroupsPage: React.FC = () => {
                         content.includes(`@${user.username}`) ||
                         content.toLowerCase().includes(`@${mentionName.toLowerCase()}`);
 
-                    if (setting === 'all' || (setting === 'mentions' && isMentioned)) {
+                    const isOwnMsg = String(msg.sender?.id || msg.senderId) === String(user.id || (user as any)._id);
+
+                    if (!isOwnMsg && (setting === 'all' || (setting === 'mentions' && isMentioned))) {
                         newUnreadCount++;
                     }
                 } else {
@@ -1379,6 +1393,7 @@ export const GroupsPage: React.FC = () => {
                     sender: msg.sender || { id: msg.senderId, name: msg.senderName, avatar: msg.senderAvatar },
                     content: msg.content || msg.text || '',
                     text: msg.text || msg.content || '',
+                    postId: msg.postId,
                     createdAt: msg.createdAt || msg.timestamp || new Date().toISOString(),
                     timestamp: msg.timestamp || msg.createdAt,
                 };
@@ -1649,7 +1664,12 @@ export const GroupsPage: React.FC = () => {
                                                     <div className="flex justify-between items-center mt-0.5">
                                                         {lastMessage ?
                                                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                                                {lastMessage.sender?.name || 'Someone'}: {lastMessage.text || (lastMessage as any).content}
+                                                                {lastMessage.sender?.name || 'Someone'}: {
+                                                                    (lastMessage as any).type === 'post' ? 'Shared a post' :
+                                                                    (lastMessage as any).type === 'image' ? 'Shared an image' :
+                                                                    (lastMessage as any).type === 'file' ? 'Shared a file' :
+                                                                    (lastMessage.text || (lastMessage as any).content)
+                                                                }
                                                             </p>
                                                             : <p className="text-xs text-slate-500 dark:text-slate-400 italic">No messages yet.</p>
                                                         }
