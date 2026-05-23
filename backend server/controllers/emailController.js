@@ -93,6 +93,16 @@ const decodeBase64 = (base64urlStr) => {
   return Buffer.from(base64, 'base64').toString('utf-8');
 };
 
+const decodeHtmlEntities = (str) => {
+  if (!str) return '';
+  return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&#39;/g, "'");
+};
+
 // Recursive Gmail message body extractor
 function getMessageBody(part) {
   if (!part) return '';
@@ -407,7 +417,7 @@ exports.getInbox = async (req, res) => {
             
             const rawBody = getMessageBody(detail.data.payload);
             const body = await resolveGmailCidImages(gmail, msg.id, detail.data.payload, rawBody);
-            const preview = body.substring(0, 100).replace(/<[^>]*>/g, '') + '...';
+            const preview = detail.data.snippet ? decodeHtmlEntities(detail.data.snippet) : body.substring(0, 100).replace(/<[^>]*>/g, '').trim() + '...';
             
             return {
               id: msg.id,
@@ -570,7 +580,7 @@ exports.getSent = async (req, res) => {
             
             const rawBody = getMessageBody(detail.data.payload);
             const body = await resolveGmailCidImages(gmail, msg.id, detail.data.payload, rawBody);
-            const preview = body.substring(0, 100).replace(/<[^>]*>/g, '') + '...';
+            const preview = detail.data.snippet ? decodeHtmlEntities(detail.data.snippet) : body.substring(0, 100).replace(/<[^>]*>/g, '').trim() + '...';
             
             return {
               id: msg.id,
@@ -732,7 +742,7 @@ exports.getTrash = async (req, res) => {
             
             const rawBody = getMessageBody(detail.data.payload);
             const body = await resolveGmailCidImages(gmail, msg.id, detail.data.payload, rawBody);
-            const preview = body.substring(0, 100).replace(/<[^>]*>/g, '') + '...';
+            const preview = detail.data.snippet ? decodeHtmlEntities(detail.data.snippet) : body.substring(0, 100).replace(/<[^>]*>/g, '').trim() + '...';
             
             return {
               id: msg.id,
