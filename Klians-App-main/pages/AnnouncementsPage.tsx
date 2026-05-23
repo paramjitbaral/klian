@@ -68,8 +68,13 @@ export const AnnouncementsPage: React.FC = () => {
         });
       });
 
+      socket.on('announcement-deleted', ({ id }: { id: string }) => {
+        setAnnouncements(prev => prev.filter(a => String(a.id || a._id) !== String(id)));
+      });
+
       return () => {
         socket.off('announcement-created');
+        socket.off('announcement-deleted');
       };
     }
   }, [socket]);

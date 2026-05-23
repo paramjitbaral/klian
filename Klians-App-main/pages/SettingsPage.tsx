@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { ToggleSwitch } from '../components/ui/ToggleSwitch';
 import { ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
+import { ImageCropperModal } from '../components/ImageCropperModal';
 
 type SettingsCategory = 'profile' | 'security' | 'appearance' | 'privacy' | 'danger';
 type PhotoActionTarget = 'profile' | 'banner' | null;
@@ -95,6 +96,10 @@ export const SettingsPage: React.FC = () => {
     const [showOtpModal, setShowOtpModal] = useState(false);
     const [otpValue, setOtpValue] = useState('');
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+    
+    // Cropper states
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+    const [cropType, setCropType] = useState<'profile' | 'banner' | null>(null);
 
     // State for password fields and validation
     const [currentPassword, setCurrentPassword] = useState('');
@@ -130,15 +135,13 @@ export const SettingsPage: React.FC = () => {
         if (!file) return;
 
         setProfilePictureError('');
-        const { base64, error } = await validateAndConvertImage(file);
-
-        if (error) {
-            setProfilePictureError(error);
-            setProfilePicturePreview('');
-        } else {
-            setRemoveProfilePicture(false);
-            setProfilePicturePreview(base64);
-        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            setImageToCrop(reader.result as string);
+            setCropType('profile');
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
     };
 
     const handleCoverPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,14 +149,35 @@ export const SettingsPage: React.FC = () => {
         if (!file) return;
 
         setCoverPhotoError('');
-        const { base64, error } = await validateAndConvertImage(file);
+        const reader = new FileReader();
+        reader.onload = () => {
+            setImageToCrop(reader.result as string);
+            setCropType('banner');
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
 
-        if (error) {
-            setCoverPhotoError(error);
-            setCoverPhotoPreview('');
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        const type = cropType;
+        setImageToCrop(null);
+        setCropType(null);
+        
+        if (!type) return;
+
+        const base64data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(croppedBlob);
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+        });
+
+        if (type === 'profile') {
+            setRemoveProfilePicture(false);
+            setProfilePicturePreview(base64data);
         } else {
             setRemoveCoverPhoto(false);
-            setCoverPhotoPreview(base64);
+            setCoverPhotoPreview(base64data);
         }
     };
 
@@ -230,7 +254,7 @@ export const SettingsPage: React.FC = () => {
             setTimeout(() => setProfileSaveMessage(''), 3000);
         } catch (error: any) {
             console.error('Error updating profile:', error);
-            setProfileSaveMessage(error.message || 'Error updating profile');
+            setProfileSaveMessage(error.response?.data?.message || error.message || 'Error updating profile');
         } finally {
             setIsSavingProfile(false);
         }
@@ -344,7 +368,7 @@ export const SettingsPage: React.FC = () => {
                                     onClick={() => setPhotoActionTarget('banner')}
                                     className="absolute top-3 right-3 bg-black/20 backdrop-blur-md text-white px-2.5 py-1.5 rounded-lg cursor-pointer text-[9px] font-bold uppercase tracking-widest hover:bg-black/40 transition-all flex items-center gap-2 z-20 border border-white/10"
                                 >
-                                    {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3 w-3" })}
+                                    {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-3 w-3" } as any)}
                                     <span>Edit Banner</span>
                                 </button>
                                 <input ref={coverFileInputRef} type="file" accept="image/*" onChange={handleCoverPhotoChange} className="hidden" />
@@ -365,7 +389,7 @@ export const SettingsPage: React.FC = () => {
                                         onClick={() => setPhotoActionTarget('profile')}
                                         className="absolute bottom-1 right-1 bg-white dark:bg-slate-800 p-2 rounded-full shadow-md border border-slate-100 dark:border-slate-700 cursor-pointer hover:scale-110 active:scale-95 transition-all z-10 group-hover:shadow-red-500/20"
                                     >
-                                        {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-4 w-4 text-slate-600 dark:text-slate-400" })}
+                                        {React.cloneElement(ICONS.camera as React.ReactElement, { className: "h-4 w-4 text-slate-600 dark:text-slate-400" } as any)}
                                     </button>
                                     <input ref={profileFileInputRef} type="file" accept="image/*" onChange={handleProfilePictureChange} className="hidden" />
                                 </div>
@@ -553,6 +577,18 @@ export const SettingsPage: React.FC = () => {
 
     return (
         <>
+            {imageToCrop && (
+                <ImageCropperModal 
+                    image={imageToCrop} 
+                    circular={cropType === 'profile'}
+                    onCropComplete={handleCropComplete}
+                    onCancel={() => {
+                        setImageToCrop(null);
+                        setCropType(null);
+                    }}
+                />
+            )}
+            
             {/* MOBILE VIEW */}
             <div className="md:hidden min-h-screen bg-slate-50/50 dark:bg-slate-900/50 pb-20">
                 {mobileView === 'menu' ? (
@@ -607,7 +643,7 @@ export const SettingsPage: React.FC = () => {
                                     >
                                         <div className="flex items-center space-x-4">
                                             <span className="text-red-500 dark:text-red-400">
-                                                {React.cloneElement(ICONS.logout as React.ReactElement, { className: "h-5 w-5" })}
+                                                {React.cloneElement(ICONS.logout as React.ReactElement, { className: "h-5 w-5" } as any)}
                                             </span>
                                             <span className="font-semibold text-sm text-red-500 dark:text-red-400">Logout</span>
                                         </div>

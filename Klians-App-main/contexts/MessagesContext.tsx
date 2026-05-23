@@ -134,6 +134,27 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
+  const normalizeConversation = React.useCallback((raw: any): Conversation => {
+    const userRaw = raw?.user || raw?.conversationUser || {};
+    const userId = String(userRaw?._id || userRaw?.id || raw?.userId || raw?.senderId || raw?.recipientId || '');
+    const userName = userRaw?.name || raw?.name || 'User';
+    const userEmail = userRaw?.email || raw?.email || '';
+    const userProfilePicture = userRaw?.profilePicture || userRaw?.avatar || raw?.profilePicture || raw?.avatar || '';
+
+    const lastMessageRaw = raw?.lastMessage || raw?.message || raw?.last_message || {};
+
+    return {
+      user: {
+        _id: userId,
+        name: userName,
+        email: userEmail,
+        profilePicture: userProfilePicture,
+      },
+      lastMessage: normalizeMessage(lastMessageRaw),
+      unread: !!raw?.unread,
+    };
+  }, [normalizeMessage]);
+
   useEffect(() => {
     const count = conversations.reduce((acc, conv) => acc + (conv.unread ? 1 : 0), 0);
     console.log('--- Unread Count Sync ---');
@@ -148,8 +169,9 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!user) return;
       try {
         const response = await messagesAPI.getConversations();
-        setConversations(response.data);
-        setUnreadCount(response.data.filter((conv: Conversation) => conv.unread).length);
+        const normalizedConversations = (response.data || []).map((conversation: any) => normalizeConversation(conversation));
+        setConversations(normalizedConversations);
+        setUnreadCount(normalizedConversations.filter((conv: Conversation) => conv.unread).length);
       } catch (error) {
         console.error('Error loading conversations:', error);
       }
@@ -167,7 +189,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         import('../src/api/notifications').then(m => m.notificationsAPI.getNotifications())
       ]);
       
-      const total = groupsRes.data.reduce((acc: number, g: any) => acc + (g.unreadCount || 0), 0);
+      const total = groupsRes.data.reduce((acc: number, g: any) => acc + Number(g.unreadCount || 0), 0);
       setGroupUnreadCount(total);
       
       const groupAddedCount = notifRes.data.filter((n: any) => n.type === 'GROUP_ADDED' && !n.isRead).length;
@@ -216,9 +238,9 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               return [{
                 user: {
                   _id: targetUser.id || targetUser._id,
-                  name: targetUser.name,
-                  email: targetUser.email,
-                  profilePicture: targetUser.profilePicture
+                  name: targetUser.name || 'User',
+                  email: targetUser.email || '',
+                  profilePicture: targetUser.profilePicture || targetUser.avatar || ''
                 },
                 lastMessage: null as any,
                 unread: false
@@ -259,7 +281,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (!socket || !user) return;
 
-    socket.on('new-message', (incomingMessage: any) => {
+      socket.on('new-message', (incomingMessage: any) => {
       const message = normalizeMessage(incomingMessage);
       const userId = getUserId(user);
       console.log('--- Real-time Message Received ---');

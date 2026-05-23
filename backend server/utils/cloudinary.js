@@ -6,7 +6,7 @@ cloudinary.config({ secure: true });
 
 function uploadBuffer(buffer, options = {}) {
   return new Promise((resolve, reject) => {
-    const opts = { resource_type: 'auto', folder: options.folder || 'klians' };
+    const opts = { resource_type: options.resource_type || 'auto', folder: options.folder || 'klians' };
     if (options.public_id) opts.public_id = options.public_id;
     const uploadStream = cloudinary.uploader.upload_stream(opts, (error, result) => {
       if (error) return reject(error);
@@ -18,7 +18,7 @@ function uploadBuffer(buffer, options = {}) {
 
 function uploadBase64(dataUrl, options = {}) {
   return new Promise((resolve, reject) => {
-    const opts = { resource_type: 'auto', folder: options.folder || 'klians' };
+    const opts = { resource_type: options.resource_type || 'auto', folder: options.folder || 'klians' };
     if (options.public_id) opts.public_id = options.public_id;
     cloudinary.uploader.upload(dataUrl, opts, (error, result) => {
       if (error) return reject(error);

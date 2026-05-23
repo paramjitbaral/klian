@@ -90,6 +90,12 @@ const registerUser = async (req, res) => {
       requiresVerification: !isVerified,
       token: isVerified ? generateToken(userId) : null
     });
+    
+    // Emit event if verified user created
+    if (isVerified) {
+      const io = req.app.get('io');
+      if (io) io.emit('user-registered', { id: userId, name, email, role: standardizedRole });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -189,6 +195,10 @@ const verifyOTP = async (req, res) => {
       message: 'Account verified successfully. You can now login.',
       token: generateToken(user.id)
     });
+    
+    // Emit user-registered event
+    const io = req.app.get('io');
+    if (io) io.emit('user-registered', { id: user.id });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -231,7 +241,7 @@ const loginUser = async (req, res) => {
       }
     }
 
-    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
+    const rows = await query('SELECT id, name, email, role, password_hash, is_verified, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, cabin_number AS "cabinNumber", linkedin, github, portfolio FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
     if (!rows.length) return res.status(401).json({ message: 'Invalid email or password' });
     const user = rows[0];
 
@@ -273,7 +283,7 @@ const loginUser = async (req, res) => {
 // @access  Private
 const getUserProfile = async (req, res) => {
   try {
-    const rows = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, cabin_number AS cabinNumber, linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [req.user.id || req.user._id]);
+    const rows = await query('SELECT id, name, email, role, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, cabin_number AS "cabinNumber", linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [req.user.id || req.user._id]);
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     const user = rows[0];
     res.json({
@@ -331,7 +341,7 @@ const updateUserProfile = async (req, res) => {
     const paramIndex = params.length;
     await query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex}`, params);
 
-    const updated = await query('SELECT id, name, email, role, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1', [userId]);
+    const updated = await query('SELECT id, name, email, role, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, linkedin, github, portfolio, cabin_number AS "cabinNumber" FROM users WHERE id = $1 LIMIT 1', [userId]);
     const u = updated[0];
     res.json({
       _id: u.id,
@@ -350,6 +360,9 @@ const updateUserProfile = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    if (error && error.code === '22001') {
+      return res.status(400).json({ message: 'One or more profile fields are too long. Please shorten text or image data.' });
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

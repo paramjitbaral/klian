@@ -42,8 +42,8 @@ const getReminderFlag = async (eventId, currentUserId) => {
 
 const getFormattedEvent = async (eventId, currentUserId = null) => {
   const rows = await query(
-    `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS createdAt,
-            u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+    `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS "createdAt",
+            u.id AS "creatorId", u.name AS "creatorName", u.email AS "creatorEmail", u.profile_picture AS "creatorProfilePicture"
        FROM events e
        JOIN users u ON u.id = e.created_by
       WHERE e.id = $1
@@ -55,7 +55,7 @@ const getFormattedEvent = async (eventId, currentUserId = null) => {
 
   const event = rows[0];
   const attendees = await query(
-    `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
+    `SELECT u.id, u.name, u.email, u.profile_picture AS "profilePicture"
        FROM event_attendees ea
        JOIN users u ON u.id = ea.user_id
       WHERE ea.event_id = $1`,
@@ -109,8 +109,8 @@ const getEvents = async (req, res) => {
   try {
     const currentUserId = req.user.id || req.user._id;
     const eventsRows = await query(
-      `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS createdAt,
-              u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture
+      `SELECT e.id, e.title, e.description, e.date, e.location, e.created_at AS "createdAt",
+              u.id AS "creatorId", u.name AS "creatorName", u.email AS "creatorEmail", u.profile_picture AS "creatorProfilePicture"
          FROM events e
          JOIN users u ON u.id = e.created_by
         ORDER BY e.date ASC`
@@ -118,7 +118,7 @@ const getEvents = async (req, res) => {
 
     const events = await Promise.all(eventsRows.map(async (event) => {
       const attendees = await query(
-        `SELECT u.id, u.name, u.email, u.profile_picture AS profilePicture
+        `SELECT u.id, u.name, u.email, u.profile_picture AS "profilePicture"
            FROM event_attendees ea
            JOIN users u ON u.id = ea.user_id
           WHERE ea.event_id = $1`,
@@ -179,6 +179,17 @@ const updateEvent = async (req, res) => {
       'UPDATE events SET title = $1, description = $2, date = $3, location = $4 WHERE id = $5',
       [title, description, formattedDate, location || null, req.params.id]
     );
+
+    try {
+      await query(
+        'UPDATE event_reminders SET sent_at = NULL WHERE event_id = $1',
+        [req.params.id]
+      );
+    } catch (error) {
+      if (error.code !== '42P01' && error.code !== '42703') {
+        console.error('Error clearing event reminders sent_at:', error);
+      }
+    }
     
     const populatedUpdatedEvent = await getFormattedEvent(req.params.id, currentUserId);
 

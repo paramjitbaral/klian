@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card } from './ui/Card';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import API from '../src/api';
+import { useSocket } from '../contexts/SocketContext';
 
 interface TrendingHashtag {
     tag: string;
@@ -9,6 +10,9 @@ interface TrendingHashtag {
 }
 
 export const TrendingTopics: React.FC = () => {
+    const { socket } = useSocket();
+    const queryClient = useQueryClient();
+
     const { data: topics, isLoading, isError } = useQuery<TrendingHashtag[]>({
         queryKey: ['trending-hashtags'],
         queryFn: async () => {
@@ -17,6 +21,19 @@ export const TrendingTopics: React.FC = () => {
         },
         refetchInterval: 60000 // Refetch every minute
     });
+
+    React.useEffect(() => {
+        if (!socket) return;
+        const handleNewPost = () => {
+            queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
+        };
+        socket.on('new-post', handleNewPost);
+        socket.on('post-deleted', handleNewPost);
+        return () => {
+            socket.off('new-post', handleNewPost);
+            socket.off('post-deleted', handleNewPost);
+        };
+    }, [socket, queryClient]);
 
     // Generate realistic post counts that STRICTLY follow the ranking order (up to 8)
     const getDisplayCount = (index: number, tag: string) => {

@@ -124,11 +124,21 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             if (isVisible) setBroadcastUnreadCount(prev => prev + 1);
         };
 
+        const handleAnnouncementDeleted = async () => {
+            try {
+                const count = await announcementsAPI.getUnreadCount();
+                setBroadcastUnreadCount(count);
+            } catch (error) {
+                console.error('Failed to update broadcast count on delete:', error);
+            }
+        };
+
         socket.on('new_notification', handleNewNotification);
         socket.on('delete_notification', handleDeleteNotification);
         socket.on('update_notification', handleUpdateNotification);
         socket.on('event-notifications-deleted', handleEventNotificationsDeleted);
         socket.on('announcement-created', handleNewAnnouncement);
+        socket.on('announcement-deleted', handleAnnouncementDeleted);
 
         // Group synchronization
         socket.on('new_group_message', () => refreshGroupCounts());
@@ -141,6 +151,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
             socket.off('update_notification');
             socket.off('event-notifications-deleted', handleEventNotificationsDeleted);
             socket.off('announcement-created');
+            socket.off('announcement-deleted', handleAnnouncementDeleted);
             socket.off('new_group_message');
             socket.off('group_added_to');
             socket.off('group_removed_from');
@@ -326,7 +337,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                                 onClick={() => {
                                     setNotificationsVisible(!isNotificationsVisible);
                                 }}
-                                className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${shouldBellRing ? 'bell-ring' : ''}`}
+                                className={`text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-all ${unreadCount > 0 ? 'bell-ring' : ''}`}
                             >
                                 {ICONS.bell}
                                 {unreadCount > 0 && (

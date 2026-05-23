@@ -76,13 +76,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
     return resolveBackendUrl(url);
   };
 
-  const extractFileName = (url: string) => {
-    if (!url) return 'Document';
-    const parts = url.split('/');
-    const fullFileName = parts[parts.length - 1];
-    // Remove unique suffix if present (e.g., "-1778999000980-799104069.pdf")
-    const cleanName = fullFileName.replace(/-[0-9]+-[0-9]+(?=\.[a-zA-Z0-9]+$)/, '');
-    return cleanName.replace(/_/g, ' ');
+  const extractFileName = (rawUrl: string) => {
+    if (!rawUrl) return 'Document';
+    let url = rawUrl;
+    
+    try {
+      if (url.includes('proxy-pdf') && url.includes('?url=')) {
+        const urlParams = new URLSearchParams(url.split('?')[1]);
+        const proxyUrl = urlParams.get('url');
+        if (proxyUrl) url = proxyUrl;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    url = url.split('?')[0].split('#')[0];
+    const urlFilename = url.split('/').pop() || 'Document';
+    const nameParts = urlFilename.split('-');
+    let realName = nameParts.length > 1 ? nameParts.slice(1).join('-') : urlFilename;
+    
+    if (realName.endsWith('.pdf.txt')) {
+      realName = realName.replace('.pdf.txt', '.pdf');
+    }
+    
+    return realName.replace(/_/g, ' ') || 'Document';
   };
 
   const navigate = useNavigate();

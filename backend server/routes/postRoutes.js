@@ -15,9 +15,13 @@ const {
   likeComment,
   unlikeComment,
   getTrendingHashtags,
-  sharePost
+  sharePost,
+  proxyPdf
 } = require('../controllers/postController');
 const { protect, facultyOnly } = require('../middleware/auth');
+
+// Public route for PDF proxy
+router.get('/proxy-pdf/:filename', proxyPdf);
 
 // All routes are protected
 router.route('/')

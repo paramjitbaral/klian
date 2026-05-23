@@ -350,10 +350,7 @@ const GroupSettingsModal: React.FC<{
         const groupId = group.id || (group as any)._id;
         try {
             if (action === 'remove') {
-                if (window.confirm('Are you sure you want to remove this member?')) {
-                    const res = await groupsAPI.removeMember(String(groupId), memberId);
-                    onUpdateGroup(res.data);
-                }
+                setMemberToRemove(memberId);
             } else if (action === 'promote') {
                 const res = await groupsAPI.updateMemberRole(String(groupId), memberId, 'admin');
                 onUpdateGroup(res.data);
@@ -369,9 +366,27 @@ const GroupSettingsModal: React.FC<{
 
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
     const [isErrorOpen, setIsErrorOpen] = useState(false);
     const [errorTitle, setErrorTitle] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+
+    const confirmRemoveMember = async () => {
+        if (!memberToRemove) return;
+        const groupId = group.id || (group as any)._id;
+        try {
+            const res = await groupsAPI.removeMember(String(groupId), memberToRemove);
+            onUpdateGroup(res.data);
+            setMemberToRemove(null);
+        } catch (error: any) {
+            console.error(`Failed to remove member:`, error);
+            const backendMsg = error.response?.data?.message || 'Failed to remove member. Please try again.';
+            setErrorTitle('Cannot Remove Member');
+            setErrorMessage(backendMsg);
+            setIsErrorOpen(true);
+            setMemberToRemove(null);
+        }
+    };
 
     const handleLeaveGroup = () => {
         setIsLeaveConfirmOpen(true);
@@ -650,6 +665,26 @@ const GroupSettingsModal: React.FC<{
                         className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 focus:ring-red-500"
                     >
                         Delete Group
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+
+        {/* Custom Remove Member Confirmation Modal */}
+        <Modal isOpen={!!memberToRemove} onClose={() => setMemberToRemove(null)} title="Remove Member?">
+            <div className="space-y-4">
+                <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
+                    Are you sure you want to remove this user from the group?
+                </p>
+                <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="secondary" onClick={() => setMemberToRemove(null)} className="rounded-xl">
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={confirmRemoveMember} 
+                        className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 focus:ring-red-500"
+                    >
+                        Remove
                     </Button>
                 </div>
             </div>
@@ -1182,6 +1217,7 @@ export const GroupsPage: React.FC = () => {
     const [messageToDelete, setMessageToDelete] = useState<{ groupId: string; msgId: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+    const [groupSearchQuery, setGroupSearchQuery] = useState('');
     const navigate = useNavigate();
     const { socket } = useSocket();
 
@@ -1267,8 +1303,12 @@ export const GroupsPage: React.FC = () => {
         navigate('/messages');
     };
 
-    const userGroups = Array.isArray(groups) ? groups : [];
-    const activeGroup = userGroups.find(g => String((g as any)._id) === String(selectedGroupId) || String(g.id) === String(selectedGroupId));
+    const rawUserGroups = Array.isArray(groups) ? groups : [];
+    const userGroups = groupSearchQuery.trim() === ''
+        ? rawUserGroups
+        : rawUserGroups.filter(g => g.name.toLowerCase().includes(groupSearchQuery.toLowerCase()));
+
+    const activeGroup = rawUserGroups.find(g => String((g as any)._id) === String(selectedGroupId) || String(g.id) === String(selectedGroupId));
 
     const openGroup = (group: Group) => {
         const id = String((group as any)._id || group.id);
@@ -1534,14 +1574,28 @@ export const GroupsPage: React.FC = () => {
                             <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Groups</h1>
                         </div>
 
-                        {user?.role !== 'Student' && (
-                            <Button variant="ghost" className="!p-2" onClick={() => { setSelectedGroupId(null); setIsCreateModalOpen(true); }} title="Create new group">
-                                {ICONS.plus}
-                            </Button>
-                        )}
+                        <Button variant="ghost" className="!p-2" onClick={() => { setSelectedGroupId(null); setIsCreateModalOpen(true); }} title="Create new group">
+                            {ICONS.plus}
+                        </Button>
                     </header>
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                        <Input placeholder="Search groups..." />
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-700 relative">
+                        <span className="absolute left-7 top-1/2 -translate-y-1/2 text-slate-400">
+                            {React.cloneElement(ICONS.search as React.ReactElement<{ className?: string }>, { className: 'w-4 h-4' })}
+                        </span>
+                        <Input 
+                            placeholder="Search groups..." 
+                            value={groupSearchQuery} 
+                            onChange={(e) => setGroupSearchQuery(e.target.value)} 
+                            className="pl-9"
+                        />
+                        {groupSearchQuery && (
+                            <button
+                                onClick={() => setGroupSearchQuery('')}
+                                className="absolute right-7 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                            >
+                                ✕
+                            </button>
+                        )}
                     </div>
                     <div className="flex-1 overflow-y-auto">
                         {userGroups.length === 0 ? (
@@ -1549,22 +1603,17 @@ export const GroupsPage: React.FC = () => {
                                 <div className="mb-6 text-slate-300 dark:text-slate-600">
                                     {React.cloneElement(ICONS.groups as React.ReactElement<{ className?: string }>, { className: "w-20 h-20 md:w-14 md:h-14 mx-auto" })}
                                 </div>
-                                <h3 className="text-xl md:text-lg font-bold text-slate-900 dark:text-white mb-2">No groups yet</h3>
+                                <h3 className="text-xl md:text-lg font-bold text-slate-900 dark:text-white mb-2">No groups found</h3>
                                 <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400 max-w-[240px] md:max-w-[180px] mx-auto leading-relaxed">
-                                    {user?.role === 'Student' 
-                                        ? "You will be added to groups by your teachers once they are created."
-                                        : "Create a group to start collaborating with others!"
-                                    }
+                                    Create a group to start collaborating with others!
                                 </p>
-                                {user?.role !== 'Student' && (
-                                    <Button
-                                        variant="secondary"
-                                        className="mt-8 px-8 md:mt-6 md:px-4 md:py-1.5 md:text-sm"
-                                        onClick={() => setIsCreateModalOpen(true)}
-                                    >
-                                        Create New Group
-                                    </Button>
-                                )}
+                                <Button
+                                    variant="secondary"
+                                    className="mt-8 px-8 md:mt-6 md:px-4 md:py-1.5 md:text-sm"
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                >
+                                    Create New Group
+                                </Button>
                             </div>
                         ) : (
                             <ul>

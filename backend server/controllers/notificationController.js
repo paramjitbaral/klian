@@ -8,8 +8,8 @@ const getNotifications = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     const rows = await query(
-      `SELECT n.id, n.type, n.post_id AS postId, n.comment_id AS commentId, n.group_id AS groupId, n.content, n.is_read AS isRead, n.created_at AS createdAt,
-              a.id AS actorId, a.name AS actorName, a.profile_picture AS actorAvatar,
+      `SELECT n.id, n.type, n.post_id AS "postId", n.comment_id AS "commentId", n.group_id AS "groupId", n.content, n.is_read AS "isRead", n.created_at AS "createdAt",
+              a.id AS "actorId", a.name AS "actorName", a.profile_picture AS "actorAvatar",
               pc.text AS commentText,
               p.content AS postContent, p.image_url AS postImage
          FROM notifications n
@@ -93,12 +93,12 @@ const createNotification = async (userId, actorId, type, postId = null, commentI
     
     // Fetch formatted notif for socket emission
     const rows = await query(
-      `SELECT n.id, n.type, n.post_id AS postId, n.comment_id AS commentId, n.group_id AS groupId, n.is_read AS isRead, n.created_at AS createdAt,
-              a.id AS actorId, a.name AS actorName, a.profile_picture AS actorAvatar,
+      `SELECT n.id, n.type, n.post_id AS "postId", n.comment_id AS "commentId", n.group_id AS "groupId", n.is_read AS "isRead", n.created_at AS "createdAt",
+              a.id AS "actorId", a.name AS "actorName", a.profile_picture AS "actorAvatar",
               pc.text AS commentText,
               p.content AS postContent, p.image_url AS postImage
          FROM notifications n
-         JOIN users a ON a.id = n.actor_id
+         LEFT JOIN users a ON a.id = n.actor_id
          LEFT JOIN post_comments pc ON pc.id = n.comment_id
          LEFT JOIN posts p ON p.id = n.post_id
         WHERE n.id = $1

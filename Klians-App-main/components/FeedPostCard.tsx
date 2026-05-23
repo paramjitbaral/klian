@@ -21,9 +21,19 @@ const useTimeAgo = (date: string | number | Date) => {
     const [time, setTime] = React.useState('...');
 
     React.useEffect(() => {
+        const parseDate = (value: string | number | Date) => {
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (/^\d+$/.test(trimmed)) {
+                    return new Date(Number(trimmed));
+                }
+            }
+            return new Date(value);
+        };
+
         const calculateTime = () => {
             if (!date) return "just now";
-            const d = new Date(date);
+            const d = parseDate(date);
             if (isNaN(d.getTime())) return "just now";
             
             const now = new Date();
@@ -95,6 +105,7 @@ const ActionButton: React.FC<{
 
 export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) => void }> = ({ post, onDelete }) => {
     const { user } = useAuth();
+    const { socket } = useSocket();
 
     // Safety check: ensure post.author exists
     if (!post.author) {
@@ -160,6 +171,7 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                     parsed = parsed.filter((id: string) => id !== String(post.id));
                 }
                 localStorage.setItem(savedKey, JSON.stringify(parsed));
+                window.dispatchEvent(new Event('saved_posts_updated'));
             } catch (e) {
                 console.error(e);
             }
@@ -180,7 +192,6 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(post.content);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const { socket } = useSocket();
 
     // Listen for real-time updates from other users
     useEffect(() => {
@@ -554,16 +565,26 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 postId={post.id}
-                onShare={async (recipientId, message) => {
+                onShare={async (recipientId, message, shareType) => {
                     const postId = post.id || (post as any)._id;
                     if (!postId || !recipientId) {
                         throw new Error('Invalid share parameters');
                     }
 
                     try {
-                        // Share post via messaging system
                         const shareMessage = message || `Check out this post: ${post.content?.substring(0, 50)}...`;
-                        await messagesAPI.sharePost(recipientId, postId, shareMessage);
+                        if (shareType === 'group') {
+                            if (!socket) throw new Error('Real-time connection not available');
+                            socket.emit('send_group_message', {
+                                groupId: recipientId,
+                                content: String(postId), // Content is the post ID for post type
+                                type: 'post',
+                                postId: String(postId) // Pass postId explicitly for the updated backend handler
+                            });
+                        } else {
+                            // Share post via personal messaging system
+                            await messagesAPI.sharePost(recipientId, postId, shareMessage);
+                        }
                     } catch (error: any) {
                         throw new Error(error.message || 'Failed to share post');
                     }

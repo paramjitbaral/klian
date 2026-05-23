@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../contexts/SocketContext';
-import { usePosts, useCreatePost } from '../src/hooks/usePosts';
+import { usePosts, useCreatePost, postsQueryKeys } from '../src/hooks/usePosts';
 import { MOCK_POSTS, MOCK_BROADCASTS } from '../constants';
 import { Post, Broadcast, Role } from '../types';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -39,6 +39,39 @@ const PostSkeleton: React.FC = () => (
 
 type FeedItem = (Post & { type: 'post' }) | (Broadcast & { type: 'broadcast' });
 
+const toTimestampMs = (value: any): number => {
+  if (value === null || value === undefined) return 0;
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+
+    if (/^\d+$/.test(trimmed)) {
+      const numeric = Number(trimmed);
+      return Number.isFinite(numeric) ? numeric : 0;
+    }
+
+    const parsed = new Date(trimmed).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  if (value instanceof Date) {
+    const parsed = value.getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  return 0;
+};
+
+const toIsoTimestamp = (value: any): string => {
+  const ms = toTimestampMs(value);
+  return ms ? new Date(ms).toISOString() : new Date().toISOString();
+};
+
 export const HomePage: React.FC = () => {
   const { user } = useAuth();
   const { data: postsResponse, isLoading, isFetching } = usePosts();
@@ -59,13 +92,15 @@ export const HomePage: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
 
-  // Fetch broadcasts from API
+  // Fetch broadcasts from API — separated from socket so socket reconnects don't wipe data
   useEffect(() => {
     const fetchBroadcasts = async () => {
       try {
         setBroadcastsLoading(true);
         const data = await announcementsAPI.getAnnouncements();
-        const formattedBroadcasts: Broadcast[] = data.map((ann: any) => ({
+        console.log('[HomePage] Raw announcements API response:', data);
+        const arr = Array.isArray(data) ? data : [];
+        const formattedBroadcasts: Broadcast[] = arr.map((ann: any) => ({
           id: String(ann.id || ann._id),
           title: ann.title,
           content: ann.content,
@@ -73,16 +108,22 @@ export const HomePage: React.FC = () => {
           target: ann.target,
           timestamp: ann.createdAt || ann.created_at,
         }));
+        console.log('[HomePage] Formatted broadcasts:', formattedBroadcasts.length, formattedBroadcasts.map(b => b.id));
         setBroadcasts(formattedBroadcasts);
       } catch (error) {
         console.error('Failed to load broadcasts:', error);
-        setBroadcasts([]);
+        // Don't wipe existing broadcasts on a transient error
+        setBroadcasts(prev => prev.length > 0 ? prev : []);
       } finally {
         setBroadcastsLoading(false);
       }
     };
 
     fetchBroadcasts();
+  }, []);
+
+  // Socket listeners for real-time updates (separate effect so reconnects don't re-fetch)
+  useEffect(() => {
 
     // Listen for new broadcasts via socket
     if (socket) {
@@ -94,13 +135,13 @@ export const HomePage: React.FC = () => {
         const role = user?.role?.toLowerCase() || '';
         
         const isAdmin = role === 'admin';
-        const isTeacher = role === 'teacher';
+        const isTeacher = role === 'teacher' || role === 'faculty' || role === 'dean';
         
         let isVisible = false;
         if (isAdmin) {
           isVisible = true;
         } else if (isTeacher) {
-          isVisible = ['all', 'all users', 'teacher', 'teachers'].includes(target);
+          isVisible = ['all', 'all users', 'teacher', 'teachers', 'faculty'].includes(target);
         } else {
           isVisible = ['all', 'all users', 'student', 'students'].includes(target);
         }
@@ -151,7 +192,7 @@ export const HomePage: React.FC = () => {
             timestamp: newPost.created_at || newPost.createdAt || new Date().toISOString()
         };
 
-        queryClient.setQueryData(['posts'], (oldData: any) => {
+        queryClient.setQueryData(postsQueryKeys.list(), (oldData: any) => {
           if (!oldData) return { items: [formattedPost], nextCursor: null, hasMore: false };
           const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
           if (items.some((p: any) => String(p.id) === String(id))) return oldData;
@@ -164,7 +205,7 @@ export const HomePage: React.FC = () => {
       });
 
       const applyPostUpdate = (postId: string, updater: (post: any) => any) => {
-        queryClient.setQueryData(['posts'], (oldData: any) => {
+        queryClient.setQueryData(postsQueryKeys.list(), (oldData: any) => {
           if (!oldData) return oldData;
 
           const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
@@ -198,7 +239,7 @@ export const HomePage: React.FC = () => {
 
       socket.on('post-deleted', ({ postId }: { postId: string }) => {
         console.log('[Socket] Post deleted:', postId);
-        queryClient.setQueryData(['posts'], (oldData: any) => {
+        queryClient.setQueryData(postsQueryKeys.list(), (oldData: any) => {
           if (!oldData) return oldData;
 
           const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
@@ -241,7 +282,7 @@ export const HomePage: React.FC = () => {
         }
 
         if (data.type === 'POST_DELETED') {
-          queryClient.setQueryData(['posts'], (oldData: any) => {
+          queryClient.setQueryData(postsQueryKeys.list(), (oldData: any) => {
             if (!oldData) return oldData;
             const items = oldData.items || (Array.isArray(oldData) ? oldData : []);
             const nextItems = items.filter((post: any) => String(post.id) !== String(data.postId));
@@ -272,15 +313,14 @@ export const HomePage: React.FC = () => {
         socket.off('announcement-deleted');
       };
     }
-  }, [socket, queryClient]);
+  }, [socket, queryClient, user?.role]);
 
   // Transform API posts to feed items
   const feedItems = React.useMemo(() => {
     if (!user) return [];
 
     try {
-      const userId = user.id;
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgoMs = Date.now() - 24 * 60 * 60 * 1000;
 
       // Backend returns { items: [...], nextCursor: ... }
       const rawPosts = postsResponse?.items || (Array.isArray(postsResponse) ? postsResponse : []);
@@ -290,19 +330,19 @@ export const HomePage: React.FC = () => {
         ? rawPosts.map((p: any) => ({
           id: String(p.id || p._id),
           author: {
-            id: p.userId || p.user_id,
-            name: p.name,
+            id: p.userId || p.userid || p.user_id,
+            name: p.name || 'Unknown',
             username: p.email?.split('@')[0] || '',
             email: p.email,
-            avatar: p.profilePicture || p.avatar || '',
-            coverPhoto: p.coverPhoto || '',
+            avatar: p.profilePicture || p.profilepicture || p.avatar || '',
+            coverPhoto: p.coverPhoto || p.coverphoto || '',
             bio: p.bio || '',
-            role: p.role,
+            role: p.role || 'Student',
             createdAt: p.user_createdAt || p.created_at || new Date().toISOString(),
           },
           content: p.content,
           image: p.image,
-          timestamp: p.created_at || p.createdAt || p.timestamp,
+          timestamp: toIsoTimestamp(p.created_at ?? p.createdAt ?? p.timestamp),
           likes: p.likes || 0,
           comments: p.comments || 0,
           isLiked: !!(p.isLiked ?? p.isliked),
@@ -310,46 +350,37 @@ export const HomePage: React.FC = () => {
         }))
         : [];
 
-      // Combine and sort
-      const combined = [...postsForFeed];
-      
-      // Add socket-loaded broadcasts that aren't already in postsForFeed
-      broadcasts.forEach(b => {
-        const uniqueId = String(b.id);
-        if (!combined.some(item => item.id === uniqueId)) {
-            combined.push({ 
-                ...b, 
-                id: uniqueId,
-                type: 'broadcast' as const 
-            });
-        }
-      });
-      // Identify broadcasts to pin (max 4, and must be < 24h)
-      const now = new Date();
-      
-      const allRecentBroadcasts = combined
-        .filter(item => item.type === 'broadcast' && new Date(item.timestamp) > twentyFourHoursAgo)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      
-      const pinnedIds = new Set(allRecentBroadcasts.slice(0, 4).map(b => b.id));
+      // Convert broadcasts to FeedItems
+      const broadcastsForFeed: FeedItem[] = broadcasts.map(b => ({
+        ...b,
+        id: String(b.id),
+        type: 'broadcast' as const
+      }));
 
-      combined.sort((a, b) => {
-        const aIsPinned = pinnedIds.has(a.id);
-        const bIsPinned = pinnedIds.has(b.id);
+      // Combine arrays
+      const combined = [...postsForFeed, ...broadcastsForFeed];
+
+      // Deduplicate by composite key just in case
+      const uniqueCombined = Array.from(
+        new Map(combined.map(item => [`${item.type}-${item.id}`, item])).values()
+      );
+
+      uniqueCombined.sort((a, b) => {
+        const aIsPinned = a.type === 'broadcast';
+        const bIsPinned = b.type === 'broadcast';
 
         if (aIsPinned && !bIsPinned) return -1;
         if (!aIsPinned && bIsPinned) return 1;
 
-        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-        
-        if (isNaN(timeA) || isNaN(timeB)) return 0;
+        const timeA = toTimestampMs(a.timestamp);
+        const timeB = toTimestampMs(b.timestamp);
+
         return timeB - timeA;
       });
 
-      console.log('[HomePage] Final Feed IDs:', combined.map(item => item.id));
-      console.log('[HomePage] Feed items computed:', { posts: postsForFeed.length, broadcasts: broadcasts.length, total: combined.length });
-      return combined;
+      console.log('[HomePage] Final Feed IDs:', uniqueCombined.map(item => item.id));
+      console.log('[HomePage] Feed items computed:', { posts: postsForFeed.length, broadcasts: broadcasts.length, total: uniqueCombined.length });
+      return uniqueCombined;
     } catch (error) {
       console.error('Error transforming feed items:', error);
       return [];
@@ -426,7 +457,7 @@ export const HomePage: React.FC = () => {
       setIsRefreshing(true);
       setPullDistance(50);
       try {
-        await queryClient.invalidateQueries({ queryKey: ['posts'] });
+        await queryClient.invalidateQueries({ queryKey: postsQueryKeys.list() });
         await new Promise(resolve => setTimeout(resolve, 800));
       } finally {
         setIsRefreshing(false);
@@ -472,7 +503,7 @@ export const HomePage: React.FC = () => {
   }
 
   const canPost = true;
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const twentyFourHoursAgoMs = Date.now() - 24 * 60 * 60 * 1000;
 
   return (
     <>
@@ -512,10 +543,10 @@ export const HomePage: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div id={`post-${item.id}`} key={`${item.id || index}-broadcast`}>
+                <div id={`broadcast-${item.id}`} key={`${item.id || index}-broadcast`}>
                   <BroadcastCard
                     broadcast={item}
-                    isPinned={new Date(item.timestamp) > twentyFourHoursAgo}
+                    isPinned={toTimestampMs(item.timestamp) > twentyFourHoursAgoMs}
                   />
                 </div>
               )

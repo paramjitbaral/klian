@@ -3,9 +3,9 @@ const { query } = require('../config/db');
 // Helper to get full group info
 const getPopulatedGroup = async (groupId, userId) => {
   const rows = await query(
-    `SELECT g.id, g.name, g.description, g.avatar, g.only_admins_can_message AS onlyAdminsCanMessage, g.created_at AS createdAt,
-            u.id AS creatorId, u.name AS creatorName, u.email AS creatorEmail, u.profile_picture AS creatorProfilePicture,
-            gm.notification_setting AS notificationSetting, gm.last_read_id AS lastReadId
+    `SELECT g.id, g.name, g.description, g.avatar, g.only_admins_can_message AS "onlyAdminsCanMessage", g.created_at AS "createdAt",
+            u.id AS "creatorId", u.name AS "creatorName", u.email AS "creatorEmail", u.profile_picture AS "creatorProfilePicture",
+            gm.notification_setting AS "notificationSetting", gm.last_read_id AS "lastReadId"
        FROM groups g
        JOIN users u ON u.id = g.created_by
        LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
@@ -18,7 +18,7 @@ const getPopulatedGroup = async (groupId, userId) => {
   
   const group = rows[0];
   const members = await query(
-    `SELECT gm.user_id AS id, gm.role, gm.notification_setting AS notificationSetting, u.name, u.email, u.profile_picture AS profilePicture
+    `SELECT gm.user_id AS id, gm.role, gm.notification_setting AS "notificationSetting", u.name, u.email, u.profile_picture AS "profilePicture"
        FROM group_members gm
        JOIN users u ON u.id = gm.user_id
       WHERE gm.group_id = $1`,
@@ -26,10 +26,14 @@ const getPopulatedGroup = async (groupId, userId) => {
   );
 
   const messages = await query(
-    `SELECT gm.id, gm.content, gm.type, gm.created_at AS createdAt,
-            u.id AS senderId, u.name AS senderName, u.profile_picture AS senderAvatar
+    `SELECT gm.id, gm.content, gm.type, gm.post_id AS "postId", gm.created_at AS "createdAt",
+            u.id AS "senderId", u.name AS "senderName", u.profile_picture AS "senderAvatar",
+            p.content AS "postContent", p.image_url AS "postImage", p.created_at AS "postCreatedAt",
+            pu.name AS "postUserName", pu.profile_picture AS "postUserProfilePicture", pu.email AS "postUserEmail"
        FROM group_messages gm
        JOIN users u ON u.id = gm.sender_id
+       LEFT JOIN posts p ON p.id = gm.post_id
+       LEFT JOIN users pu ON pu.id = p.user_id
       WHERE gm.group_id = $1
       ORDER BY gm.created_at ASC`,
     [group.id]
@@ -43,7 +47,7 @@ const getPopulatedGroup = async (groupId, userId) => {
 
   return {
     ...group,
-    unreadCount: unreadRow[0].cnt,
+    unreadCount: parseInt(unreadRow[0].cnt, 10),
     createdBy: { id: group.creatorId, name: group.creatorName, email: group.creatorEmail, profilePicture: group.creatorProfilePicture },
     members: members.map(m => ({ user: { id: m.id, name: m.name, email: m.email, profilePicture: m.profilePicture }, role: m.role, notificationSetting: m.notificationSetting })),
     messages: messages.map(m => ({
@@ -53,7 +57,14 @@ const getPopulatedGroup = async (groupId, userId) => {
       type: m.type,
       createdAt: m.createdAt,
       timestamp: m.createdAt,
-      sender: { id: m.senderId, name: m.senderName, avatar: m.senderAvatar }
+      sender: { id: m.senderId, name: m.senderName, avatar: m.senderAvatar },
+      postId: m.postId ? {
+        id: m.postId,
+        content: m.postContent,
+        image: m.postImage,
+        createdAt: m.postCreatedAt,
+        user: { name: m.postUserName, profilePicture: m.postUserProfilePicture, email: m.postUserEmail }
+      } : undefined
     }))
   };
 };
@@ -78,6 +89,26 @@ const createGroup = async (req, res) => {
       'INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, $3)',
       [groupId, currentUserId, 'admin']
     );
+
+    // Add additional members if provided
+    const { members } = req.body;
+    if (Array.isArray(members) && members.length > 0) {
+      await Promise.all(members.map(async (uid) => {
+        // Skip creator if included in the array to prevent duplicate primary key errors
+        if (String(uid) === String(currentUserId)) return;
+        
+        await query(
+          'INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, $3)',
+          [groupId, uid, 'member']
+        );
+
+        // Notify the added user
+        const notifResult = await query(
+          'INSERT INTO notifications (user_id, actor_id, type, content, group_id, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING id',
+          [uid, currentUserId, 'GROUP_ADDED', `added you to the group "${name}"`, groupId]
+        );
+      }));
+    }
 
     const group = await getPopulatedGroup(groupId, currentUserId);
     
@@ -431,8 +462,8 @@ const markAsRead = async (req, res) => {
     const currentUserId = req.user.id || req.user._id;
 
     // Get max ID
-    const maxIdRow = await query('SELECT MAX(id) AS maxId FROM group_messages WHERE group_id = $1', [groupId]);
-    const maxId = maxIdRow[0].maxId || 0;
+    const maxIdRow = await query('SELECT MAX(id) AS maxid FROM group_messages WHERE group_id = $1', [groupId]);
+    const maxId = maxIdRow[0].maxid || 0;
 
     await query(
       'UPDATE group_members SET last_read_id = $1 WHERE group_id = $2 AND user_id = $3',

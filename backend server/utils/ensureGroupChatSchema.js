@@ -19,6 +19,11 @@ async function ensureGroupChatSchema() {
       await query(`CREATE INDEX IF NOT EXISTS idx_group_messages_group ON group_messages(group_id, created_at, id)`);
       await query(`CREATE INDEX IF NOT EXISTS idx_group_messages_sender ON group_messages(sender_id)`);
 
+      // Add post_id column if it doesn't exist (for sharing posts to group chat)
+      await query('ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS post_id INT');
+      await query('ALTER TABLE group_messages DROP CONSTRAINT IF EXISTS fk_gm_post_id');
+      await query('ALTER TABLE group_messages ADD CONSTRAINT fk_gm_post_id FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL');
+
       await query("ALTER TABLE group_members ADD COLUMN IF NOT EXISTS notification_setting notification_setting NOT NULL DEFAULT 'all'");
     } catch (error) {
       throw error;
@@ -32,6 +37,7 @@ async function ensureGroupChatSchema() {
 
     try {
       await query('ALTER TABLE groups ADD COLUMN IF NOT EXISTS only_admins_can_message BOOLEAN NOT NULL DEFAULT false');
+      await query('ALTER TABLE groups ADD COLUMN IF NOT EXISTS avatar VARCHAR(255)');
     } catch (error) {
       throw error;
     }

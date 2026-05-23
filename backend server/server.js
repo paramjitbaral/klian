@@ -14,6 +14,7 @@ const { getRedis } = require('./config/redis');
 const ensureGroupChatSchema = require('./utils/ensureGroupChatSchema');
 const ensurePostCommentsSchema = require('./utils/ensurePostCommentsSchema');
 const ensureUserProfileSchema = require('./utils/ensureUserProfileSchema');
+const ensureNotificationsSchema = require('./utils/ensureNotificationsSchema');
 
 let redis;
 
@@ -243,6 +244,7 @@ async function bootstrap() {
     await ensureGroupChatSchema();
     await ensurePostCommentsSchema();
     await ensureUserProfileSchema();
+    await ensureNotificationsSchema();
 
     // Clean up any orphan group add notifications (self-healing db routine)
     const { query } = require('./config/db');
@@ -255,7 +257,8 @@ async function bootstrap() {
       console.warn('Redis is disabled via USE_REDIS env var.');
     }
   } catch (err) {
-    console.warn('DB/Redis initialization failed, falling back to mock mode:', err.message);
+    console.error('DB/Redis initialization failed. Server cannot start safely:', err.message);
+    process.exit(1);
   }
 
   // Make io accessible to our routes

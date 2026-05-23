@@ -23,9 +23,9 @@ const sendMessage = async (req, res) => {
     
     // Fetch populated message
     const rows = await query(
-      `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at AS createdAt,
-              s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-              r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture
+          `SELECT m.id, m.content, m.type, m.post_id AS "postId", m.read, m.created_at AS "createdAt",
+            s.id AS "senderId", s.name AS "senderName", s.email AS "senderEmail", s.profile_picture AS "senderProfilePicture",
+            r.id AS "recipientId", r.name AS "recipientName", r.email AS "recipientEmail", r.profile_picture AS "recipientProfilePicture"
          FROM messages m
          JOIN users s ON s.id = m.sender_id
          JOIN users r ON r.id = m.recipient_id
@@ -64,11 +64,11 @@ const getMessagesWith = async (req, res) => {
 
     // Find messages where current user is either sender or recipient
     const rows = await query(
-      `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at AS createdAt,
-              s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-              r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture,
-              p.content AS postContent, p.image_url AS postImage, p.created_at AS postCreatedAt,
-              pu.name AS postUserName, pu.profile_picture AS postUserProfilePicture
+          `SELECT m.id, m.content, m.type, m.post_id AS "postId", m.read, m.created_at AS "createdAt",
+            s.id AS "senderId", s.name AS "senderName", s.email AS "senderEmail", s.profile_picture AS "senderProfilePicture",
+            r.id AS "recipientId", r.name AS "recipientName", r.email AS "recipientEmail", r.profile_picture AS "recipientProfilePicture",
+            p.content AS "postContent", p.image_url AS "postImage", p.created_at AS "postCreatedAt",
+            pu.name AS "postUserName", pu.profile_picture AS "postUserProfilePicture"
          FROM messages m
          JOIN users s ON s.id = m.sender_id
          JOIN users r ON r.id = m.recipient_id
@@ -120,8 +120,8 @@ const getConversations = async (req, res) => {
     // Get the last message of each conversation (PostgreSQL doesn't have LEAST/GREATEST in older versions, so we use different approach)
     const rows = await query(
       `SELECT m1.* , 
-              s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-              r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture
+              s.name AS "senderName", s.email AS "senderEmail", s.profile_picture AS "senderProfilePicture",
+              r.name AS "recipientName", r.email AS "recipientEmail", r.profile_picture AS "recipientProfilePicture"
          FROM messages m1
          JOIN (
            SELECT MAX(id) as lastId
@@ -194,11 +194,11 @@ module.exports = {
       
       // Fetch populated message with post details
       const rows = await query(
-        `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at AS createdAt,
-                s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-                r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture,
-                p.content AS postContent, p.image_url AS postImage, p.created_at AS postCreatedAt,
-                pu.name AS postUserName, pu.profile_picture AS postUserProfilePicture
+        `SELECT m.id, m.content, m.type, m.post_id AS "postId", m.read, m.created_at AS "createdAt",
+          s.id AS "senderId", s.name AS "senderName", s.email AS "senderEmail", s.profile_picture AS "senderProfilePicture",
+          r.id AS "recipientId", r.name AS "recipientName", r.email AS "recipientEmail", r.profile_picture AS "recipientProfilePicture",
+          p.content AS "postContent", p.image_url AS "postImage", p.created_at AS "postCreatedAt",
+          pu.name AS "postUserName", pu.profile_picture AS "postUserProfilePicture"
            FROM messages m
            JOIN users s ON s.id = m.sender_id
            JOIN users r ON r.id = m.recipient_id

@@ -59,9 +59,15 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
             handleMarkAllAsRead();
         }
       };
+      const handleAnnouncementDeleted = (data: { id: string }) => {
+        setAnnouncements(prev => prev.filter(ann => String(ann.id || ann._id) !== String(data.id)));
+      };
+
       socket.on('announcement-created', handleNewAnnouncement);
+      socket.on('announcement-deleted', handleAnnouncementDeleted);
       return () => {
         socket.off('announcement-created');
+        socket.off('announcement-deleted');
       };
     }
   }, [socket, isOpen]);
@@ -105,8 +111,13 @@ export const AnnouncementsDropdown: React.FC<AnnouncementsDropdownProps> = ({ on
     setAnnouncements(prev => prev.filter(ann => String(ann.id || ann._id) !== id));
   };
 
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
+  const getTimeAgo = (dateValue: string | number) => {
+    if (!dateValue) return '';
+    const numericValue = typeof dateValue === 'string' && /^\d+$/.test(dateValue) ? parseInt(dateValue, 10) : dateValue;
+    const date = new Date(numericValue);
+    
+    if (isNaN(date.getTime())) return '';
+    
     const now = new Date();
     const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
     if (diff < 60) return 'just now';

@@ -6,6 +6,7 @@ import { Card } from './ui/Card';
 import { usersAPI } from '../src/api/users';
 import { User } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useSocket } from '../contexts/SocketContext';
 
 export const SuggestedUsers: React.FC = () => {
     const { user: currentUser } = useAuth();
@@ -51,14 +52,27 @@ export const SuggestedUsers: React.FC = () => {
         }
     };
 
+    const { socket } = useSocket();
+
     useEffect(() => {
         fetchSuggestedUsers();
 
         // Refresh suggestions every 5 minutes (300,000 ms)
         const interval = setInterval(fetchSuggestedUsers, 300000);
 
-        return () => clearInterval(interval);
-    }, [currentUser?.id]);
+        if (socket) {
+            socket.on('new-post', fetchSuggestedUsers);
+            socket.on('user-registered', fetchSuggestedUsers);
+        }
+
+        return () => {
+            clearInterval(interval);
+            if (socket) {
+                socket.off('new-post', fetchSuggestedUsers);
+                socket.off('user-registered', fetchSuggestedUsers);
+            }
+        };
+    }, [currentUser?.id, socket]);
 
     const handleViewProfile = (user: User) => {
         // Use _id if available (MongoDB format), otherwise use id

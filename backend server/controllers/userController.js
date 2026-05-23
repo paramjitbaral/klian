@@ -66,7 +66,7 @@ const searchUsers = async (req, res) => {
 
     const searchTerm = `${q}%`;
     const users = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, role FROM users WHERE name ILIKE $1 OR email ILIKE $2 LIMIT 10',
+      'SELECT id, name, email, profile_picture AS "profilePicture", role FROM users WHERE name ILIKE $1 OR email ILIKE $2 LIMIT 10',
       [searchTerm, searchTerm]
     );
     
@@ -83,7 +83,7 @@ const searchUsers = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const users = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, role FROM users ORDER BY name ASC'
+      'SELECT id, name, email, profile_picture AS "profilePicture", role FROM users ORDER BY name ASC'
     );
     
     res.json(users);
@@ -99,7 +99,7 @@ const getUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, role, cabin_number AS cabinNumber, created_at AS createdAt FROM users WHERE id = $1 LIMIT 1',
+      'SELECT id, name, email, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, linkedin, github, portfolio, role, cabin_number AS "cabinNumber", created_at AS "createdAt" FROM users WHERE id = $1 LIMIT 1',
       [req.params.id]
     );
     
@@ -124,16 +124,16 @@ const getUserPosts = async (req, res) => {
               p.content,
               p.image_url,
               FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-              u.id AS userId,
+              u.id AS "userId",
               u.name,
               u.email,
-              u.profile_picture AS profilePicture,
-              u.cover_photo AS coverPhoto,
+              u.profile_picture AS "profilePicture",
+              u.cover_photo AS "coverPhoto",
               u.role,
               u.bio,
               (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
               (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
-              EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS isLiked
+              EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
          FROM posts p
          JOIN users u ON u.id = p.user_id
         WHERE p.user_id = $2
@@ -178,7 +178,7 @@ const updateUser = async (req, res) => {
     }
 
     const updated = await query(
-      'SELECT id, name, email, profile_picture AS profilePicture, cover_photo AS coverPhoto, bio, linkedin, github, portfolio, role, cabin_number AS cabinNumber FROM users WHERE id = $1 LIMIT 1',
+      'SELECT id, name, email, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, linkedin, github, portfolio, role, cabin_number AS "cabinNumber" FROM users WHERE id = $1 LIMIT 1',
       [userId]
     );
     res.json(updated[0]);

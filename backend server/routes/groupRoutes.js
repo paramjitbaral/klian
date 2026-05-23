@@ -19,7 +19,7 @@ const { protect, facultyOnly } = require('../middleware/auth');
 
 // All routes are protected
 router.route('/')
-  .post(protect, facultyOnly, createGroup)
+  .post(protect, createGroup)
   .get(protect, getGroups);
 
 router.route('/:id')

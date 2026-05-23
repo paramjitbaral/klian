@@ -52,8 +52,13 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ no
     onClose();
   };
 
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
+  const getTimeAgo = (dateValue: string | number) => {
+    if (!dateValue) return '';
+    const numericValue = typeof dateValue === 'string' && /^\d+$/.test(dateValue) ? parseInt(dateValue, 10) : dateValue;
+    const date = new Date(numericValue);
+    
+    if (isNaN(date.getTime())) return '';
+    
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     

@@ -39,8 +39,8 @@ const normalizeUser = (data: any): User => {
     name: data.name,
     username: data.email?.split('@')[0] || '', // Use email prefix as username
     email: data.email,
-    avatar: data.profilePicture || data.avatar || '', // Map profilePicture to avatar
-    coverPhoto: data.coverPhoto || '',
+    avatar: data.profilePicture || data.profilepicture || data.avatar || '', // Map profilePicture to avatar
+    coverPhoto: data.coverPhoto || data.coverphoto || '',
     bio: data.bio || '',
     linkedin: data.linkedin || '',
     github: data.github || '',
@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Check if token exists and fetch user profile
     const token = localStorage.getItem('token');
-    if (token && !user) {
+    if (token) {
       fetchUserProfile();
     }
   }, []);

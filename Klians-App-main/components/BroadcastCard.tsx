@@ -7,9 +7,19 @@ const useTimeAgo = (date: string | number | Date) => {
     const [time, setTime] = React.useState('...');
 
     React.useEffect(() => {
+    const parseDate = (value: string | number | Date) => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (/^\d+$/.test(trimmed)) {
+          return new Date(Number(trimmed));
+        }
+      }
+      return new Date(value);
+    };
+
         const calculateTime = () => {
             if (!date) return "just now";
-            const d = new Date(date);
+      const d = parseDate(date);
             if (isNaN(d.getTime())) return "just now";
             
             const now = new Date();

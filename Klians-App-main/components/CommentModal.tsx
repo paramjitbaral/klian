@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../contexts/SocketContext';
 import { postsAPI } from '../src/api/posts';
 import { ICONS } from '../constants';
+import { Avatar } from './ui/Avatar';
 
 interface CommentModalProps {
   isOpen: boolean;
@@ -326,7 +327,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
 
                     return (
                       <div className={`flex gap-3 p-1.5 md:p-2 rounded-lg transition-colors group ${isReply ? 'ml-8 md:ml-10 mt-0.5 md:mt-1 bg-slate-50/50 dark:bg-slate-700/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
-                        <img src={item.user?.profilePicture || '/default-avatar.png'} alt={item.user?.name} className={`${isReply ? 'w-5 h-5' : 'w-7 h-7'} rounded-full object-cover flex-shrink-0 border border-slate-100 dark:border-slate-700`} />
+                        <Avatar src={item.user?.profilePicture} alt={item.user?.name || 'User'} className={`${isReply ? 'w-5 h-5' : 'w-7 h-7'} rounded-full object-cover flex-shrink-0 border border-slate-100 dark:border-slate-700`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 mb-0.5">
@@ -408,7 +409,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
             </div>
           )}
           <div className="flex items-center gap-2 md:gap-3">
-            <img src={user?.avatar || '/default-avatar.png'} alt="Your avatar" className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover flex-shrink-0 border border-slate-200 dark:border-slate-600" />
+            <Avatar src={user?.avatar} alt={user?.name || 'Your avatar'} className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0 border border-slate-200 dark:border-slate-600" />
             <div className="flex-1 relative">
               <div className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-slate-100 dark:bg-slate-700 rounded-full transition-all ${replyTo ? 'ring-2 ring-blue-500/30' : ''}`}>
                 <div className="relative" ref={emojiPickerRef}>

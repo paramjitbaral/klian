@@ -3,13 +3,14 @@ import { Modal } from './ui/Modal';
 import { Avatar } from './ui/Avatar';
 import { useQuery } from '@tanstack/react-query';
 import { usersAPI } from '../src/api/users';
+import { groupsAPI } from '../src/api/groups';
 import { ICONS } from '../constants';
 import { User } from '../types';
 
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onShare: (recipientId: string, message: string, shareType: 'email' | 'message') => Promise<void>;
+  onShare: (recipientId: string, message: string, shareType: 'email' | 'message' | 'group') => Promise<void>;
   postId?: string;
 }
 
@@ -18,7 +19,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShare
   const [sentTo, setSentTo] = useState<string[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Fetch users for the list
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['users-search', searchQuery],
     queryFn: async () => {
@@ -28,6 +28,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShare
       }
       const { data } = await usersAPI.getUsers();
       return data.slice(0, 10); // Show top 10 suggested
+    },
+    enabled: isOpen
+  });
+
+  const { data: groups, isLoading: isLoadingGroups } = useQuery<any[]>({
+    queryKey: ['groups'],
+    queryFn: async () => {
+      const { data } = await groupsAPI.getGroups();
+      return data;
     },
     enabled: isOpen
   });
@@ -42,10 +51,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShare
 
   const handleSend = async (user: User) => {
     try {
-      // Use the id directly
       const userId = user.id || (user as any)._id;
       await onShare(userId, '', 'message');
       setSentTo(prev => [...prev, String(userId)]);
+    } catch (err) {
+      console.error('Share failed:', err);
+    }
+  };
+
+  const handleSendGroup = async (group: any) => {
+    try {
+      const groupId = group.id || group._id;
+      await onShare(String(groupId), '', 'group');
+      setSentTo(prev => [...prev, `group-${groupId}`]);
     } catch (err) {
       console.error('Share failed:', err);
     }
@@ -87,43 +105,82 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, onShare
               ))}
             </div>
           ) : (
-            <div className="px-2">
-              {users && users.length > 0 ? (
-                users.map((u: any) => {
-                  const id = String(u.id || u._id);
-                  const isSent = sentTo.includes(id);
-                  return (
-                    <div key={id} className="flex items-center justify-between px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-200 group">
-                      <div className="flex items-center gap-3">
-                        <Avatar src={u.profilePicture || u.profile_picture || u.avatar} alt={u.name} size="md" />
-                        <div className="min-w-0">
-                          <p className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 truncate tracking-tight">{u.name}</p>
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate font-medium">@{u.username || u.email.split('@')[0]}</p>
+            <div className="px-2 pb-4">
+              {users && users.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest px-4 mb-2 mt-2">Users</h4>
+                  {users.map((u: any) => {
+                    const id = String(u.id || u._id);
+                    const isSent = sentTo.includes(id);
+                    return (
+                      <div key={id} className="flex items-center justify-between px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-200 group">
+                        <div className="flex items-center gap-3">
+                          <Avatar src={u.profilePicture || u.profile_picture || u.avatar} alt={u.name} size="md" />
+                          <div className="min-w-0">
+                            <p className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 truncate tracking-tight">{u.name}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate font-medium">@{u.username || u.email?.split('@')[0] || 'user'}</p>
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleSend(u)}
+                          disabled={isSent}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                            isSent 
+                              ? 'bg-transparent text-slate-300 dark:text-slate-600 cursor-default' 
+                              : 'bg-blue-500 hover:bg-blue-600 text-white active:scale-95'
+                          }`}
+                        >
+                          {isSent ? 'Sent' : 'Send'}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleSend(u)}
-                        disabled={isSent}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-                          isSent 
-                            ? 'bg-transparent text-slate-300 dark:text-slate-600 cursor-default' 
-                            : 'bg-blue-500 hover:bg-blue-600 text-white active:scale-95'
-                        }`}
-                      >
-                        {isSent ? 'Sent' : 'Send'}
-                      </button>
-                    </div>
-                  );
-                })
-              ) : (
+                    );
+                  })}
+                </div>
+              )}
+              
+              {groups && groups.length > 0 && (!searchQuery || groups.some(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))) && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest px-4 mb-2 mt-2">Groups</h4>
+                  {groups
+                    .filter(g => !searchQuery || g.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((g: any) => {
+                      const id = String(g.id || g._id);
+                      const isSent = sentTo.includes(`group-${id}`);
+                      return (
+                        <div key={id} className="flex items-center justify-between px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-all duration-200 group">
+                          <div className="flex items-center gap-3">
+                            <Avatar src={g.avatar} alt={g.name} size="md" />
+                            <div className="min-w-0">
+                              <p className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 truncate tracking-tight">{g.name}</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate font-medium">{g.members?.length || 0} members</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleSendGroup(g)}
+                            disabled={isSent}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                              isSent 
+                                ? 'bg-transparent text-slate-300 dark:text-slate-600 cursor-default' 
+                                : 'bg-blue-500 hover:bg-blue-600 text-white active:scale-95'
+                            }`}
+                          >
+                            {isSent ? 'Sent' : 'Send'}
+                          </button>
+                        </div>
+                      );
+                  })}
+                </div>
+              )}
+
+              {(!users || users.length === 0) && (!groups || groups.length === 0) && (
                 <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                   <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-3">
                     <svg className="w-6 h-6 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No users found</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Try a different name or email</p>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No results found</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Try a different name</p>
                 </div>
               )}
             </div>

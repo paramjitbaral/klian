@@ -488,7 +488,7 @@ exports.getInbox = async (req, res) => {
       FROM emails e
       JOIN email_recipients er ON e.id = er.email_id
       JOIN users u ON e.sender_id = u.id
-      WHERE er.recipient_id = $1 AND er.is_deleted = 0
+      WHERE er.recipient_id = $1 AND er.is_deleted = false
     `;
     const params = [userId];
     if (searchVal) {
@@ -651,7 +651,7 @@ exports.getSent = async (req, res) => {
       FROM emails e
       JOIN email_recipients er ON e.id = er.email_id
       JOIN users u ON er.recipient_id = u.id
-      WHERE e.sender_id = $1 AND e.sender_deleted = 0
+      WHERE e.sender_id = $1 AND e.sender_deleted = false
     `;
     const params = [userId];
     if (searchVal) {
@@ -812,7 +812,7 @@ exports.getTrash = async (req, res) => {
       FROM emails e
       JOIN email_recipients er ON e.id = er.email_id
       JOIN users u ON e.sender_id = u.id
-      WHERE er.recipient_id = $1 AND er.is_deleted = 1
+      WHERE er.recipient_id = $1 AND er.is_deleted = true
     `;
     const receivedParams = [userId];
     if (searchVal) {
@@ -826,7 +826,7 @@ exports.getTrash = async (req, res) => {
              u.name as senderName, u.email as senderEmail, u.profile_picture as senderAvatar
       FROM emails e
       JOIN users u ON e.sender_id = u.id
-      WHERE e.sender_id = $1 AND e.sender_deleted = 1
+      WHERE e.sender_id = $1 AND e.sender_deleted = true
     `;
     const sentParams = [userId];
     if (searchVal) {
@@ -985,7 +985,7 @@ exports.markAsRead = async (req, res) => {
     }
 
     await query(
-      'UPDATE email_recipients SET is_read = 1 WHERE email_id = $1 AND recipient_id = $2',
+      'UPDATE email_recipients SET is_read = true WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
@@ -1021,12 +1021,12 @@ exports.moveToTrash = async (req, res) => {
     }
 
     await query(
-      'UPDATE email_recipients SET is_deleted = 1 WHERE email_id = $1 AND recipient_id = $2',
+      'UPDATE email_recipients SET is_deleted = true WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
     await query(
-      'UPDATE emails SET sender_deleted = 1 WHERE id = $1 AND sender_id = $2',
+      'UPDATE emails SET sender_deleted = true WHERE id = $1 AND sender_id = $2',
       [emailId, userId]
     );
 
@@ -1062,12 +1062,12 @@ exports.restoreFromTrash = async (req, res) => {
     }
 
     await query(
-      'UPDATE email_recipients SET is_deleted = 0 WHERE email_id = $1 AND recipient_id = $2',
+      'UPDATE email_recipients SET is_deleted = false WHERE email_id = $1 AND recipient_id = $2',
       [emailId, userId]
     );
 
     await query(
-      'UPDATE emails SET sender_deleted = 0 WHERE id = $1 AND sender_id = $2',
+      'UPDATE emails SET sender_deleted = false WHERE id = $1 AND sender_id = $2',
       [emailId, userId]
     );
 
@@ -1199,7 +1199,7 @@ exports.emptyTrash = async (req, res) => {
     }
 
     await query(
-      'DELETE FROM email_recipients WHERE recipient_id = $1 AND is_deleted = 1',
+      'DELETE FROM email_recipients WHERE recipient_id = $1 AND is_deleted = true',
       [userId]
     );
 

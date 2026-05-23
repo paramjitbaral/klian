@@ -82,7 +82,7 @@ export const Sidebar: React.FC = () => {
                 <span className="relative w-6 h-6 flex-shrink-0">
                   {link.icon}
                   {link.badge && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 animate-in zoom-in duration-300">
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-800 animate-in zoom-in duration-300" style={{ boxSizing: 'border-box' }}>
                       {link.badge}
                     </span>
                   )}

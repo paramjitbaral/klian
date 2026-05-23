@@ -14,20 +14,7 @@ const saveFile = async (base64String, originalName = null) => {
     const data = matches[2];
     const buffer = Buffer.from(data, 'base64');
 
-    // If Cloudinary is configured, upload to Cloudinary
-    if (process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME) {
-      try {
-        const cloudinaryHelper = require('../utils/cloudinary');
-        const publicId = originalName ? `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9-_\.]/g,'')}` : undefined;
-        const result = await cloudinaryHelper.uploadBase64(base64String, { public_id: publicId });
-        return result.secure_url || result.url;
-      } catch (err) {
-        console.error('[Cloudinary] upload failed, falling back to disk:', err.message);
-        // fall through to disk write
-      }
-    }
-
-    // Disk fallback
+    // Disk fallback mapping
     const mimeType = matches[1];
     let extension = 'bin';
     if (mimeType.includes('jpeg')) extension = 'jpg';
@@ -38,10 +25,39 @@ const saveFile = async (base64String, originalName = null) => {
     else if (mimeType.includes('officedocument.wordprocessingml.document')) extension = 'docx';
     else if (mimeType.includes('officedocument.spreadsheetml.sheet')) extension = 'xlsx';
     else if (mimeType.includes('officedocument.presentationml.presentation')) extension = 'pptx';
+    else if (mimeType.includes('mp4')) extension = 'mp4';
+    else if (mimeType.includes('video')) extension = 'mp4'; // fallback for video
     else {
       extension = mimeType.split('/')[1] || 'bin';
     }
 
+    // If Cloudinary is configured, upload to Cloudinary
+    if (process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        const cloudinaryHelper = require('../utils/cloudinary');
+        const cleanName = originalName ? originalName.replace(/[^a-zA-Z0-9-_\.]/g,'').replace(/\.[^/.]+$/, '') : '';
+        const isImage = mimeType.startsWith('image/');
+        const isPdf = mimeType.includes('pdf');
+        const resourceType = isImage ? 'image' : 'raw';
+        if (isPdf) extension = 'txt'; // Trick Cloudinary to allow raw PDF upload
+        
+        const publicId = cleanName 
+            ? `${Date.now()}-${cleanName}${resourceType === 'raw' ? '.' + extension : ''}`
+            : undefined;
+
+        const result = await cloudinaryHelper.uploadBase64(base64String, { 
+            public_id: publicId,
+            resource_type: resourceType
+        });
+        const cloudUrl = result.secure_url || result.url;
+        return isPdf ? `/api/posts/proxy-pdf/document.pdf?url=${encodeURIComponent(cloudUrl)}` : cloudUrl;
+      } catch (err) {
+        console.error('[Cloudinary] upload failed, falling back to disk:', err.message);
+        // fall through to disk write
+      }
+    }
+
+    // Disk fallback
     let filename;
     if (originalName) {
       const cleanName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
@@ -96,9 +112,9 @@ const createPost = async (req, res) => {
     );
     const postId = result[0]?.id;
     const rows = await query(
-      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
+      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast", 
               FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-              u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+              u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio
          FROM posts p
          JOIN users u ON u.id = p.user_id
         WHERE p.id = $1
@@ -129,9 +145,9 @@ const getPosts = async (req, res) => {
     let rows;
     if (cursor && cursor.createdAt && cursor.id) {
       rows = await query(
-        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
+        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast", 
                 FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
                 EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
@@ -144,9 +160,9 @@ const getPosts = async (req, res) => {
       );
     } else {
       rows = await query(
-        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
+        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast", 
                 FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
                 EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
@@ -223,9 +239,9 @@ const getBroadcasts = async (req, res) => {
     let rows;
     if (cursor && cursor.createdAt && cursor.id) {
       rows = await query(
-        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
+        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast", 
                 FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
                 EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
@@ -238,9 +254,9 @@ const getBroadcasts = async (req, res) => {
       );
     } else {
       rows = await query(
-        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
+        `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast", 
                 FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-                u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
+                u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio,
                 (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
                 (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id) AS comments,
                 EXISTS(SELECT 1 FROM post_likes l2 WHERE l2.post_id = p.id AND l2.user_id = $1) AS "isLiked"
@@ -275,11 +291,11 @@ const getBroadcasts = async (req, res) => {
 const getPostById = async (req, res) => {
   try {
     const rows = await query(
-      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast, 
+      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast", 
               FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-              u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio,
-              (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likesCount,
-              (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS commentsCount
+              u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio,
+              (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS "likesCount",
+              (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS "commentsCount"
          FROM posts p
          JOIN users u ON u.id = p.user_id
         WHERE p.id = $1
@@ -292,13 +308,13 @@ const getPostById = async (req, res) => {
     
     // Fetch comments for this post
     const comments = await query(
-      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
-              (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
+      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS "parentId", u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture",
+              (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS "likesCount",
               EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS "isLiked"
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
         WHERE c.post_id = $2
-        ORDER BY (c.user_id = ?) DESC, c.created_at DESC`,
+        ORDER BY (c.user_id = $3) DESC, c.created_at DESC`,
       [userId, req.params.id, userId]
     );
 
@@ -351,9 +367,9 @@ const updatePost = async (req, res) => {
     await query('UPDATE posts SET content = $1 WHERE id = $2', [content, req.params.id]);
 
     const updatedRows = await query(
-      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS isBroadcast,
+      `SELECT p.id, p.content, p.image_url AS image, p.is_broadcast AS "isBroadcast",
               FLOOR(EXTRACT(EPOCH FROM p.created_at) * 1000) AS created_at,
-              u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture, u.cover_photo AS coverPhoto, u.role, u.bio
+              u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture", u.cover_photo AS "coverPhoto", u.role, u.bio
          FROM posts p
          JOIN users u ON u.id = p.user_id
         WHERE p.id = $1
@@ -543,10 +559,9 @@ const commentOnPost = async (req, res) => {
       }
     }
 
-    // Fetch the newly created comment with user info
     const newCommentRows = await query(
-      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
-              0 AS likesCount,
+      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS "parentId", u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture",
+              0 AS "likesCount",
               0 AS "isLiked"
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
@@ -643,10 +658,9 @@ const updateComment = async (req, res) => {
     
     await query('UPDATE post_comments SET text = $1 WHERE id = $2', [text, req.params.comment_id]);
     
-    // Fetch the updated comment with user info
     const updatedRows = await query(
-      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS parentId, u.id AS userId, u.name, u.email, u.profile_picture AS profilePicture,
-              (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS likesCount,
+      `SELECT c.id AS _id, c.text, c.created_at AS date, c.parent_id AS "parentId", u.id AS "userId", u.name, u.email, u.profile_picture AS "profilePicture",
+              (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS "likesCount",
               EXISTS(SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = $1) AS "isLiked"
          FROM post_comments c
          JOIN users u ON u.id = c.user_id
@@ -754,6 +768,26 @@ const sharePost = async (req, res) => {
   }
 };
 
+const https = require('https');
+
+// @desc    Proxy PDF requests to bypass Cloudinary restrictions
+// @route   GET /api/posts/proxy-pdf/:filename
+// @access  Public or Private
+const proxyPdf = (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.startsWith('https://res.cloudinary.com/')) {
+    return res.status(400).send('Invalid URL');
+  }
+  https.get(url, (cloudinaryRes) => {
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+    cloudinaryRes.pipe(res);
+  }).on('error', (err) => {
+    console.error('Proxy PDF error:', err);
+    res.status(500).send('Error proxying PDF');
+  });
+};
+
 module.exports = {
   createPost,
   updatePost,
@@ -769,5 +803,6 @@ module.exports = {
   likeComment,
   unlikeComment,
   getTrendingHashtags,
-  sharePost
+  sharePost,
+  proxyPdf
 };

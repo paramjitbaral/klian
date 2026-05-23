@@ -46,13 +46,30 @@ function cloudinaryPostHandler(fieldName) {
     return async (req, res, next) => {
         if (!useCloudinary) return next();
         if (!req.file || !req.file.buffer) return next();
+
         try {
             const cloudinaryHelper = require('../utils/cloudinary');
-            const originalName = req.file.originalname || undefined;
-            const result = await cloudinaryHelper.uploadBuffer(req.file.buffer, { public_id: `${Date.now()}-${originalName?.replace(/[^a-zA-Z0-9-_\.]/g,'')}` });
-            req.file.uploadedUrl = result.secure_url || result.url;
+            const originalNameWithoutExt = req.file.originalname ? path.parse(req.file.originalname).name : undefined;
+            let ext = req.file.originalname ? path.extname(req.file.originalname) : '';
+            const isPdf = req.file.mimetype === 'application/pdf';
+            if (isPdf) ext = '.txt'; // Trick Cloudinary to allow raw PDF upload
+            
+            const resourceType = req.file.mimetype && req.file.mimetype.startsWith('image/') ? 'image' : 'raw';
+            
+            const cleanName = originalNameWithoutExt?.replace(/[^a-zA-Z0-9-_\.]/g,'');
+            const publicId = resourceType === 'raw' 
+                ? `${Date.now()}-${cleanName}${ext}` 
+                : `${Date.now()}-${cleanName}`;
+
+            const result = await cloudinaryHelper.uploadBuffer(req.file.buffer, { 
+                public_id: publicId,
+                resource_type: resourceType
+            });
+            
+            const cloudUrl = result.secure_url || result.url;
+            req.file.uploadedUrl = isPdf ? `/api/posts/proxy-pdf/document.pdf?url=${encodeURIComponent(cloudUrl)}` : cloudUrl;
             req.file.filename = (result.public_id || '') + (result.format ? '.' + result.format : '');
-            next();
+            return next();
         } catch (err) {
             console.error('Cloudinary upload failed:', err);
             next(err);

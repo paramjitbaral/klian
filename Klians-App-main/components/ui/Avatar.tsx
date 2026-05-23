@@ -4,12 +4,12 @@ import { resolveBackendUrl } from '@/src/api/config';
 interface AvatarProps {
   src?: string | null;
   alt: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
   online?: boolean;
   className?: string;
 }
 
-// Avatar sizes follow the visual spec: sm=32px (h-8), md=40px (h-10), lg=64px (h-16), xl=48px (h-12)
+// Avatar sizes follow the visual spec: sm=32px (h-8), md=40px (h-10), lg=64px (h-16), xl=48px (h-12), xxl=80px (h-20)
 export const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', online = false, className = '' }) => {
   const [imageError, setImageError] = React.useState(false);
   
@@ -18,7 +18,8 @@ export const Avatar: React.FC<AvatarProps> = ({ src, alt, size = 'md', online = 
     sm: 'h-8 w-8 text-xs',
     md: 'h-10 w-10 text-sm',
     lg: 'h-16 w-16 text-xl',
-    xl: 'h-12 w-12 text-base'
+    xl: 'h-12 w-12 text-base',
+    xxl: 'h-20 w-20 text-2xl'
   };
 
   const imageSrc = resolveBackendUrl(src);

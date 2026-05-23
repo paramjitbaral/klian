@@ -75,8 +75,8 @@ const normalizeProfilePost = (post: any): Post => {
     const authorId = user?._id || user?.id || post.userId || post.user_id || '';
     const authorName = user?.name || post.name || 'User';
     const authorEmail = user?.email || post.email || '';
-    const authorAvatar = user?.profilePicture || user?.avatar || post.profilePicture || post.avatar || '';
-    const authorCoverPhoto = user?.coverPhoto || post.coverPhoto || '';
+    const authorAvatar = user?.profilePicture || user?.profilepicture || user?.avatar || post.profilePicture || post.profilepicture || post.avatar || '';
+    const authorCoverPhoto = user?.coverPhoto || user?.coverphoto || post.coverPhoto || post.coverphoto || '';
     const authorBio = user?.bio || post.bio || '';
     const authorRole = user?.role || post.role || 'Student';
 
@@ -348,10 +348,17 @@ const useTimeAgo = (date: string | number | Date) => {
 };
 
 const PostItem: React.FC<{ post: Post; onClick: () => void }> = ({ post, onClick }) => {
-    const dateFormatted = new Date(post.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timestampParsed = typeof post.timestamp === 'string' && !isNaN(Number(post.timestamp)) ? Number(post.timestamp) : post.timestamp;
+    const date = new Date(timestampParsed);
+    const dateFormatted = isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const docUrl = post.fileUrl || post.image;
     const extension = docUrl?.split('.').pop()?.toUpperCase() || 'DOC';
-    const fileName = docUrl?.split('/').pop()?.split('-').slice(2).join('-') || `document.${extension.toLowerCase()}`;
+    
+    // Extract everything after the first dash (which is the timestamp)
+    const urlFilename = docUrl?.split('/').pop() || '';
+    const nameParts = urlFilename.split('-');
+    const realName = nameParts.length > 1 ? nameParts.slice(1).join('-') : urlFilename;
+    const fileName = realName || `document.${extension.toLowerCase()}`;
 
     return (
         <div 
@@ -464,25 +471,19 @@ export const ProfilePage: React.FC = () => {
             if (type === 'avatar') setUploading(true);
             else setBannerUploading(true);
 
-            const formData = new FormData();
-            formData.append('file', croppedBlob, 'profile-image.jpg');
-
-            const token = localStorage.getItem('token');
-            const uploadRes = await fetch(`${getBackendUrl()}/api/messages/upload`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
+            const base64data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(croppedBlob);
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
             });
 
-            if (!uploadRes.ok) throw new Error('Upload failed');
-            const { url } = await uploadRes.json();
-
             if (type === 'avatar') {
-                await updateProfile({ avatar: url });
-                setProfileUser((prev: any) => ({ ...prev, profilePicture: url, avatar: url }));
+                await updateProfile({ avatar: base64data });
+                setProfileUser((prev: any) => ({ ...prev, profilePicture: base64data, avatar: base64data }));
             } else {
-                await updateProfile({ coverPhoto: url });
-                setProfileUser((prev: any) => ({ ...prev, coverPhoto: url }));
+                await updateProfile({ coverPhoto: base64data });
+                setProfileUser((prev: any) => ({ ...prev, coverPhoto: base64data }));
             }
         } catch (error) {
             console.error('Upload error:', error);
@@ -545,7 +546,7 @@ export const ProfilePage: React.FC = () => {
     }, [userId, loggedInUser]);
 
     const userToDisplay = profileUser;
-    const profileImage = userToDisplay?.profilePicture || userToDisplay?.avatar || '';
+    const profileImage = userToDisplay?.profilePicture || userToDisplay?.profilepicture || userToDisplay?.avatar || '';
     const profileId = userToDisplay?.id || userToDisplay?._id;
     const loggedInId = loggedInUser?.id || (loggedInUser as any)?._id;
     const isOwnProfile = !userId || (profileId !== undefined && loggedInId !== undefined && String(profileId) === String(loggedInId));
@@ -654,7 +655,13 @@ export const ProfilePage: React.FC = () => {
         };
 
         fetchSavedPosts();
-    }, [activeTab, loggedInUser]);
+
+        const handleSavedUpdate = () => {
+            if (activeTab === 'saved') fetchSavedPosts();
+        };
+        window.addEventListener('saved_posts_updated', handleSavedUpdate);
+        return () => window.removeEventListener('saved_posts_updated', handleSavedUpdate);
+    }, [activeTab, loggedInUser.id]);
 
     if (loading) {
         return (
@@ -879,7 +886,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
                         <div className="px-6 pt-6 pb-4 text-center border-b border-slate-100 dark:border-slate-800">
                             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                                {photoActionTarget === 'avatar' ? 'Profile Photo' : 'Banner Photo'}
+                                Profile Photo
                             </h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose what you want to do</p>
                         </div>
@@ -923,17 +930,6 @@ export const ProfilePage: React.FC = () => {
                         <img src={getImageUrl(userToDisplay.coverPhoto)} alt="banner" className={`w-full h-full object-cover ${bannerUploading ? 'opacity-40 animate-pulse' : ''}`} />
                     ) : (
                         <div className="w-full h-full bg-[#0f172a]" />
-                    )}
-
-                    
-                    {isOwnProfile && (
-                        <button 
-                            onClick={() => setPhotoActionTarget('banner')}
-                            disabled={bannerUploading}
-                            className="absolute bottom-3 right-4 sm:bottom-4 sm:right-8 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-md disabled:opacity-50 z-20"
-                        >
-                            {bannerUploading ? 'Uploading...' : 'Edit Banner'}
-                        </button>
                     )}
                 </div>
 

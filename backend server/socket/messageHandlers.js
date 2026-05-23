@@ -16,7 +16,7 @@ const setupMessageHandlers = (io, socket, redis) => {
 
     try {
       // Validate sender exists
-      const sender = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = $1 LIMIT 1', [senderId]);
+      const sender = await query('SELECT id, name, email, profile_picture AS "profilePicture" FROM users WHERE id = $1 LIMIT 1', [senderId]);
       if (!sender.length) {
         console.error('Sender not found:', senderId);
         socket.emit('message-error', { error: 'Sender not found' });
@@ -24,7 +24,7 @@ const setupMessageHandlers = (io, socket, redis) => {
       }
 
       // Validate recipient exists
-      const recipient = await query('SELECT id, name, email, profile_picture AS profilePicture FROM users WHERE id = $1 LIMIT 1', [recipientId]);
+      const recipient = await query('SELECT id, name, email, profile_picture AS "profilePicture" FROM users WHERE id = $1 LIMIT 1', [recipientId]);
       if (!recipient.length) {
         console.error('Recipient not found:', recipientId);
         socket.emit('message-error', { error: 'Recipient not found' });
@@ -40,9 +40,9 @@ const setupMessageHandlers = (io, socket, redis) => {
 
       // Load populated
       const rows = await query(
-        `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at,
-                s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-                r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture
+        `SELECT m.id, m.content, m.type, m.post_id AS "postId", m.read, m.created_at AS "createdAt",
+                s.id AS "senderId", s.name AS "senderName", s.email AS "senderEmail", s.profile_picture AS "senderProfilePicture",
+                r.id AS "recipientId", r.name AS "recipientName", r.email AS "recipientEmail", r.profile_picture AS "recipientProfilePicture"
            FROM messages m
            JOIN users s ON s.id = m.sender_id
            JOIN users r ON r.id = m.recipient_id
@@ -56,7 +56,7 @@ const setupMessageHandlers = (io, socket, redis) => {
         type: row.type,
         postId: row.postId,
         read: row.read === true,
-        createdAt: row.created_at,
+        createdAt: row.createdAt,
         sender: {
           _id: row.senderId,
           name: row.senderName,
@@ -104,7 +104,7 @@ const setupMessageHandlers = (io, socket, redis) => {
   });
 
   // Handle group messages
-  socket.on('send_group_message', async ({ groupId, content, type = 'text' }) => {
+  socket.on('send_group_message', async ({ groupId, content, type = 'text', postId }) => {
     try {
       const senderId = socket.userId || socket.decodedUserId;
       if (!senderId || !socket.decodedUserId || String(senderId) !== String(socket.decodedUserId)) {
@@ -124,35 +124,58 @@ const setupMessageHandlers = (io, socket, redis) => {
 
       // Save message to DB
       const result = await query(
-        'INSERT INTO group_messages (group_id, sender_id, content, type) VALUES ($1, $2, $3, $4) RETURNING id',
-        [groupId, senderId, content, type]
+        'INSERT INTO group_messages (group_id, sender_id, content, type, post_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [groupId, senderId, content, type, postId || null]
       );
       const msgId = result[0]?.id;
 
+      // Update sender's lastReadId so they don't get unread count for their own message
+      await query(
+        'UPDATE group_members SET last_read_id = $1 WHERE group_id = $2 AND user_id = $3',
+        [msgId, groupId, senderId]
+      );
+
       // Fetch populated message
       const rows = await query(
-        `SELECT gm.id, gm.content, gm.type, gm.created_at AS createdAt,
-                u.id AS senderId, u.name AS senderName, u.profile_picture AS senderAvatar
+        `SELECT gm.id, gm.content, gm.type, gm.post_id AS "postId", gm.created_at AS "createdAt",
+                u.id AS "senderId", u.name AS "senderName", u.profile_picture AS "senderAvatar",
+                p.content AS "postContent", p.image_url AS "postImage", p.created_at AS "postCreatedAt",
+                pu.name AS "postUserName", pu.profile_picture AS "postUserProfilePicture", pu.email AS "postUserEmail"
            FROM group_messages gm
            JOIN users u ON u.id = gm.sender_id
-          WHERE gm.id = $1 LIMIT 1`,
+           LEFT JOIN posts p ON p.id = gm.post_id
+           LEFT JOIN users pu ON pu.id = p.user_id
+          WHERE gm.id = $1
+          LIMIT 1`,
         [msgId]
       );
+
+      if (!rows.length) return;
       
       const msg = rows[0];
-      const formatted = {
+      const populatedMsg = {
         id: msg.id,
-        groupId,
+        _id: msg.id,
+        groupId: groupId,
+        text: msg.content,
         content: msg.content,
         type: msg.type,
         createdAt: msg.createdAt,
-        sender: { id: msg.senderId, name: msg.senderName, avatar: msg.senderAvatar }
+        timestamp: msg.createdAt,
+        sender: { id: msg.senderId, name: msg.senderName, avatar: msg.senderAvatar },
+        postId: msg.postId ? {
+          id: msg.postId,
+          content: msg.postContent,
+          image: msg.postImage,
+          createdAt: msg.postCreatedAt,
+          user: { name: msg.postUserName, profilePicture: msg.postUserProfilePicture, email: msg.postUserEmail }
+        } : undefined
       };
 
       // Broadcast to group members
       const members = await query('SELECT user_id FROM group_members WHERE group_id = $1', [groupId]);
       members.forEach(m => {
-        io.to(`user:${m.user_id}`).emit('new_group_message', formatted);
+        io.to(`user:${m.user_id}`).emit('new_group_message', populatedMsg);
       });
 
     } catch (error) {
@@ -176,11 +199,11 @@ const setupMessageHandlers = (io, socket, redis) => {
 
       const messageId = result[0]?.id;
       const rows = await query(
-        `SELECT m.id, m.content, m.type, m.post_id AS postId, m.read, m.created_at AS createdAt,
-                s.id AS senderId, s.name AS senderName, s.email AS senderEmail, s.profile_picture AS senderProfilePicture,
-                r.id AS recipientId, r.name AS recipientName, r.email AS recipientEmail, r.profile_picture AS recipientProfilePicture,
-                p.content AS postContent, p.image_url AS postImage, p.created_at AS postCreatedAt,
-                pu.name AS postUserName, pu.profile_picture AS postUserProfilePicture
+        `SELECT m.id, m.content, m.type, m.post_id AS "postId", m.read, m.created_at AS "createdAt",
+                s.id AS "senderId", s.name AS "senderName", s.email AS "senderEmail", s.profile_picture AS "senderProfilePicture",
+                r.id AS "recipientId", r.name AS "recipientName", r.email AS "recipientEmail", r.profile_picture AS "recipientProfilePicture",
+                p.content AS "postContent", p.image_url AS "postImage", p.created_at AS "postCreatedAt",
+                pu.name AS "postUserName", pu.profile_picture AS "postUserProfilePicture"
            FROM messages m
            JOIN users s ON s.id = m.sender_id
            JOIN users r ON r.id = m.recipient_id

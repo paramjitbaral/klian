@@ -92,6 +92,21 @@ const BroadcastHistoryItem: React.FC<{ broadcast: Broadcast; currentUserId?: str
         }
     };
 
+    const dateMs = (() => {
+        const raw = broadcast.timestamp as any;
+        if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) return Number(raw);
+        const parsed = new Date(raw).getTime();
+        return Number.isNaN(parsed) ? Date.now() : parsed;
+    })();
+
+    const formattedDateTime = new Date(dateMs).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+
     return (
         <div className="p-2.5 md:p-3 mb-2 bg-red-50 dark:bg-red-900/10 rounded-xl border-l-[3px] md:border-l-4 border-red-500 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-start gap-2 md:gap-3">
@@ -117,7 +132,7 @@ const BroadcastHistoryItem: React.FC<{ broadcast: Broadcast; currentUserId?: str
                         <div className="flex items-center gap-1">
                             <span className="font-medium">By {broadcast.author.name}</span>
                             <span>•</span>
-                            <span>{new Date(broadcast.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            <span>{formattedDateTime}</span>
                         </div>
                         <div className="flex items-center gap-1.5 md:gap-2">
                             <AudienceBadge target={broadcast.target} />
@@ -153,25 +168,44 @@ export const BroadcastPage: React.FC = () => {
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
     const navigate = useNavigate();
 
+    const toTimestampMs = (value: any): number => {
+        if (value === null || value === undefined) return 0;
+        if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) return 0;
+            if (/^\d+$/.test(trimmed)) {
+                const numeric = Number(trimmed);
+                return Number.isFinite(numeric) ? numeric : 0;
+            }
+            const parsed = new Date(trimmed).getTime();
+            return Number.isNaN(parsed) ? 0 : parsed;
+        }
+        if (value instanceof Date) {
+            const parsed = value.getTime();
+            return Number.isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+    };
+
+    const toIsoTimestamp = (value: any): string => {
+        const ms = toTimestampMs(value);
+        return ms ? new Date(ms).toISOString() : new Date().toISOString();
+    };
+
     // Fetch announcements on mount
     useEffect(() => {
         fetchBroadcasts();
 
         if (socket) {
             socket.on('announcement-created', (newAnnouncement) => {
-                const authorId = newAnnouncement.author?.id || newAnnouncement.author?._id || newAnnouncement.author_id;
-                const currentUserId = user?.id || user?._id;
-
-                // Only add to history if it's our broadcast (matches mount filter)
-                if (String(authorId) !== String(currentUserId)) return;
-
                 const newBroadcast: Broadcast = {
-                    id: newAnnouncement.id || newAnnouncement._id,
+                    id: String(newAnnouncement.id || newAnnouncement._id),
                     title: newAnnouncement.title,
                     content: newAnnouncement.content,
                     author: newAnnouncement.author,
                     target: newAnnouncement.target,
-                    timestamp: newAnnouncement.createdAt || newAnnouncement.created_at,
+                    timestamp: toIsoTimestamp(newAnnouncement.createdAt || newAnnouncement.created_at),
                 };
 
                 setBroadcasts(prev => {
@@ -182,8 +216,13 @@ export const BroadcastPage: React.FC = () => {
                 });
             });
 
+            socket.on('announcement-deleted', ({ id }: { id: string }) => {
+                setBroadcasts(prev => prev.filter(b => String(b.id) !== String(id)));
+            });
+
             return () => {
                 socket.off('announcement-created');
+                socket.off('announcement-deleted');
             };
         }
     }, [socket]);
@@ -192,20 +231,22 @@ export const BroadcastPage: React.FC = () => {
         try {
             setLoading(true);
             const data = await announcementsAPI.getAnnouncements();
-            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
             const broadcastsFromAPI: Broadcast[] = data.map((ann: any) => ({
                 id: String(ann.id || ann._id),
                 title: ann.title,
                 content: ann.content,
                 author: ann.author,
                 target: ann.target,
-                timestamp: ann.createdAt || ann.created_at,
+                timestamp: toIsoTimestamp(ann.createdAt || ann.created_at),
             }));
-            const filtered = broadcastsFromAPI
-                .filter(b => new Date(b.timestamp).getTime() >= sevenDaysAgo)
-                .filter(b => String((b.author as any)?.id || (b.author as any)?._id) === String(user?.id || user?._id))
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            setBroadcasts(filtered);
+
+            // Deduplicate by id to avoid any duplicate rendering from mixed realtime/fetch flows.
+            const deduped = Array.from(
+                new Map(broadcastsFromAPI.map((b) => [String(b.id), b])).values()
+            );
+
+            const sorted = deduped.sort((a, b) => toTimestampMs(b.timestamp) - toTimestampMs(a.timestamp));
+            setBroadcasts(sorted);
         } catch (err) {
             console.error('Failed to load broadcasts:', err);
             setError('Failed to load broadcasts');
@@ -231,8 +272,8 @@ export const BroadcastPage: React.FC = () => {
 
     const mapRoleToTarget = (role: Role | 'All'): string => {
         if (role === 'All') return 'All';
-        if (role === Role.STUDENT) return 'Student';
-        if (role === Role.TEACHER) return 'Teacher';
+        if (role === Role.STUDENT) return 'student';
+        if (role === Role.TEACHER || role === Role.DEAN) return 'faculty';
         return 'All';
     };
 
@@ -249,14 +290,10 @@ export const BroadcastPage: React.FC = () => {
                 content,
                 target: backendTarget
             });
-            // Emit socket event (UI will update via socket event only)
-            if (socket) {
-                socket.emit('new-announcement', newAnnouncement);
-            }
             clearForm();
             setIsPreviewOpen(false);
         } catch (err) {
-            setError('Failed to send broadcast. Please try again.');
+            setError((err as any)?.response?.data?.message || 'Failed to send broadcast. Please try again.');
             console.error(err);
         } finally {
             setIsSubmitting(false);

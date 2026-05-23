@@ -73,8 +73,9 @@ export interface GroupMessage {
   sender: User;
   text: string;
   timestamp: string;
-  type?: 'text' | 'image' | 'file' | 'video';
+  type?: 'text' | 'image' | 'file' | 'video' | 'post';
   content?: string;
+  postId?: any;
   createdAt?: string;
 }
 

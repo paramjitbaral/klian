@@ -4,12 +4,14 @@ export const getBackendUrl = () => {
   const viteUrl = (import.meta as any)?.env?.VITE_BACKEND_URL;
   if (viteUrl) return viteUrl;
 
-  const isLocalHost = typeof window !== 'undefined'
-    ? ['localhost', '127.0.0.1'].includes(window.location.hostname)
-    : true;
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  
+  // Detect local IP patterns: localhost, 127.0.0.1, 192.168.x.x, 10.x.x.x, 172.16-31.x.x
+  const localIpPattern = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)$/;
+  const isLocalHost = localIpPattern.test(hostname);
 
   if (isLocalHost) {
-    return 'http://localhost:5000';
+    return `http://${hostname}:5000`;
   }
 
   // Production fallback: the backend runs on Render, not on the Pages domain.
@@ -24,9 +26,10 @@ export const resolveBackendUrl = (url: string | null | undefined): string => {
   
   const backendUrl = getBackendUrl();
   
-  // Replace absolute localhost/127.0.0.1 references with the dynamically resolved backend URL
-  if (trimmed.includes('localhost:5000') || trimmed.includes('127.0.0.1:5000')) {
-    return trimmed.replace(/https?:\/\/(localhost|127\.0\.0\.1):5000/g, backendUrl);
+  // Replace absolute local IP/localhost references with the dynamically resolved backend URL
+  const localBackendRegex = /https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+):5000/g;
+  if (localBackendRegex.test(trimmed)) {
+    return trimmed.replace(localBackendRegex, backendUrl);
   }
   
   // If it is a relative path (starts with / or has no protocol), prepend backend URL

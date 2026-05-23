@@ -73,11 +73,11 @@ exports.getAnalytics = async (req, res) => {
 
     // Most Active Users (Top 5)
     const mostActiveUsers = await query(`
-      SELECT u.name, COUNT(p.id) AS postCount
+      SELECT u.name, COUNT(p.id) AS "postCount"
       FROM users u
       JOIN posts p ON u.id = p.user_id
       GROUP BY u.id, u.name
-      ORDER BY postCount DESC
+      ORDER BY "postCount" DESC
       LIMIT 5
     `);
 

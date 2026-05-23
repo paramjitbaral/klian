@@ -121,7 +121,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isReminderSet, onTo
   };
 
   const eventDate = new Date(event.date);
-  const creator = event.creator || event.createdBy || { name: 'Unknown' };
+  const creator = event.creator || event.createdBy || { name: 'Unknown', profilePicture: '', avatar: '' };
 
   return (
     <>
@@ -132,9 +132,17 @@ export const EventCard: React.FC<EventCardProps> = ({ event, isReminderSet, onTo
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">{event.title}</h3>
               </div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Created by {creator.name}
-              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <Avatar 
+                  src={creator.profilePicture || creator.avatar}
+                  alt={creator.name}
+                  size="xs"
+                  className="ring-1 ring-slate-200 dark:ring-slate-700"
+                />
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                  Created by <span className="font-semibold text-slate-700 dark:text-slate-300">{creator.name}</span>
+                </p>
+              </div>
             </div>
             
             {isCreator && (

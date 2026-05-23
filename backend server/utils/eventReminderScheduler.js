@@ -9,8 +9,8 @@ const formatReminderContent = (eventTitle) => {
 
 const dispatchDueEventReminders = async (io) => {
   const dueReminders = await query(
-    `SELECT er.id AS reminderId, er.event_id AS eventId, er.user_id AS userId,
-            e.title AS eventTitle, e.date AS eventDate, e.created_by AS creatorId
+    `SELECT er.id AS "reminderId", er.event_id AS "eventId", er.user_id AS "userId",
+            e.title AS "eventTitle", e.date AS "eventDate", e.created_by AS "creatorId"
        FROM event_reminders er
        JOIN events e ON e.id = er.event_id
       WHERE er.sent_at IS NULL
