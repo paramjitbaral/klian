@@ -41,8 +41,8 @@ const getPopulatedGroup = async (groupId, userId) => {
 
   // Calculate unread count
   const unreadRow = await query(
-    'SELECT COUNT(*) AS cnt FROM group_messages WHERE group_id = $1 AND id > $2',
-    [group.id, group.lastReadId || 0]
+    'SELECT COUNT(*) AS cnt FROM group_messages WHERE group_id = $1 AND id > $2 AND sender_id != $3',
+    [group.id, group.lastReadId || 0, userId]
   );
 
   return {

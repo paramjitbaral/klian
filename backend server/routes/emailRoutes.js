@@ -18,7 +18,7 @@ const protectOAuthInit = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_for_dev');
-    const rows = await query('SELECT id, name, email FROM users WHERE id = ? LIMIT 1', [decoded.id]);
+    const rows = await query('SELECT id, name, email FROM users WHERE id = $1 LIMIT 1', [decoded.id]);
     if (!rows.length) return res.status(401).json({ message: 'Not authorized, user not found' });
     req.user = rows[0];
     next();
