@@ -322,7 +322,7 @@ export const BroadcastPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex justify-center">
             <div className="w-[98%] max-w-[1600px] mx-auto pb-8">
-                <header className="flex md:hidden items-center gap-3 px-4 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 mb-6">
+                <header className="flex md:hidden items-center gap-3 px-4 h-12 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 mb-2">
                     <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Create Broadcast</h1>
                 </header>
                 <div className="hidden md:flex items-center gap-4 px-4 md:px-8 pt-6 mb-6">

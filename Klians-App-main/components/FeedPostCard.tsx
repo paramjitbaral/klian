@@ -35,22 +35,22 @@ const useTimeAgo = (date: string | number | Date) => {
             if (!date) return "just now";
             const d = parseDate(date);
             if (isNaN(d.getTime())) return "just now";
-            
+
             const now = new Date();
             const diffSeconds = (now.getTime() - d.getTime()) / 1000;
             const seconds = Math.max(0, Math.floor(diffSeconds));
-            
+
             if (seconds < 60) return "just now";
-            
+
             const minutes = Math.floor(seconds / 60);
             if (minutes < 60) return `${minutes}m ago`;
-        
+
             const hours = Math.floor(minutes / 60);
             if (hours < 24) return `${hours}h ago`;
-        
+
             const days = Math.floor(hours / 24);
             if (days < 7) return `${days}d ago`;
-            
+
             return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         };
 
@@ -340,11 +340,10 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                     {/* Save Button */}
                     <button
                         onClick={handleSaveToggle}
-                        className={`p-2 rounded-full transition-colors ${
-                            isSaved 
-                                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20' 
+                        className={`p-2 rounded-full transition-colors ${isSaved
+                                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20'
                                 : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                        }`}
+                            }`}
                         title={isSaved ? "Saved" : "Save Post"}
                     >
                         {isSaved ? (
@@ -458,15 +457,15 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                     {(() => {
                         const url = getImageUrl(post.image);
                         const isDocument = url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i);
-                        
+
                         if (isDocument) {
                             const extension = url.split('.').pop()?.toUpperCase();
                             const filename = url.split('/').pop()?.split('-').slice(2).join('-') || 'Document';
 
                             return (
-                                <a 
-                                    href={url} 
-                                    target="_blank" 
+                                <a
+                                    href={url}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group"
                                 >
@@ -597,7 +596,7 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                         <div className="p-6 text-center space-y-4">
                             <h3 className="text-xl font-bold text-slate-900 dark:text-white">Delete Post?</h3>
                             <p className="text-sm text-slate-500 dark:text-slate-400">
-                                {isOwnPost 
+                                {isOwnPost
                                     ? "Are you sure you want to delete this post? This action cannot be undone."
                                     : "Are you sure you want to remove this post from the community?"}
                             </p>

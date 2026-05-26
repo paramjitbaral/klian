@@ -90,7 +90,7 @@ export const HomePage: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartRef = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
+
 
   // Fetch broadcasts from API — separated from socket so socket reconnects don't wipe data
   useEffect(() => {
@@ -129,14 +129,14 @@ export const HomePage: React.FC = () => {
     if (socket) {
       socket.on('announcement-created', (newAnnouncement: any) => {
         console.log('[Socket] New announcement received:', newAnnouncement);
-        
+
         // Filter by role before adding to state
         const target = (newAnnouncement.target || 'All').toLowerCase();
         const role = user?.role?.toLowerCase() || '';
-        
+
         const isAdmin = role === 'admin';
         const isTeacher = role === 'teacher' || role === 'faculty' || role === 'dean';
-        
+
         let isVisible = false;
         if (isAdmin) {
           isVisible = true;
@@ -180,16 +180,16 @@ export const HomePage: React.FC = () => {
 
       socket.on('new-post', (newPost: any) => {
         console.log('[Socket] New post received:', newPost);
-        
+
         const id = newPost.id || newPost._id;
         if (!id) return;
 
         // Ensure post has correct format for feedItems memo
         const formattedPost = {
-            ...newPost,
-            id: id,
-            type: 'post' as const,
-            timestamp: newPost.created_at || newPost.createdAt || new Date().toISOString()
+          ...newPost,
+          id: id,
+          type: 'post' as const,
+          timestamp: newPost.created_at || newPost.createdAt || new Date().toISOString()
         };
 
         queryClient.setQueryData(postsQueryKeys.list(), (oldData: any) => {
@@ -366,14 +366,14 @@ export const HomePage: React.FC = () => {
       );
 
       uniqueCombined.sort((a, b) => {
-        const aIsPinned = a.type === 'broadcast';
-        const bIsPinned = b.type === 'broadcast';
+        const timeA = toTimestampMs(a.timestamp);
+        const timeB = toTimestampMs(b.timestamp);
+
+        const aIsPinned = a.type === 'broadcast' && timeA > twentyFourHoursAgoMs;
+        const bIsPinned = b.type === 'broadcast' && timeB > twentyFourHoursAgoMs;
 
         if (aIsPinned && !bIsPinned) return -1;
         if (!aIsPinned && bIsPinned) return 1;
-
-        const timeA = toTimestampMs(a.timestamp);
-        const timeB = toTimestampMs(b.timestamp);
 
         return timeB - timeA;
       });
@@ -471,7 +471,7 @@ export const HomePage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 px-6 py-4 md:py-8 animate-pulse">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 px-2 md:px-4 lg:px-6 pt-2 pb-4 md:py-8 animate-pulse">
         {/* Center Feed Skeleton */}
         <div className="lg:col-span-8 space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 flex gap-4 items-center">
@@ -507,11 +507,11 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="lg:h-[calc(100vh-4rem)] max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:overflow-hidden px-6 relative items-start">
+      <div className="lg:h-[calc(100vh-4rem)] max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:overflow-hidden px-2 md:px-4 lg:px-6 relative items-start">
         {/* Center Feed - Scrollable without scrollbar */}
-        <div 
-            ref={scrollContainerRef}
-            className="lg:col-span-8 h-full lg:overflow-y-auto scrollbar-hide py-4 md:py-8"
+        <div
+          ref={scrollContainerRef}
+          className="lg:col-span-8 h-full lg:overflow-y-auto scrollbar-hide pt-2 pb-4 md:py-8"
         >
           {canPost && (
             <CreatePostCard

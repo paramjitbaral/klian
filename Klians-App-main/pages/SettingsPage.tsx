@@ -594,7 +594,7 @@ export const SettingsPage: React.FC = () => {
                 {mobileView === 'menu' ? (
                     // Mobile Menu View
                     <div className="max-w-lg mx-auto">
-                        <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 mb-6">
+                        <header className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 mb-2">
                             <button
                                 onClick={handleBack}
                                 className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -655,7 +655,7 @@ export const SettingsPage: React.FC = () => {
                 ) : (
                     // Mobile Detail View
                     <div className="max-w-lg mx-auto">
-                        <header className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 mb-8">
+                        <header className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 mb-3">
                             <button
                                 onClick={handleMobileBackToMenu}
                                 className="p-2 -ml-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

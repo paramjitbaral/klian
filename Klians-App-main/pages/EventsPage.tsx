@@ -333,7 +333,7 @@ export const EventsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col overflow-y-auto sm:overflow-hidden lg:h-screen">
-      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 h-14 sm:h-16 sticky top-0 z-40 flex items-center">
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 h-12 sm:h-16 sticky top-0 z-40 flex items-center">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 w-full">
           <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <button 
