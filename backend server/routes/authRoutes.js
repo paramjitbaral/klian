@@ -7,7 +7,8 @@ const {
   verifyOTP,
   resendOTP,
   getUserProfile, 
-  updateUserProfile 
+  updateUserProfile,
+  checkEmail
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -23,6 +24,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify', verifyOTP);
 router.post('/resend-otp', resendOTP);
+router.get('/check-email', checkEmail);
 
 // Protected routes
 router.route('/profile')

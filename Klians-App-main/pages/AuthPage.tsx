@@ -36,7 +36,12 @@ const RefreshIcon = () => (
 const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => {
     const { login, error: authError, loading } = useAuth();
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
+    const [rememberMe, setRememberMe] = useState(() => {
+        return localStorage.getItem('rememberMe') === 'true';
+    });
+    const [email, setEmail] = useState(() => {
+        return localStorage.getItem('rememberedEmail') || '';
+    });
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -78,6 +83,13 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
         
         try {
             await login(email, password, captchaAnswer, captchaToken);
+            if (rememberMe) {
+                localStorage.setItem('rememberedEmail', email);
+                localStorage.setItem('rememberMe', 'true');
+            } else {
+                localStorage.removeItem('rememberedEmail');
+                localStorage.setItem('rememberMe', 'false');
+            }
         } catch (err: any) {
             // Check if verification is required
             if (err.response?.data?.requiresVerification) {
@@ -166,7 +178,14 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
                 
                 <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center">
-                        <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                        <input 
+                            id="remember-me" 
+                            name="remember-me" 
+                            type="checkbox" 
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" 
+                        />
                         <label htmlFor="remember-me" className="ml-2 block text-slate-900 dark:text-slate-300">Remember me</label>
                     </div>
                     <a href="#" className="font-medium text-red-600 hover:text-red-500">Forgot your password?</a>
@@ -256,11 +275,22 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
         setAssignedRole(null);
     };
     
-    const handleEmailBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const handleEmailBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
         const currentEmail = e.target.value;
         const isValid = validateEmail(currentEmail);
 
         if (isValid) {
+            try {
+                const response = await authAPI.checkEmail(currentEmail);
+                if (response.data.exists) {
+                    setEmailError('User already exists. Please Sign In.');
+                    setAssignedRole(null);
+                    return;
+                }
+            } catch (err) {
+                console.error('Failed to check email', err);
+            }
+
             const emailLocalPart = currentEmail.split('@')[0];
             const isStudentEmail = /^\d{10}$/.test(emailLocalPart);
             const determinedRole = isStudentEmail ? Role.STUDENT : Role.TEACHER;

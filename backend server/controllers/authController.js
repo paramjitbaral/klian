@@ -64,24 +64,22 @@ const registerUser = async (req, res) => {
     );
     const userId = result[0]?.id;
 
-    // Send Email (only if not admin)
+    // Send Email asynchronously (only if not admin)
     if (!isVerified) {
-      try {
-        const sendEmail = require('../utils/sendEmail');
-        await sendEmail({
-          email: email,
-          subject: 'KLIAS Verification Code',
-          message: `Your verification code is ${otp}. It will expire in 10 minutes.`,
-          html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-                  <h2>KLIAS Verification</h2>
-                  <p>Use the following code to verify your account:</p>
-                  <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
-                  <p>This code will expire in 10 minutes.</p>
-                </div>`
-        });
-      } catch (emailError) {
-        console.error('Email could not be sent:', emailError.message);
-      }
+      const sendEmail = require('../utils/sendEmail');
+      sendEmail({
+        email: email,
+        subject: 'KLIAS Verification Code',
+        message: `Your verification code is ${otp}. It will expire in 10 minutes.`,
+        html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+                <h2>KLIAS Verification</h2>
+                <p>Use the following code to verify your account:</p>
+                <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+                <p>This code will expire in 10 minutes.</p>
+              </div>`
+      }).catch(emailError => {
+        console.error('Registration OTP Email could not be sent. This might be due to incorrect App Passwords or Google blocking the login:', emailError.message);
+      });
     }
 
     res.status(201).json({
@@ -129,24 +127,21 @@ const resendOTP = async (req, res) => {
       [otp, otpExpires, email]
     );
 
-    // Send Email
-    try {
-      const sendEmail = require('../utils/sendEmail');
-      await sendEmail({
-        email: email,
-        subject: 'KLIAS New Verification Code',
-        message: `Your new verification code is ${otp}. It will expire in 10 minutes.`,
-        html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-                <h2>KLIAS Verification</h2>
-                <p>Use the following new code to verify your account:</p>
-                <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
-                <p>This code will expire in 10 minutes.</p>
-              </div>`
-      });
-    } catch (emailError) {
-      console.error('Email could not be sent:', emailError.message);
-      return res.status(500).json({ message: 'Failed to send email. Please try again later.' });
-    }
+    // Send Email asynchronously
+    const sendEmail = require('../utils/sendEmail');
+    sendEmail({
+      email: email,
+      subject: 'KLIAS New Verification Code',
+      message: `Your new verification code is ${otp}. It will expire in 10 minutes.`,
+      html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+              <h2>KLIAS Verification</h2>
+              <p>Use the following new code to verify your account:</p>
+              <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+              <p>This code will expire in 10 minutes.</p>
+            </div>`
+    }).catch(emailError => {
+      console.error('Resend OTP Email could not be sent. Please check SMTP configuration:', emailError.message);
+    });
 
     res.json({ message: 'New verification code sent to your email.' });
   } catch (error) {
@@ -367,7 +362,20 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
+const checkEmail = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+    const rows = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+    res.json({ exists: rows.length > 0 });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
+  checkEmail,
   registerUser,
   loginUser,
   verifyOTP,

@@ -6,7 +6,7 @@ import { Card } from './ui/Card';
 import { postsAPI } from '../src/api/posts';
 import { messagesAPI } from '../src/api/messages';
 import { useAuth } from '../hooks/useAuth';
-import { usePosts, useDeletePost, useUpdatePost } from '../src/hooks/usePosts';
+import { usePosts, useDeletePost, useUpdatePost, useLikePost, useUnlikePost } from '../src/hooks/usePosts';
 import { ShareModal } from './ShareModal';
 import { LikesModal } from './LikesModal';
 import { CommentModal } from './CommentModal';
@@ -112,9 +112,9 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
         return null;
     }
 
-    const [isLiked, setIsLiked] = useState(post.isLiked || false);
-    const [likeCount, setLikeCount] = useState(post.likes);
-    const [isLikeLoading, setIsLikeLoading] = useState(false);
+    const isLiked = post.isLiked || false;
+    const likeCount = post.likes || 0;
+    const isLikeLoading = false;
     const [showCommentsModal, setShowCommentsModal] = useState(false);
     const [comments, setComments] = useState<any[]>([]);
     const [commentCount, setCommentCount] = useState(post.comments);
@@ -179,86 +179,27 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
         });
     };
 
-    // Keep state in sync with props when they change (e.g. on refresh or refetch)
-    useEffect(() => {
-        setIsLiked(post.isLiked || false);
-        setLikeCount(post.likes);
-        setCommentCount(post.comments);
-    }, [post.id, post.likes, post.comments, post.isLiked]);
-
     // Mutation hooks for instant updates
     const deleteMutation = useDeletePost();
     const updateMutation = useUpdatePost();
+    const likeMutation = useLikePost();
+    const unlikeMutation = useUnlikePost();
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(post.content);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    // Listen for real-time updates from other users
-    useEffect(() => {
-        if (!socket || !post.id) return;
 
-        const handlePostUpdate = (data: any) => {
-            if (String(data.postId) === String(post.id)) {
-                if (data.type === 'LIKE_CHANGE') {
-                    setLikeCount(data.likesCount);
-                } else if (data.type === 'COMMENT_CHANGE') {
-                    setCommentCount(data.commentCount);
-                }
-            }
-        };
 
-        socket.on('post_update', handlePostUpdate);
-        return () => {
-            socket.off('post_update', handlePostUpdate);
-        };
-    }, [socket, post.id]);
-
-    const handleLike = async () => {
-        if (isLikeLoading) return;
-
+    const handleLike = () => {
         if (!post.id) {
             console.error('Post ID is missing');
-            alert('Error: Post ID is missing');
             return;
         }
 
-        setIsLikeLoading(true);
-        const previousLiked = isLiked;
-        const previousCount = likeCount;
-
-        // Optimistically update UI first
-        setIsLiked(!isLiked);
-        setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
-
-        try {
-            if (isLiked) {
-                await postsAPI.unlikePost(post.id);
-            } else {
-                await postsAPI.likePost(post.id);
-            }
-        } catch (error: any) {
-            console.error('Error toggling like:', error);
-            // Reset to previous state on error
-            setIsLiked(previousLiked);
-            setLikeCount(previousCount);
-
-            // Show user-friendly error message
-            if (error.response?.status === 400) {
-                const message = error.response?.data?.message;
-                if (message?.includes('already liked')) {
-                    // This is fine - post is already liked, just update UI
-                    setIsLiked(true);
-                    return;
-                } else if (message?.includes('has not yet been liked')) {
-                    // Post hasn't been liked yet, just update UI
-                    setIsLiked(false);
-                    return;
-                }
-            }
-
-            alert('Unable to process your like. Please try again.');
-        } finally {
-            setIsLikeLoading(false);
+        if (isLiked) {
+            unlikeMutation.mutate(String(post.id));
+        } else {
+            likeMutation.mutate(String(post.id));
         }
     };
 

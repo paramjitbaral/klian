@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Post } from '../../types';
 import { postsAPI } from '../api/posts';
 import { queryClient } from '../lib/queryClient';
+import { announcementsAPI } from '../api/announcements';
 
 /**
  * Query keys for posts - ensures cache invalidation works correctly
@@ -59,6 +60,8 @@ export const usePost = (postId: string) => {
   });
 };
 
+
+
 /**
  * useBroadcasts Hook - Fetch broadcasts (faculty posts)
  */
@@ -66,9 +69,16 @@ export const useBroadcasts = (enabled = true) => {
   return useQuery({
     queryKey: postsQueryKeys.broadcasts(),
     queryFn: async () => {
-      const response = await postsAPI.getBroadcasts();
-      // Backend returns { items, nextCursor, hasMore }
-      return response.data || { items: [], hasMore: false };
+      const data = await announcementsAPI.getAnnouncements();
+      const arr = Array.isArray(data) ? data : [];
+      return arr.map((ann: any) => ({
+        id: String(ann.id || ann._id),
+        title: ann.title,
+        content: ann.content,
+        author: ann.author,
+        target: ann.target,
+        timestamp: ann.createdAt || ann.created_at,
+      }));
     },
     enabled,
     staleTime: 5 * 60 * 1000,

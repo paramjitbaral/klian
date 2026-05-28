@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../contexts/SocketContext';
-import { usePosts, useCreatePost, postsQueryKeys } from '../src/hooks/usePosts';
+import { usePosts, useBroadcasts, useCreatePost, postsQueryKeys } from '../src/hooks/usePosts';
 import { MOCK_POSTS, MOCK_BROADCASTS } from '../constants';
 import { Post, Broadcast, Role } from '../types';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -80,8 +80,7 @@ export const HomePage: React.FC = () => {
   const [isCreatePostModalOpen, setCreatePostModalOpen] = useState(false);
   const [initialFile, setInitialFile] = useState<File | null>(null);
   const [initialType, setInitialType] = useState<'image' | 'video' | 'document' | null>(null);
-  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
-  const [broadcastsLoading, setBroadcastsLoading] = useState(true);
+  const { data: broadcasts = [], isLoading: broadcastsLoading } = useBroadcasts();
   const { socket } = useSocket();
   const location = useLocation();
 
@@ -90,37 +89,6 @@ export const HomePage: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartRef = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-
-  // Fetch broadcasts from API — separated from socket so socket reconnects don't wipe data
-  useEffect(() => {
-    const fetchBroadcasts = async () => {
-      try {
-        setBroadcastsLoading(true);
-        const data = await announcementsAPI.getAnnouncements();
-        console.log('[HomePage] Raw announcements API response:', data);
-        const arr = Array.isArray(data) ? data : [];
-        const formattedBroadcasts: Broadcast[] = arr.map((ann: any) => ({
-          id: String(ann.id || ann._id),
-          title: ann.title,
-          content: ann.content,
-          author: ann.author,
-          target: ann.target,
-          timestamp: ann.createdAt || ann.created_at,
-        }));
-        console.log('[HomePage] Formatted broadcasts:', formattedBroadcasts.length, formattedBroadcasts.map(b => b.id));
-        setBroadcasts(formattedBroadcasts);
-      } catch (error) {
-        console.error('Failed to load broadcasts:', error);
-        // Don't wipe existing broadcasts on a transient error
-        setBroadcasts(prev => prev.length > 0 ? prev : []);
-      } finally {
-        setBroadcastsLoading(false);
-      }
-    };
-
-    fetchBroadcasts();
-  }, []);
 
   // Socket listeners for real-time updates (separate effect so reconnects don't re-fetch)
   useEffect(() => {
@@ -168,13 +136,15 @@ export const HomePage: React.FC = () => {
           timestamp: timestamp,
         };
 
-        setBroadcasts(prev => {
-          if (prev.some(b => String(b.id) === String(newBroadcast.id))) {
-            console.log('[Socket] Announcement already in state, skipping');
-            return prev;
+        queryClient.setQueryData(postsQueryKeys.broadcasts(), (oldData: any) => {
+          if (!oldData) return [newBroadcast];
+          const items = Array.isArray(oldData) ? oldData : (oldData.items || []);
+          if (items.some((b: any) => String(b.id) === String(newBroadcast.id))) {
+            console.log('[Socket] Announcement already in cache, skipping');
+            return oldData;
           }
-          console.log('[Socket] Adding new broadcast to state:', newBroadcast.id);
-          return [newBroadcast, ...prev];
+          console.log('[Socket] Adding new broadcast to cache:', newBroadcast.id);
+          return [newBroadcast, ...items];
         });
       });
 
@@ -301,7 +271,11 @@ export const HomePage: React.FC = () => {
 
       socket.on('announcement-deleted', ({ id }: { id: string }) => {
         console.log('[Socket] Broadcast deleted, removing from feed:', id);
-        setBroadcasts(prev => prev.filter(b => String(b.id) !== String(id)));
+        queryClient.setQueryData(postsQueryKeys.broadcasts(), (oldData: any) => {
+          if (!oldData) return oldData;
+          const items = Array.isArray(oldData) ? oldData : (oldData.items || []);
+          return items.filter((b: any) => String(b.id) !== String(id));
+        });
       });
 
       return () => {

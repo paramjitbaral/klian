@@ -11,6 +11,8 @@ import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
 import { BroadcastCard } from '../components/BroadcastCard';
 import { announcementsAPI } from '../src/api/announcements';
+import { useBroadcasts, postsQueryKeys } from '../src/hooks/usePosts';
+import { useQueryClient } from '@tanstack/react-query';
 
 // --- ICONS ---
 const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -157,8 +159,8 @@ const BroadcastHistoryItem: React.FC<{ broadcast: Broadcast; currentUserId?: str
 export const BroadcastPage: React.FC = () => {
     const { user } = useAuth();
     const { socket } = useSocket();
-    const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: broadcasts = [], isLoading: loading } = useBroadcasts();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [target, setTarget] = useState<Role | 'All'>('All');
@@ -193,10 +195,8 @@ export const BroadcastPage: React.FC = () => {
         return ms ? new Date(ms).toISOString() : new Date().toISOString();
     };
 
-    // Fetch announcements on mount
+    // Socket listeners for real-time updates
     useEffect(() => {
-        fetchBroadcasts();
-
         if (socket) {
             socket.on('announcement-created', (newAnnouncement) => {
                 const newBroadcast: Broadcast = {
@@ -208,16 +208,20 @@ export const BroadcastPage: React.FC = () => {
                     timestamp: toIsoTimestamp(newAnnouncement.createdAt || newAnnouncement.created_at),
                 };
 
-                setBroadcasts(prev => {
-                    if (prev.some(b => String(b.id) === String(newBroadcast.id))) {
-                        return prev;
-                    }
-                    return [newBroadcast, ...prev];
+                queryClient.setQueryData(postsQueryKeys.broadcasts(), (oldData: any) => {
+                    if (!oldData) return [newBroadcast];
+                    const items = Array.isArray(oldData) ? oldData : (oldData.items || []);
+                    if (items.some((b: any) => String(b.id) === String(newBroadcast.id))) return oldData;
+                    return [newBroadcast, ...items];
                 });
             });
 
             socket.on('announcement-deleted', ({ id }: { id: string }) => {
-                setBroadcasts(prev => prev.filter(b => String(b.id) !== String(id)));
+                queryClient.setQueryData(postsQueryKeys.broadcasts(), (oldData: any) => {
+                    if (!oldData) return oldData;
+                    const items = Array.isArray(oldData) ? oldData : (oldData.items || []);
+                    return items.filter((b: any) => String(b.id) !== String(id));
+                });
             });
 
             return () => {
@@ -225,35 +229,7 @@ export const BroadcastPage: React.FC = () => {
                 socket.off('announcement-deleted');
             };
         }
-    }, [socket]);
-
-    const fetchBroadcasts = async () => {
-        try {
-            setLoading(true);
-            const data = await announcementsAPI.getAnnouncements();
-            const broadcastsFromAPI: Broadcast[] = data.map((ann: any) => ({
-                id: String(ann.id || ann._id),
-                title: ann.title,
-                content: ann.content,
-                author: ann.author,
-                target: ann.target,
-                timestamp: toIsoTimestamp(ann.createdAt || ann.created_at),
-            }));
-
-            // Deduplicate by id to avoid any duplicate rendering from mixed realtime/fetch flows.
-            const deduped = Array.from(
-                new Map(broadcastsFromAPI.map((b) => [String(b.id), b])).values()
-            );
-
-            const sorted = deduped.sort((a, b) => toTimestampMs(b.timestamp) - toTimestampMs(a.timestamp));
-            setBroadcasts(sorted);
-        } catch (err) {
-            console.error('Failed to load broadcasts:', err);
-            setError('Failed to load broadcasts');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [socket, queryClient]);
 
     const handleBack = () => {
         if (window.history.state && window.history.state.idx > 0) {
@@ -308,7 +284,11 @@ export const BroadcastPage: React.FC = () => {
         if (!deleteModal.id) return;
         try {
             await announcementsAPI.deleteAnnouncement(deleteModal.id);
-            setBroadcasts(prev => prev.filter(b => String(b.id) !== String(deleteModal.id)));
+            queryClient.setQueryData(postsQueryKeys.broadcasts(), (oldData: any) => {
+                if (!oldData) return oldData;
+                const items = Array.isArray(oldData) ? oldData : (oldData.items || []);
+                return items.filter((b: any) => String(b.id) !== String(deleteModal.id));
+            });
             setDeleteModal({ open: false, id: null });
         } catch (err) {
             console.error('Failed to delete broadcast:', err);

@@ -749,9 +749,9 @@ export const SettingsPage: React.FC = () => {
 
             {showOtpModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-[400px] rounded-[40px] p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-white/20 dark:border-slate-800/50 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-[400px] rounded-3xl p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-white/20 dark:border-slate-800/50 animate-in zoom-in-95 duration-300">
                         <div className="text-center mb-10">
-                            <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
@@ -771,7 +771,7 @@ export const SettingsPage: React.FC = () => {
                                     placeholder="000000"
                                     value={otpValue}
                                     onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full text-center text-4xl font-mono font-medium tracking-[0.4em] py-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/50 border-none focus:ring-2 focus:ring-red-500/50 text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-800 transition-all duration-300"
+                                    className="w-full text-center text-3xl tracking-[1em] font-mono py-4 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none transition-all"
                                 />
                             </div>
 
@@ -779,7 +779,7 @@ export const SettingsPage: React.FC = () => {
                                 <Button
                                     onClick={handleVerifyOtp}
                                     disabled={otpValue.length !== 6 || isVerifyingOtp}
-                                    className="w-full h-16 bg-red-600 hover:bg-red-700 text-white font-bold rounded-[24px] shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all duration-200 text-lg"
+                                    className="w-full h-16 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all duration-200 text-lg"
                                 >
                                     {isVerifyingOtp ? 'Verifying...' : 'Confirm Change'}
                                 </Button>

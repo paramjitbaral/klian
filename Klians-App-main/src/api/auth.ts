@@ -2,6 +2,11 @@ import API from './index';
 
 // Auth API services
 export const authAPI = {
+  // Check if email exists
+  checkEmail: (email: string) => {
+    return API.get(`/auth/check-email?email=${encodeURIComponent(email)}`);
+  },
+
   // Register a new user
   register: (userData: any) => {
     return API.post('/auth/register', userData);
