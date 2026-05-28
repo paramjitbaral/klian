@@ -64,22 +64,30 @@ const registerUser = async (req, res) => {
     );
     const userId = result[0]?.id;
 
+    if (!isVerified && process.env.NODE_ENV !== 'production') {
+      console.log(`[DEV MODE] OTP for ${email}: ${otp}`);
+    }
+
     // Send Email asynchronously (only if not admin)
     if (!isVerified) {
       const sendEmail = require('../utils/sendEmail');
-      sendEmail({
-        email: email,
-        subject: 'KLIAS Verification Code',
-        message: `Your verification code is ${otp}. It will expire in 10 minutes.`,
-        html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-                <h2>KLIAS Verification</h2>
-                <p>Use the following code to verify your account:</p>
-                <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
-                <p>This code will expire in 10 minutes.</p>
-              </div>`
-      }).catch(emailError => {
-        console.error('Registration OTP Email could not be sent. This might be due to incorrect App Passwords or Google blocking the login:', emailError.message);
-      });
+      try {
+        await sendEmail({
+          email: email,
+          subject: 'KLIAS Verification Code',
+          message: `Your verification code is ${otp}. It will expire in 10 minutes.`,
+          html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+                  <h2>KLIAS Verification</h2>
+                  <p>Use the following code to verify your account:</p>
+                  <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+                  <p>This code will expire in 10 minutes.</p>
+                </div>`
+        });
+      } catch (emailError) {
+        console.error('Registration OTP Email could not be sent:', emailError.message);
+        // We still want to let the user know, but let's fail the registration if email fails
+        return res.status(500).json({ message: 'Failed to send verification email. Please try again later.' });
+      }
     }
 
     res.status(201).json({
@@ -127,21 +135,28 @@ const resendOTP = async (req, res) => {
       [otp, otpExpires, email]
     );
 
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[DEV MODE] Resend OTP for ${email}: ${otp}`);
+    }
+
     // Send Email asynchronously
     const sendEmail = require('../utils/sendEmail');
-    sendEmail({
-      email: email,
-      subject: 'KLIAS New Verification Code',
-      message: `Your new verification code is ${otp}. It will expire in 10 minutes.`,
-      html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
-              <h2>KLIAS Verification</h2>
-              <p>Use the following new code to verify your account:</p>
-              <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
-              <p>This code will expire in 10 minutes.</p>
-            </div>`
-    }).catch(emailError => {
+    try {
+      await sendEmail({
+        email: email,
+        subject: 'KLIAS New Verification Code',
+        message: `Your new verification code is ${otp}. It will expire in 10 minutes.`,
+        html: `<div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
+                <h2>KLIAS Verification</h2>
+                <p>Use the following new code to verify your account:</p>
+                <h1 style="color: #ef4444; font-size: 40px; letter-spacing: 5px;">${otp}</h1>
+                <p>This code will expire in 10 minutes.</p>
+              </div>`
+      });
+    } catch (emailError) {
       console.error('Resend OTP Email could not be sent. Please check SMTP configuration:', emailError.message);
-    });
+      return res.status(500).json({ message: 'Failed to resend verification email. Please try again later.' });
+    }
 
     res.json({ message: 'New verification code sent to your email.' });
   } catch (error) {
