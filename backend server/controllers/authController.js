@@ -32,16 +32,16 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Validate email format based on role
-    if (role === 'student' && !/^\d{10}@kluniversity\.in$/.test(email)) {
+    // Validate email format based on role (allowing @gmail.com for testing)
+    if (role === 'student' && !/^\d{10}@kluniversity\.in$/.test(email) && !email.endsWith('@gmail.com')) {
       return res.status(400).json({ 
-        message: 'Student email must be in format: 10digitnumber@kluniversity.in' 
+        message: 'Student email must be in format: 10digitnumber@kluniversity.in or end with @gmail.com for testing' 
       });
     }
 
-    if (role === 'faculty' && !/^[a-zA-Z]+@kluniversity\.in$/.test(email)) {
+    if (role === 'faculty' && !/^[a-zA-Z]+@kluniversity\.in$/.test(email) && !email.endsWith('@gmail.com')) {
       return res.status(400).json({ 
-        message: 'Faculty email must be in format: name@kluniversity.in' 
+        message: 'Faculty email must be in format: name@kluniversity.in or end with @gmail.com for testing' 
       });
     }
 

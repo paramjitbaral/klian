@@ -267,8 +267,8 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
         if (!value) {
             setEmailError('');
             return false;
-        } else if (!value.endsWith('@kluniversity.in')) {
-            setEmailError('Email must be a @kluniversity.in address.');
+        } else if (!value.endsWith('@kluniversity.in') && !value.endsWith('@gmail.com')) {
+            setEmailError('Email must be a @kluniversity.in or @gmail.com address.');
             return false;
         } else {
             setEmailError('');
