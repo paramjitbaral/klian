@@ -3,13 +3,16 @@ const nodemailer = require('nodemailer');
 const sendEmail = async (options) => {
   // Create a transporter
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
+    host: process.env.EMAIL_HOST || 'smtp.resend.com',
+    port: process.env.EMAIL_PORT || 587,
     secure: false, // Use STARTTLS on port 587
     auth: {
-      user: process.env.EMAIL_USER,
+      user: process.env.EMAIL_USER || 'resend',
       pass: process.env.EMAIL_PASS,
     },
+    connectionTimeout: 10000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
   });
 
   // Define email options
