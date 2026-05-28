@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Role } from '../types';
 import authAPI from '../src/api/auth';
+import { useCookieConsent } from '../hooks/useCookieConsent';
 
 // Generic icon used for a neutral "Continue" social button (no vendor branding)
 const SocialGenericIcon = () => (
@@ -39,6 +40,7 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
     const [rememberMe, setRememberMe] = useState(() => {
         return localStorage.getItem('rememberMe') === 'true';
     });
+    const hasCookieConsent = useCookieConsent();
     const [email, setEmail] = useState(() => {
         return localStorage.getItem('rememberedEmail') || '';
     });
@@ -83,7 +85,7 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
         
         try {
             await login(email, password, captchaAnswer, captchaToken);
-            if (rememberMe) {
+            if (rememberMe && hasCookieConsent !== false) {
                 localStorage.setItem('rememberedEmail', email);
                 localStorage.setItem('rememberMe', 'true');
             } else {
@@ -183,8 +185,14 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
                             name="remember-me" 
                             type="checkbox" 
                             checked={rememberMe}
-                            onChange={(e) => setRememberMe(e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" 
+                            onChange={(e) => {
+                                if (hasCookieConsent === false) {
+                                    alert("You must accept cookies to use the 'Remember me' feature.");
+                                    return;
+                                }
+                                setRememberMe(e.target.checked);
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500 disabled:opacity-50" 
                         />
                         <label htmlFor="remember-me" className="ml-2 block text-slate-900 dark:text-slate-300">Remember me</label>
                     </div>
@@ -449,7 +457,6 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
         </div>
     );
 };
-
 
 export const AuthPage: React.FC = () => {
     const { isAuthenticated } = useAuth();

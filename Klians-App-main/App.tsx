@@ -76,6 +76,8 @@ const AppRoutes: React.FC = () => {
 };
 
 
+import { CookieConsent } from './components/CookieConsent';
+
 const App: React.FC = () => {
   const [unreadNotices, setUnreadNotices] = useState<Array<{ id: string; title: string; body: string }>>([]);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
@@ -124,6 +126,7 @@ const App: React.FC = () => {
                   <OnboardingNotices unreadNotices={unreadNotices} onMarkAllRead={handleMarkAllRead} />
                 )}
                 <AppRoutes />
+                <CookieConsent />
               </HashRouter>
             </QueryProvider>
           </MessagesProvider>
