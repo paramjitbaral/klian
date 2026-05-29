@@ -224,7 +224,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
                                     {React.cloneElement(ICONS.attachment, { className: "h-6 w-6 text-blue-500 animate-pulse" })}
                                 </div>
                             </div>
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-wide">Sharing to Klias...</span>
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-wide">Sharing to KLIANS...</span>
                             <span className="text-[10px] text-slate-400 uppercase font-bold mt-1 tracking-widest">Please wait</span>
                         </div>
                     )}

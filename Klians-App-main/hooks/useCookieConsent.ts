@@ -5,7 +5,7 @@ export const useCookieConsent = () => {
 
     useEffect(() => {
         const checkConsent = () => {
-            const val = localStorage.getItem('klias_cookie_consent');
+            const val = localStorage.getItem('KLIANS_cookie_consent');
             if (val === 'true') setConsent(true);
             else if (val === 'false') setConsent(false);
             else setConsent(null);

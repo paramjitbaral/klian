@@ -310,7 +310,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({ isOpen, onClose }) => {
             </div>
             <input
               ref={inputRef}
-              placeholder="Search KLIAS..."
+              placeholder="Search KLIANS..."
               className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-red-500/20 transition-all placeholder:text-slate-400 font-medium"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

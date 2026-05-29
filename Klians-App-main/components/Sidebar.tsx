@@ -58,10 +58,13 @@ export const Sidebar: React.FC = () => {
       isCollapsedPage ? 'w-20' : 'w-64'
     }`}>
       {/* Logo */}
-      <div className={`text-3xl font-bold text-center py-2 mb-6 bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-pink-500 flex-shrink-0 transition-all duration-300 ${
-        isCollapsedPage ? 'text-sm' : 'text-3xl'
-      }`}>
-        {isCollapsedPage ? '◆' : 'KLIAS'}
+      <div className={`flex justify-center items-center gap-2 py-2 mb-6 flex-shrink-0 transition-all duration-300`}>
+        <img src="/favicon.png" alt="KLIANS Logo" className={`${isCollapsedPage ? 'w-8 h-8' : 'w-10 h-10'} object-contain`} />
+        {!isCollapsedPage && (
+          <span className="text-3xl font-logo font-black bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
+            KLIANS
+          </span>
+        )}
       </div>
 
       {/* Main Navigation - Scrollable without scrollbar */}

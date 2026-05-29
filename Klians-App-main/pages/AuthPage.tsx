@@ -110,7 +110,7 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
                     Welcome Back
                 </h1>
                 <p className="mt-2 text-md text-slate-500 dark:text-slate-400">
-                    Sign in to continue to KLIAS
+                    Sign in to continue to KLIANS
                 </p>
             </div>
             
@@ -371,7 +371,7 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
                     Create an Account
                 </h1>
                 <p className="mt-2 text-md text-slate-500 dark:text-slate-400">
-                    Join the KLIAS community today!
+                    Join the KLIANS community today!
                 </p>
             </div>
             
@@ -474,7 +474,7 @@ export const AuthPage: React.FC = () => {
         <div className="min-h-screen flex bg-white dark:bg-slate-900 font-sans">
             <div className="hidden lg:flex flex-1 bg-slate-900 items-center justify-center p-12 text-white bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(185,28,28,0.3),rgba(255,255,255,0))]">
                 <div className="max-w-md text-center">
-                    <h1 className="text-5xl font-bold tracking-wider">KLIAS</h1>
+                    <h1 className="text-5xl font-bold tracking-wider">KLIANS</h1>
                     <p className="mt-4 text-lg text-slate-300">
                         Connect, Collaborate, and Learn.
                     </p>

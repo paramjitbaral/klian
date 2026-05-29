@@ -12,6 +12,7 @@ import { LikesModal } from './LikesModal';
 import { CommentModal } from './CommentModal';
 import { useSocket } from '../contexts/SocketContext';
 import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
+import DOMPurify from 'dompurify';
 
 const getImageUrl = (url: string | undefined) => {
     return resolveBackendUrl(url);
@@ -387,7 +388,7 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                 ) : (
                     <div
                         className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(post.content) }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parseMarkdownToHTML(post.content)) }}
                     />
                 )}
             </div>

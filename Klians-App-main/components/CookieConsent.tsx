@@ -7,7 +7,7 @@ export const CookieConsent: React.FC = () => {
   useEffect(() => {
     // Small delay before showing so it slides in nicely after app load
     const timer = setTimeout(() => {
-      const hasConsented = localStorage.getItem('klias_cookie_consent');
+      const hasConsented = localStorage.getItem('KLIANS_cookie_consent');
       if (!hasConsented) {
         setIsVisible(true);
       }
@@ -16,13 +16,13 @@ export const CookieConsent: React.FC = () => {
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem('klias_cookie_consent', 'true');
+    localStorage.setItem('KLIANS_cookie_consent', 'true');
     window.dispatchEvent(new Event('cookie_consent_changed'));
     setIsVisible(false);
   };
 
   const handleDecline = () => {
-    localStorage.setItem('klias_cookie_consent', 'false');
+    localStorage.setItem('KLIANS_cookie_consent', 'false');
     // Actually clear non-essential data when declined!
     localStorage.removeItem('rememberMe');
     localStorage.removeItem('rememberedEmail');

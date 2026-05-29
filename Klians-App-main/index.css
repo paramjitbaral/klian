@@ -39,6 +39,11 @@
   -webkit-font-smoothing: antialiased;
 }
 
+.font-logo {
+  font-family: 'Playfair Display', serif !important;
+  letter-spacing: 0.02em !important;
+}
+
 @media (min-width: 1024px) {
   :root {
     font-size: 14.5px; /* Slightly smaller global scale for laptop/desktop views */

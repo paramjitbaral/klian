@@ -254,8 +254,9 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
 
                     {/* Center: Logo */}
                     <div className="flex justify-center">
-                        <Link to="/home" className="text-xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
-                            KLIAS
+                        <Link to="/home" className="flex items-center gap-1.5 text-xl font-logo font-black bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
+                            <img src="/favicon.png" alt="KLIANS" className="h-6 w-6 object-contain" />
+                            KLIANS
                         </Link>
                     </div>
 
@@ -278,18 +279,14 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                 </div>
 
                 {/* Desktop Header */}
-                <div className="max-w-7xl mx-auto px-4 hidden md:flex items-center justify-between gap-6 h-16">
-                    {/* Left: Brand */}
-                    <div className="flex-shrink-0">
-                        <Link to="/home" className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to">
-                            KLIAS
-                        </Link>
-                    </div>
+                <div className="w-full px-8 hidden md:flex items-center justify-between h-16">
+                    {/* Left Spacer */}
+                    <div className="flex-1"></div>
 
                     {/* Center: Search */}
-                    <div className="flex-1 max-w-xl relative" ref={searchRef}>
+                    <div className="w-full max-w-2xl relative mx-8" ref={searchRef}>
                         <Input
-                            placeholder="Search KLIAS..."
+                            placeholder="Search KLIANS..."
                             icon={SearchIcon}
                             className="bg-slate-100 dark:bg-slate-700 !rounded-full"
                             value={searchTerm}
@@ -308,7 +305,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-center space-x-6">
+                    <div className="flex-1 flex justify-end items-center space-x-6">
                         <div ref={announcementsRef} className="relative">
                             <button
                                 onClick={() => setAnnouncementsVisible(!isAnnouncementsVisible)}
@@ -360,9 +357,9 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
                             {theme === Theme.LIGHT ? ICONS.moon : ICONS.sun}
                         </button>
 
-                        <Link to="/profile" className="flex items-center space-x-3">
+                        <Link to="/profile" className="flex items-center space-x-3 flex-shrink-0">
                             <Avatar src={user.avatar} alt={user.name} size="md" />
-                            <div>
+                            <div className="whitespace-nowrap">
                                 <p className="font-semibold text-slate-800 dark:text-slate-100">{user.name}</p>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">@{user.username}</p>
                             </div>

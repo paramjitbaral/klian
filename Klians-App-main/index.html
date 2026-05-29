@@ -2,16 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KLIAS Social Platform</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>KLIANS Social Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
   <!-- Local/system fonts used to avoid external vendor branding -->
-  <!-- Using system sans-serif stack for consistent appearance -->
     <style>
       /* Hide scrollbar for Chrome, Safari and Opera */
       .scrollbar-hide::-webkit-scrollbar {
           display: none;
+      }
+
+      .font-logo {
+        font-family: 'Montserrat', sans-serif !important;
+        letter-spacing: -0.02em !important;
       }
       /* Hide scrollbar for IE, Edge and Firefox */
       .scrollbar-hide {
@@ -19,22 +25,6 @@
           scrollbar-width: none;  /* Firefox */
       }
     </style>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
-            },
-            colors: {
-              'brand-gradient-from': '#DC2626',
-              'brand-gradient-to': '#B91C1C',
-            }
-          }
-        }
-      }
-    </script>
   <!-- Import map removed; dependencies will be resolved by the local bundler (Vite). -->
 <link rel="stylesheet" href="/index.css">
 </head>

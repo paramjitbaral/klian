@@ -650,7 +650,7 @@ export const MailboxPage: React.FC = () => {
                         </div>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 flex-grow leading-relaxed">
-                        Authorize KLIAS to securely sync and display your Gmail messages, compose replies, and search your inbox.
+                        Authorize KLIANS to securely sync and display your Gmail messages, compose replies, and search your inbox.
                     </p>
                     <button
                         onClick={handleConnectGmail}
@@ -813,7 +813,7 @@ export const MailboxPage: React.FC = () => {
                     <aside className={`absolute top-0 left-0 h-full w-full max-w-[270px] p-5 bg-white dark:bg-slate-900 flex-col flex shadow-2xl transition-transform duration-300 ease-in-out overflow-y-auto ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                         <div className="flex items-center justify-between mb-2">
                             <div className="text-2xl font-bold py-4 bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to">
-                                KLIAS Mailbox
+                                KLIANS Mailbox
                             </div>
                             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

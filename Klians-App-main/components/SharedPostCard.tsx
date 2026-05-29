@@ -1,5 +1,6 @@
 import React from 'react';
 import { Avatar } from './ui/Avatar';
+import DOMPurify from 'dompurify';
 
 interface SharedPost {
   _id: string;
@@ -84,7 +85,7 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ post, message })
       <div className="bg-slate-100 dark:bg-slate-700 rounded-b-lg p-3">
         <p 
           className="text-sm text-slate-900 dark:text-white line-clamp-3"
-          dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(post.content) }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parseMarkdownToHTML(post.content)) }}
         />
       </div>
 
