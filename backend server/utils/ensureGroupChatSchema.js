@@ -21,8 +21,12 @@ async function ensureGroupChatSchema() {
 
       // Add post_id column if it doesn't exist (for sharing posts to group chat)
       await query('ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS post_id INT');
-      await query('ALTER TABLE group_messages DROP CONSTRAINT IF EXISTS fk_gm_post_id');
-      await query('ALTER TABLE group_messages ADD CONSTRAINT fk_gm_post_id FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL');
+      try {
+        await query('ALTER TABLE group_messages DROP CONSTRAINT IF EXISTS fk_gm_post_id');
+        await query('ALTER TABLE group_messages ADD CONSTRAINT fk_gm_post_id FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE SET NULL');
+      } catch (err) {
+        if (err.code !== '42710') throw err; // Ignore constraint already exists
+      }
 
       await query("ALTER TABLE group_members ADD COLUMN IF NOT EXISTS notification_setting notification_setting NOT NULL DEFAULT 'all'");
     } catch (error) {
