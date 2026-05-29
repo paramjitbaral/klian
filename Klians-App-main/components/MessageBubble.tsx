@@ -4,6 +4,7 @@ import { ICONS } from '../constants';
 import { useNavigate } from 'react-router-dom';
 import { resolveBackendUrl } from '@/src/api/config';
 import DOMPurify from 'dompurify';
+import parse from 'html-react-parser';
 
 interface SharedPost {
   _id: string;
@@ -271,10 +272,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMess
               </div>
             ) : (
               <div className={onlyEmoji ? '' : 'p-0'}>
-                <p
-                  className={`${onlyEmoji ? 'text-5xl' : 'text-[13px] leading-relaxed'} break-words`}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parseMarkdownToHTML(message.content || message.text || '')) }}
-                />
+                <p className={`${onlyEmoji ? 'text-5xl' : 'text-[13px] leading-relaxed'} break-words`}>
+                  {parse(DOMPurify.sanitize(parseMarkdownToHTML(message.content || message.text || '')))}
+                </p>
               </div>
             )}
           </div>

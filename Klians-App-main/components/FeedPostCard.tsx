@@ -9,10 +9,10 @@ import { useAuth } from '../hooks/useAuth';
 import { usePosts, useDeletePost, useUpdatePost, useLikePost, useUnlikePost } from '../src/hooks/usePosts';
 import { ShareModal } from './ShareModal';
 import { LikesModal } from './LikesModal';
-import { CommentModal } from './CommentModal';
 import { useSocket } from '../contexts/SocketContext';
 import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 import DOMPurify from 'dompurify';
+import parse from 'html-react-parser';
 
 const getImageUrl = (url: string | undefined) => {
     return resolveBackendUrl(url);
@@ -386,10 +386,9 @@ export const FeedPostCard: React.FC<{ post: Post; onDelete?: (postId: string) =>
                         </div>
                     </div>
                 ) : (
-                    <div
-                        className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parseMarkdownToHTML(post.content)) }}
-                    />
+                    <div className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+                        {parse(DOMPurify.sanitize(parseMarkdownToHTML(post.content)))}
+                    </div>
                 )}
             </div>
 
