@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { registerPushNotifications } from './src/pushNotifications';
 import FCMTokenDisplay from './components/FCMTokenDisplay';
 import { useUnreadBadge } from './src/useUnreadBadge';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -120,14 +120,14 @@ const App: React.FC = () => {
         <SocketProvider>
           <MessagesProvider>
             <QueryProvider>
-              <HashRouter>
+              <MemoryRouter>
                 <FCMTokenDisplay token={fcmToken} />
                 {unreadNotices.length > 0 && (
                   <OnboardingNotices unreadNotices={unreadNotices} onMarkAllRead={handleMarkAllRead} />
                 )}
                 <AppRoutes />
                 <CookieConsent />
-              </HashRouter>
+              </MemoryRouter>
             </QueryProvider>
           </MessagesProvider>
         </SocketProvider>
