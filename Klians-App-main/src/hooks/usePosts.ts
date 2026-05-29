@@ -164,7 +164,7 @@ export const useLikePost = () => {
             ? {
                 ...post,
                 isLiked: true,
-                likes: (post.likes || 0) + 1,
+                likes: Number(post.likes || 0) + 1,
               }
             : post
         );
