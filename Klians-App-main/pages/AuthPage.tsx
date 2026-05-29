@@ -123,6 +123,7 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
                         onChange={(e) => setEmail(e.target.value)} 
                         placeholder="Email address"
                         aria-label="Email address"
+                        autoComplete="username"
                         required 
                     />
                     <Input 
@@ -132,6 +133,7 @@ const LoginForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) => 
                         onChange={(e) => setPassword(e.target.value)} 
                         placeholder="Password"
                         aria-label="Password"
+                        autoComplete="current-password"
                         required 
                         endIcon={showPassword ? <EyeOffIcon /> : <EyeIcon />}
                         onEndIconClick={() => setShowPassword(!showPassword)}
@@ -394,6 +396,7 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
                         onBlur={handleEmailBlur}
                         placeholder="Email address"
                         aria-label="Email address"
+                        autoComplete="username"
                         required 
                     />
                     {emailError && <p className="text-sm text-red-500 mt-1">{emailError}</p>}
@@ -416,6 +419,7 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
                         onBlur={() => setIsPasswordFocused(false)}
                         placeholder="Password"
                         aria-label="Password"
+                        autoComplete="new-password"
                         required 
                         endIcon={showPassword ? <EyeOffIcon /> : <EyeIcon />}
                         onEndIconClick={() => setShowPassword(!showPassword)}
@@ -432,6 +436,7 @@ const SignUpForm: React.FC<{ onSwitchMode: () => void }> = ({ onSwitchMode }) =>
                         onChange={handleConfirmPasswordChange} 
                         placeholder="Confirm Password"
                         aria-label="Confirm Password"
+                        autoComplete="new-password"
                         required 
                         endIcon={showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
                         onEndIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
