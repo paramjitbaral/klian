@@ -162,7 +162,7 @@ export const useLikePost = () => {
         queryClient.setQueryData(
           postsQueryKeys.list(),
           previousPosts.map((post) =>
-            post.id === postId
+            String(post.id) === String(postId)
               ? {
                   ...post,
                   isLiked: true,
@@ -204,7 +204,7 @@ export const useUnlikePost = () => {
         queryClient.setQueryData(
           postsQueryKeys.list(),
           previousPosts.map((post) =>
-            post.id === postId
+            String(post.id) === String(postId)
               ? {
                   ...post,
                   isLiked: false,

@@ -160,7 +160,7 @@ export const useLikePost = () => {
       
       const updatePosts = (posts: Post[]) => 
         posts.map((post) =>
-          post.id === postId
+          String(post.id) === String(postId)
             ? {
                 ...post,
                 isLiked: true,
@@ -207,7 +207,7 @@ export const useUnlikePost = () => {
 
       const updatePosts = (posts: Post[]) =>
         posts.map((post) =>
-          post.id === postId
+          String(post.id) === String(postId)
             ? {
                 ...post,
                 isLiked: false,
