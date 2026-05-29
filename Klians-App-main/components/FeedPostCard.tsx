@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePosts, useDeletePost, useUpdatePost, useLikePost, useUnlikePost } from '../src/hooks/usePosts';
 import { ShareModal } from './ShareModal';
 import { LikesModal } from './LikesModal';
+import { CommentModal } from './CommentModal';
 import { useSocket } from '../contexts/SocketContext';
 import { getBackendUrl, resolveBackendUrl } from '@/src/api/config';
 import DOMPurify from 'dompurify';
