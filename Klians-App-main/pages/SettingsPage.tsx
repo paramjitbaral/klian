@@ -498,38 +498,42 @@ export const SettingsPage: React.FC = () => {
                             </div>
                         }
                     >
-                        <Input
-                            label="Current Password"
-                            type={showCurrentPassword ? "text" : "password"}
-                            placeholder="••••••••"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            endIcon={showCurrentPassword ? ICONS.eyeOff : ICONS.eye}
-                            onEndIconClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        />
-                        <div>
-                            <Input
-                                label="New Password"
-                                type={showNewPassword ? "text" : "password"}
-                                placeholder="••••••••"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                endIcon={showNewPassword ? ICONS.eyeOff : ICONS.eye}
-                                onEndIconClick={() => setShowNewPassword(!showNewPassword)}
-                            />
-                            {passwordErrors.newPassword && <p className="text-sm text-red-500 mt-1">{passwordErrors.newPassword}</p>}
-                        </div>
-                        <div>
-                            <Input
-                                label="Confirm New Password"
-                                type={showConfirmPassword ? "text" : "password"}
-                                placeholder="••••••••"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                endIcon={showConfirmPassword ? ICONS.eyeOff : ICONS.eye}
-                                onEndIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            />
-                            {passwordErrors.confirmPassword && <p className="text-sm text-red-500 mt-1">{passwordErrors.confirmPassword}</p>}
+                        <div className="px-4 sm:px-0">
+                            <div className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-5">
+                                <Input
+                                    label="Current Password"
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    endIcon={showCurrentPassword ? ICONS.eyeOff : ICONS.eye}
+                                    onEndIconClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                />
+                                <div>
+                                    <Input
+                                        label="New Password"
+                                        type={showNewPassword ? "text" : "password"}
+                                        placeholder="••••••••"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        endIcon={showNewPassword ? ICONS.eyeOff : ICONS.eye}
+                                        onEndIconClick={() => setShowNewPassword(!showNewPassword)}
+                                    />
+                                    {passwordErrors.newPassword && <p className="text-sm text-red-500 mt-1">{passwordErrors.newPassword}</p>}
+                                </div>
+                                <div>
+                                    <Input
+                                        label="Confirm New Password"
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        placeholder="••••••••"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        endIcon={showConfirmPassword ? ICONS.eyeOff : ICONS.eye}
+                                        onEndIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    />
+                                    {passwordErrors.confirmPassword && <p className="text-sm text-red-500 mt-1">{passwordErrors.confirmPassword}</p>}
+                                </div>
+                            </div>
                         </div>
                     </SettingsPanel>
                 );
@@ -539,16 +543,18 @@ export const SettingsPage: React.FC = () => {
                         title="Appearance"
                         description="Customize how the KLIAS platform looks on your device."
                     >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                            <div className="flex-1 flex flex-col gap-0.5">
-                                <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">Dark Mode</h3>
-                                <p className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium">Switch between light and dark themes.</p>
-                            </div>
-                            <div className="shrink-0">
-                                <ToggleSwitch
-                                    checked={theme === Theme.DARK}
-                                    onChange={toggleTheme}
-                                />
+                        <div className="px-4 sm:px-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <div className="flex-1 flex flex-col gap-0.5">
+                                    <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">Dark Mode</h3>
+                                    <p className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 font-medium">Switch between light and dark themes.</p>
+                                </div>
+                                <div className="shrink-0">
+                                    <ToggleSwitch
+                                        checked={theme === Theme.DARK}
+                                        onChange={toggleTheme}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </SettingsPanel>
@@ -559,12 +565,14 @@ export const SettingsPage: React.FC = () => {
                         title="Danger Zone"
                         description="These actions are irreversible. Please proceed with caution."
                     >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                            <div className="flex-1 space-y-0.5">
-                                <h3 className="font-bold text-sm sm:text-base text-red-600 dark:text-red-400">Delete Account</h3>
-                                <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Permanently delete your account and all of your content. This action is irreversible.</p>
+                        <div className="px-4 sm:px-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <div className="flex-1 space-y-0.5">
+                                    <h3 className="font-bold text-sm sm:text-base text-red-600 dark:text-red-400">Delete Account</h3>
+                                    <p className="text-[11px] sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">Permanently delete your account and all of your content. This action is irreversible.</p>
+                                </div>
+                                <Button className="shrink-0 whitespace-nowrap w-full sm:w-auto bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white font-bold rounded-xl h-11 px-8 text-xs sm:text-sm">Delete Account</Button>
                             </div>
-                            <Button className="shrink-0 whitespace-nowrap w-full sm:w-auto bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white font-bold rounded-xl h-11 px-8 text-xs sm:text-sm">Delete Account</Button>
                         </div>
                     </SettingsPanel>
                 );
@@ -674,7 +682,7 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* DESKTOP VIEW */}
-            <div className="hidden md:flex flex-row h-full bg-white dark:bg-slate-900 overflow-hidden">
+            <div className="hidden md:flex flex-row min-h-[calc(100vh-73px)] bg-white dark:bg-slate-900 overflow-hidden">
                 <aside className="w-[280px] p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
                     <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
