@@ -164,7 +164,7 @@ export const ComposeMail: React.FC<ComposeMailProps> = ({ windowState, onWindowS
             setCc([]);
             setBcc([]);
             setSubject('');
-            if (editorRef.current) editorRef.current.innerHTML = '';
+            if (editorRef.current) editorRef.current.textContent = '';
             
             alert('Message sent successfully!');
         } catch (error) {
