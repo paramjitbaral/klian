@@ -36,12 +36,12 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    if (role === 'student' && !/^\d{10}@kluniversity\.in$/.test(normalizedEmail) && !normalizedEmail.endsWith('@gmail.com')) {
-      return res.status(400).json({ message: 'Student email must be in format: 10digitnumber@kluniversity.in or end with @gmail.com for testing' });
+    if (role === 'student' && !/^\d{10}@kluniversity\.in$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Student email must be 10 digits followed by @kluniversity.in' });
     }
 
-    if (role === 'faculty' && !/^[a-zA-Z]+@kluniversity\.in$/.test(normalizedEmail) && !normalizedEmail.endsWith('@gmail.com')) {
-      return res.status(400).json({ message: 'Faculty email must be in format: name@kluniversity.in or end with @gmail.com for testing' });
+    if (role === 'faculty' && !/^[a-zA-Z]+@kluniversity\.in$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Faculty email must be letters followed by @kluniversity.in' });
     }
 
     const standardizedRole = role === 'admin' ? 'Admin' : (role === 'faculty' ? 'Teacher' : 'Student');
