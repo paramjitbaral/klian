@@ -16,7 +16,6 @@
   "type": "commonjs",
   "dependencies": {
     "@azure/msal-node": "^5.2.1",
-    "@supabase/supabase-js": "^2.106.2",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.0.0",

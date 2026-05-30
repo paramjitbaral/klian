@@ -1,12 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/db');
-const { createClient } = require('@supabase/supabase-js');
-
-// Initialize Supabase admin client for Auth
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const { sendBrevoEmail } = require('../utils/sendBrevoEmail');
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 const { 
   registerUser, 
   loginUser, 
@@ -73,21 +69,27 @@ router.post('/request-password-otp', protect, async (req, res) => {
       return res.status(400).json({ message: 'Incorrect current password' });
     }
 
-    // Auto-migrate legacy user to Supabase Auth if they don't exist yet
-    await supabase.auth.admin.createUser({
-      email: user.email,
-      password: currentPassword,
-      email_confirm: true
-    }); // Silently fails if user already exists, which is fine
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Ask Supabase to send the Reset Password OTP email
-    const { error: supaError } = await supabase.auth.resetPasswordForEmail(user.email);
-    if (supaError) {
-      console.error('Supabase Reset Password Error:', supaError.message);
-      return res.status(500).json({ message: 'Failed to send OTP via Supabase. ' + supaError.message });
+    await query('UPDATE users SET verification_otp = $1, otp_expires = $2 WHERE id = $3', [otp, otpExpires, req.user.id]);
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #2c3e50; text-align: center;">Password Reset Request</h2>
+        <p style="color: #34495e; font-size: 16px;">Hello,</p>
+        <p style="color: #34495e; font-size: 16px;">We received a request to change your password. Please use the following 6-digit code to verify this change. This code will expire in 10 minutes.</p>
+        <div style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
+          <h1 style="color: #dc2626; margin: 0; letter-spacing: 5px;">${otp}</h1>
+        </div>
+      </div>
+    `;
+    const emailSent = await sendBrevoEmail(user.email, 'User', 'Password Reset Verification Code', htmlContent);
+    if (!emailSent) {
+      return res.status(500).json({ message: 'Failed to send the OTP email.' });
     }
 
-    res.json({ message: 'OTP sent to your email via Supabase' });
+    res.json({ message: 'OTP sent to your email.' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -105,27 +107,12 @@ router.put('/verify-password-change', protect, async (req, res) => {
       return res.status(400).json({ message: 'Incorrect current password' });
     }
 
-    // Verify the OTP via Supabase Auth
-    const { data: supaData, error: supaError } = await supabase.auth.verifyOtp({
-      email: user.email,
-      token: otp,
-      type: 'recovery'
-    });
-
-    if (supaError) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    const otpRows = await query('SELECT verification_otp, otp_expires FROM users WHERE id = $1 LIMIT 1', [req.user.id]);
+    if (!otpRows.length || otpRows[0].verification_otp !== otp) {
+      return res.status(400).json({ message: 'Invalid verification code' });
     }
-
-    // Update password in Supabase Auth via Admin API
-    try {
-      const { data: { users } } = await supabase.auth.admin.listUsers();
-      const supaUser = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
-      if (supaUser) {
-        await supabase.auth.admin.updateUserById(supaUser.id, { password: newPassword });
-      }
-    } catch (err) {
-      console.error('Error updating Supabase password:', err.message);
-      return res.status(500).json({ message: 'Failed to update password in Supabase' });
+    if (new Date() > new Date(otpRows[0].otp_expires)) {
+      return res.status(400).json({ message: 'Verification code has expired' });
     }
 
     // Update password in custom database
@@ -133,7 +120,7 @@ router.put('/verify-password-change', protect, async (req, res) => {
     const passwordHash = await require('bcryptjs').hash(newPassword, salt);
 
     await query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      'UPDATE users SET password_hash = $1, verification_otp = NULL, otp_expires = NULL WHERE id = $2',
       [passwordHash, req.user.id]
     );
 

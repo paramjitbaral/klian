@@ -2,12 +2,9 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
-const { createClient } = require('@supabase/supabase-js');
+const { sendBrevoEmail } = require('../utils/sendBrevoEmail');
 
-// Initialize Supabase admin client for Auth
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const getExternalAdminEmailAllowlist = () => {
   const fromEnv = String(process.env.ADMIN_EMAIL_ALLOWLIST || '')
@@ -47,30 +44,42 @@ const registerUser = async (req, res) => {
     const standardizedRole = role === 'admin' ? 'Admin' : (role === 'faculty' ? 'Teacher' : 'Student');
     const isVerified = standardizedRole === 'Admin' ? true : false;
 
-    // Supabase Auth SignUp (only if not auto-verified admin)
+    let otp = null;
+    let otpExpires = null;
     if (!isVerified) {
-      const { error: supaError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: password,
-        options: { data: { name, role: standardizedRole } }
-      });
-
-      if (supaError) {
-        console.error('Supabase SignUp Error:', supaError.message);
-        return res.status(500).json({ message: 'Failed to initiate signup via Supabase. ' + supaError.message });
-      }
+      otp = generateOTP();
+      otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     }
 
-    // Insert into custom public.users table as well
+    // Insert into custom public.users table
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     
-    // We no longer need custom OTP logic since Supabase sends the email
     const result = await query(
-      'INSERT INTO users (name, email, password_hash, role, is_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [name, normalizedEmail, passwordHash, standardizedRole, isVerified]
+      'INSERT INTO users (name, email, password_hash, role, is_verified, verification_otp, otp_expires) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      [name, normalizedEmail, passwordHash, standardizedRole, isVerified, otp, otpExpires]
     );
     const userId = result[0]?.id;
+
+    if (!isVerified) {
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+          <h2 style="color: #2c3e50; text-align: center;">Welcome to Klians!</h2>
+          <p style="color: #34495e; font-size: 16px;">Hello ${name},</p>
+          <p style="color: #34495e; font-size: 16px;">Please use the following 6-digit code to verify your email address. This code will expire in 10 minutes.</p>
+          <div style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
+            <h1 style="color: #dc2626; margin: 0; letter-spacing: 5px;">${otp}</h1>
+          </div>
+          <p style="color: #7f8c8d; font-size: 14px; text-align: center;">If you didn't request this, please ignore this email.</p>
+        </div>
+      `;
+      const emailSent = await sendBrevoEmail(normalizedEmail, name, 'Your Klians Verification Code', htmlContent);
+      if (!emailSent) {
+        // Rollback user creation
+        await query('DELETE FROM users WHERE id = $1', [userId]);
+        return res.status(500).json({ message: 'Failed to send the OTP email. Please ensure your Brevo sender email is verified.' });
+      }
+    }
 
     res.status(201).json({
       message: isVerified ? 'Registration successful.' : 'Registration successful. Please check your email for the verification code.',
@@ -98,22 +107,40 @@ const resendOTP = async (req, res) => {
     if (!email) return res.status(400).json({ message: 'Email is required' });
     const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    const rows = await query('SELECT id, is_verified FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
+    const rows = await query('SELECT id, name, is_verified, otp_expires FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
     if (rows[0].is_verified) return res.status(400).json({ message: 'Account is already verified' });
 
-    // Ask Supabase to resend the OTP
-    const { error: supaError } = await supabase.auth.resend({
-      type: 'signup',
-      email: normalizedEmail
-    });
-
-    if (supaError) {
-      console.error('Supabase Resend OTP Error:', supaError.message);
-      return res.status(500).json({ message: 'Failed to resend verification email via Supabase. ' + supaError.message });
+    const now = new Date();
+    if (rows[0].otp_expires) {
+      const expires = new Date(rows[0].otp_expires);
+      const timeSinceSent = 10 * 60 * 1000 - (expires - now);
+      if (timeSinceSent < 60 * 1000 && timeSinceSent > 0) {
+        return res.status(429).json({ message: `Please wait before requesting another code. You can request again in ${Math.ceil((60 * 1000 - timeSinceSent) / 1000)} seconds.` });
+      }
     }
 
-    res.json({ message: 'New verification code sent to your email via Supabase.' });
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+    await query('UPDATE users SET verification_otp = $1, otp_expires = $2 WHERE id = $3', [otp, otpExpires, rows[0].id]);
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #2c3e50; text-align: center;">Your New Verification Code</h2>
+        <p style="color: #34495e; font-size: 16px;">Hello ${rows[0].name},</p>
+        <p style="color: #34495e; font-size: 16px;">Here is your new 6-digit verification code. It will expire in 10 minutes.</p>
+        <div style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
+          <h1 style="color: #dc2626; margin: 0; letter-spacing: 5px;">${otp}</h1>
+        </div>
+      </div>
+    `;
+    const emailSent = await sendBrevoEmail(normalizedEmail, rows[0].name, 'Your Klians Verification Code', htmlContent);
+    if (!emailSent) {
+      return res.status(500).json({ message: 'Failed to send the OTP email. Please ensure your Brevo sender email is verified.' });
+    }
+
+    res.json({ message: 'New verification code sent to your email.' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -129,30 +156,21 @@ const verifyOTP = async (req, res) => {
     if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
     const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    // Verify OTP via Supabase Auth
-    const { data: supaData, error: supaError } = await supabase.auth.verifyOtp({
-      email: normalizedEmail,
-      token: otp,
-      type: 'signup'
-    });
+    const rows = await query('SELECT id, verification_otp, otp_expires FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
+    
+    if (!rows.length) return res.status(404).json({ message: 'User not found in DB' });
 
-    if (supaError) {
-      // Fallback: Check if it's a legacy custom OTP
-      const rows = await query('SELECT id, verification_otp, otp_expires FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
-      if (rows.length && rows[0].verification_otp === otp) {
-        if (new Date() > new Date(rows[0].otp_expires)) {
-          return res.status(400).json({ message: 'Verification code has expired' });
-        }
-        // Legacy OTP success, proceed
-      } else {
-        return res.status(400).json({ message: 'Invalid verification code' });
-      }
+    if (rows[0].verification_otp !== otp) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+    
+    if (new Date() > new Date(rows[0].otp_expires)) {
+      return res.status(400).json({ message: 'Verification code has expired' });
     }
 
     // Mark user as verified in our custom DB
-    const rows = await query('UPDATE users SET is_verified = true, verification_otp = NULL, otp_expires = NULL WHERE LOWER(email) = LOWER($1) RETURNING id', [normalizedEmail]);
+    await query('UPDATE users SET is_verified = true, verification_otp = NULL, otp_expires = NULL WHERE id = $1', [rows[0].id]);
     
-    if (!rows.length) return res.status(404).json({ message: 'User not found in DB' });
     const userId = rows[0].id;
 
     res.json({
@@ -203,17 +221,8 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Try Supabase Auth Login
-    const { error: supaError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password: password
-    });
-
-    if (supaError) {
-      // Fallback for legacy users whose passwords are in the custom users table
-      const ok = await bcrypt.compare(password, user.password_hash);
-      if (!ok) return res.status(401).json({ message: 'Invalid email or password' });
-    }
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(401).json({ message: 'Invalid email or password' });
 
     res.json({
       _id: user.id, id: user.id, name: user.name, email: user.email, role: user.role,
@@ -269,17 +278,6 @@ const updateUserProfile = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(req.body.password, salt);
       fields.push('password_hash = $' + (params.length + 1)); params.push(passwordHash);
-
-      // Update in Supabase Auth as well (using admin api)
-      try {
-        const { data: { users } } = await supabase.auth.admin.listUsers();
-        const supaUser = users.find(u => u.email === user.email);
-        if (supaUser) {
-          await supabase.auth.admin.updateUserById(supaUser.id, { password: req.body.password });
-        }
-      } catch (err) {
-        console.error('Error updating Supabase password:', err.message);
-      }
     }
 
     if (!fields.length) return res.json({ message: 'No changes' });
