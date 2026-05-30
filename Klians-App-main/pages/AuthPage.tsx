@@ -477,10 +477,25 @@ export const AuthPage: React.FC = () => {
     
     return (
         <div className="min-h-screen flex bg-white dark:bg-slate-900 font-sans">
-            <div className="hidden lg:flex flex-1 bg-slate-900 items-center justify-center p-12 text-white bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(185,28,28,0.3),rgba(255,255,255,0))]">
-                <div className="max-w-md text-center">
-                    <h1 className="text-5xl font-bold tracking-wider">KLIANS</h1>
-                    <p className="mt-4 text-lg text-slate-300">
+            <div className="hidden lg:flex flex-1 relative items-center justify-center p-12 text-white overflow-hidden bg-slate-900">
+                {/* Background Image with Dark Overlay */}
+                <div 
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 mix-blend-luminosity"
+                    style={{ backgroundImage: 'url(/campus_collage.png)' }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/40" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(185,28,28,0.4),rgba(0,0,0,0))]" />
+                
+                <div className="max-w-md text-center relative z-10">
+                    <div className="flex flex-col items-center gap-6 mb-8">
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 bg-white/5 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-white/10 flex items-center justify-center">
+                            <img src="/favicon.png" alt="KLIANS Logo" className="w-full h-full object-contain drop-shadow-2xl" />
+                        </div>
+                        <h1 className="text-5xl sm:text-7xl font-bold tracking-tight font-logo bg-clip-text text-transparent bg-gradient-to-br from-white to-slate-400">
+                            KLIANS
+                        </h1>
+                    </div>
+                    <p className="text-xl sm:text-2xl font-light text-slate-300 leading-relaxed max-w-sm mx-auto">
                         Connect, Collaborate, and Learn.
                     </p>
                 </div>
