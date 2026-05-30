@@ -31,7 +31,7 @@ export const Sidebar: React.FC = () => {
     { 
       to: '/messages', 
       label: 'Messages', 
-      icon: hasChats ? ICONS.messages : ICONS.messagesOff, 
+      icon: ICONS.messages, 
       roles: [Role.STUDENT, Role.TEACHER, Role.ADMIN],
       badge: totalUnreadCount > 0 ? (totalUnreadCount > 9 ? '9+' : totalUnreadCount) : undefined
     },
@@ -61,7 +61,7 @@ export const Sidebar: React.FC = () => {
       <div className={`flex justify-center items-center gap-2 py-2 mb-6 flex-shrink-0 transition-all duration-300`}>
         <img src="/favicon.png" alt="KLIANS Logo" className={`${isCollapsedPage ? 'w-8 h-8' : 'w-10 h-10'} object-contain`} />
         {!isCollapsedPage && (
-          <span className="text-3xl font-logo font-black bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
+          <span className="text-3xl font-logo font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
             KLIANS
           </span>
         )}

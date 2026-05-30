@@ -254,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({ isAnnouncementsOpen, setAnnounce
 
                     {/* Center: Logo */}
                     <div className="flex justify-center">
-                        <Link to="/home" className="flex items-center gap-1.5 text-xl font-logo font-black bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
+                        <Link to="/home" className="flex items-center gap-1.5 text-xl font-logo font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-gradient-from to-brand-gradient-to tracking-tight">
                             <img src="/favicon.png" alt="KLIANS" className="h-6 w-6 object-contain" />
                             KLIANS
                         </Link>
