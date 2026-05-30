@@ -8,6 +8,7 @@ import { ToggleSwitch } from '../components/ui/ToggleSwitch';
 import { ICONS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import { ImageCropperModal } from '../components/ImageCropperModal';
+import { OtpInput } from '../components/ui/OtpInput';
 
 type SettingsCategory = 'profile' | 'security' | 'appearance' | 'privacy' | 'danger';
 type PhotoActionTarget = 'profile' | 'banner' | null;
@@ -757,7 +758,7 @@ export const SettingsPage: React.FC = () => {
 
             {showOtpModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-[400px] rounded-3xl p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-white/20 dark:border-slate-800/50 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-[400px] rounded-3xl p-6 sm:p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-white/20 dark:border-slate-800/50 animate-in zoom-in-95 duration-300">
                         <div className="text-center mb-10">
                             <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -773,14 +774,7 @@ export const SettingsPage: React.FC = () => {
                         <div className="space-y-8">
                             <div className="relative">
                                 <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-4 text-center">Security Code</label>
-                                <input
-                                    type="text"
-                                    maxLength={6}
-                                    placeholder="000000"
-                                    value={otpValue}
-                                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full text-center text-3xl tracking-[1em] font-mono py-4 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                                />
+                                <OtpInput value={otpValue} onChange={setOtpValue} />
                             </div>
 
                             <div className="flex flex-col gap-4">

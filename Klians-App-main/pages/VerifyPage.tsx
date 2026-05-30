@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { OtpInput } from '../components/ui/OtpInput';
 
 export const VerifyPage: React.FC = () => {
   const [otp, setOtp] = useState('');
@@ -46,7 +47,7 @@ export const VerifyPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-4">
-      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-200 dark:border-slate-700">
+      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Verify Account</h1>
           <p className="text-slate-600 dark:text-slate-400">
@@ -56,18 +57,10 @@ export const VerifyPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 text-center">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 text-center">
               Enter Verification Code
             </label>
-            <input
-              type="text"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="000000"
-              className="w-full text-center text-3xl tracking-[1em] font-mono py-4 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none transition-all"
-              required
-            />
+            <OtpInput value={otp} onChange={setOtp} />
           </div>
 
           {error && (
