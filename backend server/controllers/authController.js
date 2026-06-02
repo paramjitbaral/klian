@@ -275,8 +275,15 @@ const ssoLogin = async (req, res) => {
         [name || 'SSO User', normalizedEmail, 'sso_auto_generated', standardizedRole, true]
       );
       
-      rows = await query('SELECT id, name, email, role, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, cabin_number AS "cabinNumber", linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [result[0].id]);
+      const newUserId = result[0].id;
+      rows = await query('SELECT id, name, email, role, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, cabin_number AS "cabinNumber", linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [newUserId]);
       user = rows[0];
+
+      // Alert the frontend so the new user appears in the real-time Users list
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('user-registered', { id: newUserId, name: user.name, email: user.email, role: user.role });
+      }
     }
 
     res.json({
