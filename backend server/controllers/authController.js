@@ -250,6 +250,47 @@ const getUserProfile = async (req, res) => {
   }
 };
 
+// @desc    SSO Login
+// @route   POST /api/auth/sso
+// @access  Public
+const ssoLogin = async (req, res) => {
+  try {
+    const { email, name, role } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required for SSO' });
+    
+    const normalizedEmail = String(email).trim().toLowerCase();
+    
+    // Check if user exists
+    let rows = await query('SELECT id, name, email, role, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, cabin_number AS "cabinNumber", linkedin, github, portfolio FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
+    
+    let user;
+    if (rows.length) {
+      user = rows[0];
+    } else {
+      // Auto-register user for SSO
+      const standardizedRole = (role || '').toLowerCase() === 'admin' ? 'Admin' : ((role || '').toLowerCase() === 'faculty' || (role || '').toLowerCase() === 'teacher' ? 'Teacher' : 'Student');
+      
+      const result = await query(
+        'INSERT INTO users (name, email, password_hash, role, is_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [name || 'SSO User', normalizedEmail, 'sso_auto_generated', standardizedRole, true]
+      );
+      
+      rows = await query('SELECT id, name, email, role, profile_picture AS "profilePicture", cover_photo AS "coverPhoto", bio, cabin_number AS "cabinNumber", linkedin, github, portfolio FROM users WHERE id = $1 LIMIT 1', [result[0].id]);
+      user = rows[0];
+    }
+
+    res.json({
+      _id: user.id, id: user.id, name: user.name, email: user.email, role: user.role,
+      profilePicture: user.profilePicture, coverPhoto: user.coverPhoto, bio: user.bio,
+      linkedin: user.linkedin, github: user.github, portfolio: user.portfolio, cabinNumber: user.cabinNumber,
+      token: generateToken(user.id),
+    });
+  } catch (error) {
+    console.error('SSO Error:', error);
+    res.status(500).json({ message: 'Server error during SSO' });
+  }
+};
+
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
@@ -314,6 +355,7 @@ module.exports = {
   checkEmail,
   registerUser,
   loginUser,
+  ssoLogin,
   verifyOTP,
   resendOTP,
   getUserProfile,

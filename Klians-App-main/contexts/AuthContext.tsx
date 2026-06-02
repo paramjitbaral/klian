@@ -61,12 +61,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = !!user && !!localStorage.getItem('token');
 
   useEffect(() => {
-    // Check if token exists and fetch user profile
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetchUserProfile();
+    const urlParams = new URLSearchParams(window.location.search);
+    const email = urlParams.get('email');
+    const name = urlParams.get('name');
+    const role = urlParams.get('role');
+    const tenant = urlParams.get('tenant');
+
+    if (email && tenant) {
+      handleSSOLogin({ email, name, role, tenant });
+    } else {
+      // Check if token exists and fetch user profile
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetchUserProfile();
+      }
     }
   }, []);
+
+  const handleSSOLogin = async (ssoData: any) => {
+    try {
+      setLoading(true);
+      const response = await authAPI.ssoLogin(ssoData);
+      const { token, ...userData } = response.data;
+      const normalizedUser = normalizeUser(userData);
+      localStorage.setItem('token', token);
+      setUser(normalizedUser);
+      // Clean up URL to hide SSO params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (err) {
+      console.error('SSO Login failed:', err);
+      setError('Automatic SSO Login failed. Please login manually.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchUserProfile = async () => {
     try {

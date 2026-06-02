@@ -6,6 +6,7 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 const { 
   registerUser, 
   loginUser, 
+  ssoLogin,
   verifyOTP,
   resendOTP,
   getUserProfile, 
@@ -24,6 +25,7 @@ router.get('/captcha', (req, res) => {
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.post('/sso', ssoLogin);
 router.post('/verify', verifyOTP);
 router.post('/resend-otp', resendOTP);
 router.get('/check-email', checkEmail);

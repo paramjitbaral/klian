@@ -22,6 +22,11 @@ export const authAPI = {
     return API.post('/auth/login', { email, password, captchaAnswer, captchaToken });
   },
 
+  // SSO Login
+  ssoLogin: (ssoData: any) => {
+    return API.post('/auth/sso', ssoData);
+  },
+
   // Verify OTP
   verify: (email: string, otp: string) => {
     return API.post('/auth/verify', { email, otp });
