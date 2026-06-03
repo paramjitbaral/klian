@@ -276,7 +276,7 @@ exports.googleCallback = async (req, res) => {
       [userId, emailAddress, tokens.access_token, tokens.refresh_token || '', 'google']
     );
     
-    const frontendUrl = req.get('host').includes('localhost') ? 'http://localhost:5173' : 'https://klian.pages.dev';
+    const frontendUrl = req.get('host').includes('localhost') ? 'http://localhost:5173' : (process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'https://klians.vercel.app');
     res.redirect(`${frontendUrl}/#/mailbox`);
   } catch (error) {
     console.error('Google OAuth callback error:', error);
@@ -332,7 +332,7 @@ exports.outlookCallback = async (req, res) => {
       [userId, emailAddress, access_token, refresh_token || '', 'microsoft']
     );
     
-    const frontendUrl = req.get('host').includes('localhost') ? 'http://localhost:5173' : 'https://klian.pages.dev';
+    const frontendUrl = req.get('host').includes('localhost') ? 'http://localhost:5173' : (process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'https://klians.vercel.app');
     res.redirect(`${frontendUrl}/#/mailbox`);
   } catch (error) {
     console.error('Microsoft OAuth callback error:', error.response?.data || error.message);
