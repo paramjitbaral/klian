@@ -21,7 +21,7 @@ let redis;
 // Load environment variables
 dotenv.config();
 
-const defaultProductionOrigins = process.env.NODE_ENV === 'production' ? ['https://klian.pages.dev'] : [];
+const defaultProductionOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
 const allowedOrigins = [
   ...defaultProductionOrigins,
   ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [])
